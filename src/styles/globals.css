@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply font-body text-brand-charcoal bg-brand-cream;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-3 bg-brand-maroon text-white 
+           font-body font-semibold text-sm tracking-wide rounded-lg
+           transition-all duration-200 hover:bg-brand-maroon-dark
+           focus:outline-none focus:ring-2 focus:ring-brand-gold focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-3 
+           border-2 border-brand-maroon text-brand-maroon 
+           font-body font-semibold text-sm tracking-wide rounded-lg
+           transition-all duration-200 hover:bg-brand-maroon hover:text-white
+           focus:outline-none focus:ring-2 focus:ring-brand-gold focus:ring-offset-2;
+  }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center px-6 py-3
+           bg-brand-gold text-white font-body font-semibold text-sm tracking-wide rounded-lg
+           transition-all duration-200 hover:bg-brand-gold-light hover:text-brand-charcoal
+           focus:outline-none focus:ring-2 focus:ring-brand-maroon focus:ring-offset-2;
+  }
+
+  .section-padding {
+    @apply px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-brand-cream-dark
+           overflow-hidden transition-shadow duration-200 hover:shadow-md;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-200 rounded-lg font-body text-sm
+           focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-transparent
+           transition-all duration-200 bg-white;
+  }
+
+  .label-text {
+    @apply block text-sm font-medium text-brand-charcoal mb-1.5;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f5ede0;
+}
+::-webkit-scrollbar-thumb {
+  background: #c6992e;
+  border-radius: 3px;
+}
+
+/* Smooth image loading */
+img {
+  transition: opacity 0.3s ease;
+}

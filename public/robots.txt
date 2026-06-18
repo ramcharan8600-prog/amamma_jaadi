@@ -1,0 +1,16 @@
+# Amamma Jaadi - amammajaadi.com
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /checkout
+
+Sitemap: https://amammajaadi.com/sitemap.xml
+
+# Google
+User-agent: Googlebot
+Allow: /
+
+# Bing
+User-agent: Bingbot
+Allow: /
