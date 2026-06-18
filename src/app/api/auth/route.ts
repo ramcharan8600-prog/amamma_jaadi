@@ -11,13 +11,14 @@ import { ok, fail } from '@/lib/api';
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-if (!ADMIN_PASSWORD) {
-  throw new Error('ADMIN_PASSWORD env var is not set. Admin login is disabled until this is configured.');
-}
 
 /** POST /api/auth — Login */
 export async function POST(request: NextRequest) {
   try {
+    if (!ADMIN_PASSWORD) {
+      return fail('Admin login is not configured.', 503);
+    }
+
     const body = await request.json();
     const userId = typeof body.userId === 'string' ? body.userId.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';

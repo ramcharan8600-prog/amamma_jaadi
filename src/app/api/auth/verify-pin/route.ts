@@ -5,9 +5,6 @@ import { safeEqual } from '@/lib/crypto';
 import { ok, fail } from '@/lib/api';
 
 const ANALYTICS_PIN = process.env.ANALYTICS_PIN || '';
-if (!ANALYTICS_PIN) {
-  throw new Error('ANALYTICS_PIN env var is not set. Analytics access is disabled until this is configured.');
-}
 
 export async function POST(request: NextRequest) {
   // Verify admin session first
@@ -18,6 +15,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (!ANALYTICS_PIN) {
+      return fail('Analytics access is not configured.', 503);
+    }
+
     const body = await request.json();
     const pin = typeof body.pin === 'string' ? body.pin.trim() : '';
 

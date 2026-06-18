@@ -8,12 +8,20 @@
 import crypto from 'crypto';
 import { webcrypto } from 'crypto';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || '';
-if (!SESSION_SECRET) {
-  throw new Error('SESSION_SECRET env var is not set. Admin auth is disabled until this is configured.');
-}
 const SESSION_MAX_AGE = 8 * 60 * 60 * 1000; // 8 hours in ms
 export const SESSION_COOKIE = 'admin_session';
+
+/**
+ * Resolve the signing secret at REQUEST time (not module load), so a missing
+ * env var fails the request rather than crashing the production build.
+ */
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || '';
+  if (!secret) {
+    throw new Error('SESSION_SECRET env var is not set. Admin auth is disabled until this is configured.');
+  }
+  return secret;
+}
 
 /**
  * Generate a cryptographically secure, HMAC-signed session token.
@@ -27,7 +35,7 @@ export async function createSessionToken(): Promise<string> {
   const encoder = new TextEncoder();
   const key = await webcrypto.subtle.importKey(
     'raw',
-    encoder.encode(SESSION_SECRET),
+    encoder.encode(getSessionSecret()),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -62,7 +70,7 @@ export function verifySessionToken(token: string): boolean {
 
     const payload = `${timestamp}.${nonce}`;
     const expectedSignature = crypto
-      .createHmac('sha256', SESSION_SECRET)
+      .createHmac('sha256', getSessionSecret())
       .update(payload)
       .digest('hex');
 

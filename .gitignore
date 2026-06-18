@@ -5,6 +5,11 @@ node_modules/
 .next/
 out/
 
+# Cloudflare / OpenNext build artifacts
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
+
 # Environment files (NEVER commit secrets)
 .env
 .env.local
