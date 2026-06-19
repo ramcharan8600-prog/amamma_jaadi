@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Instagram, Phone, MessageCircle } from 'lucide-react';
+import { Instagram, Phone } from 'lucide-react';
+import WhatsAppIcon from '@/components/icons/WhatsAppIcon';
 import { WHATSAPP_NUMBER, PHONE_NUMBER, INSTAGRAM_HANDLE } from '@/lib/utils';
 
 export default function Footer() {
@@ -48,7 +49,7 @@ export default function Footer() {
                 aria-label="WhatsApp"
                 className="text-white/80 hover:text-brand-gold transition-colors"
               >
-                <MessageCircle size={22} />
+                <WhatsAppIcon size={22} />
               </a>
               <a
                 href={`tel:${PHONE_NUMBER.replace(/-/g, '')}`}

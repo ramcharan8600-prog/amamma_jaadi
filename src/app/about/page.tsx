@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
+import { WHATSAPP_NUMBER, PHONE_NUMBER } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'Our Story',
@@ -150,10 +151,12 @@ export default function AboutPage() {
               If there is a quality issue with your order, please contact us
               within 24 hours of pickup or delivery via WhatsApp at{' '}
               <a
-                href="https://wa.me/5105745578"
+                href={`https://wa.me/${WHATSAPP_NUMBER}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-brand-maroon underline"
               >
-                510-574-5578
+                {PHONE_NUMBER}
               </a>{' '}
               and we will do our best to make it right.
             </p>

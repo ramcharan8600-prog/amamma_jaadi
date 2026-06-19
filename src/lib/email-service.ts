@@ -12,7 +12,7 @@
  * Setup: https://resend.com → Get API key → Set RESEND_API_KEY in .env.local
  */
 
-import { BRAND_NAME, PHONE_NUMBER, SITE_URL } from '@/lib/constants';
+import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/constants';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const FROM_EMAIL = process.env.FROM_EMAIL || 'orders@amammajaadi.com';
@@ -96,7 +96,7 @@ function baseTemplate(content: string): string {
       </div>
       <div style="padding: 24px 0;">${content}</div>
       <div style="border-top: 1px solid #eee; padding: 16px 0; text-align: center; font-size: 12px; color: #999;">
-        <p>${BRAND_NAME} · Dallas, TX · <a href="https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}" style="color: #7B1F1F;">WhatsApp</a></p>
+        <p>${BRAND_NAME} · Dallas, TX · <a href="https://wa.me/${WHATSAPP_NUMBER}" style="color: #7B1F1F;">WhatsApp</a></p>
       </div>
     </body>
     </html>
