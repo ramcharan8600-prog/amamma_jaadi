@@ -1,14 +1,11 @@
 /**
- * LOCAL FALLBACK PRODUCT DATA
+ * PRODUCT CATALOG (source of truth)
  *
- * This file serves as a temporary data source until Supabase database is connected.
- * In production, all product data (including pricing) will be fetched from:
- *   Supabase → products table ← synced from Square catalog
+ * The storefront and server-side price recomputation read products from this
+ * file. Orders/sessions are persisted in Cloudflare D1 (see lib/d1-schema.sql),
+ * but the product catalog itself is code-managed here.
  *
- * See: lib/product-service.ts for the service layer
- * See: lib/supabase-schema.sql for the database schema
- *
- * DO NOT treat these prices as permanent source of truth.
+ * Prices here are authoritative — create-session recomputes every total from them.
  */
 import { Product, PickupLocation } from '@/types';
 

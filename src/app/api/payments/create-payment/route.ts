@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getServiceClient, isSupabaseConfigured } from '@/lib/supabase';
+import { getDb, isDbConfigured } from '@/lib/db';
 import { createPayment, isSquareEnabled } from '@/lib/square';
-import { createOrderFromSession, type PaymentSessionRow } from '@/lib/order-service';
+import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
 import { ok, fail } from '@/lib/api';
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     return fail('Too many requests. Please slow down.', 429);
   }
 
-  if (!isSupabaseConfigured() || !isSquareEnabled()) {
+  if (!isDbConfigured() || !isSquareEnabled()) {
     return fail('Payments are not available right now. Please try again later.', 503);
   }
 
@@ -35,26 +35,24 @@ export async function POST(request: NextRequest) {
       return fail('Missing payment details', 400);
     }
 
-    const db = getServiceClient();
+    const db = getDb();
 
     // Load the session — the server total is authoritative (never trust client).
-    const { data: session, error } = await db
-      .from('payment_sessions')
-      .select('*')
-      .eq('id', sessionId)
-      .maybeSingle();
+    const session = await db
+      .prepare('SELECT * FROM payment_sessions WHERE id = ?')
+      .bind(sessionId)
+      .first<Record<string, unknown>>();
 
-    if (error || !session) {
+    if (!session) {
       return fail('Payment session not found', 404);
     }
 
     // Already paid → return the existing order (idempotent, safe to retry).
     if (session.order_id) {
-      const { data: existingOrder } = await db
-        .from('orders')
-        .select('order_number')
-        .eq('id', session.order_id)
-        .single();
+      const existingOrder = await db
+        .prepare('SELECT order_number FROM orders WHERE id = ?')
+        .bind(session.order_id as string)
+        .first<{ order_number: string }>();
       return ok({ success: true, orderNumber: existingOrder?.order_number, duplicate: true });
     }
 
@@ -62,8 +60,8 @@ export async function POST(request: NextRequest) {
     if (session.payment_status !== 'pending') {
       return fail('This checkout session is no longer valid. Please start over.', 409);
     }
-    if (session.expires_at && new Date(session.expires_at) < new Date()) {
-      await db.from('payment_sessions').update({ payment_status: 'expired' }).eq('id', session.id);
+    if (session.expires_at && new Date(session.expires_at as string) < new Date()) {
+      await db.prepare("UPDATE payment_sessions SET payment_status = 'expired' WHERE id = ?").bind(sessionId).run();
       return fail('Your checkout session expired. Please start over.', 409);
     }
 
@@ -78,18 +76,15 @@ export async function POST(request: NextRequest) {
       payment = await createPayment({
         sourceId,
         amount: amountCents,
-        orderId: session.id, // echoed back as reference_id → webhook match key
-        idempotencyKey: session.idempotency_key || session.id,
-        customerEmail: session.email || undefined,
+        orderId: sessionId, // echoed back as reference_id → webhook match key
+        idempotencyKey: (session.idempotency_key as string) || sessionId,
+        customerEmail: (session.email as string) || undefined,
         verificationToken,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Payment failed';
       console.error('[create-payment] Square charge failed:', message);
-      await db
-        .from('payment_sessions')
-        .update({ payment_status: 'failed' })
-        .eq('id', session.id);
+      await db.prepare("UPDATE payment_sessions SET payment_status = 'failed' WHERE id = ?").bind(sessionId).run();
       // 402 Payment Required — the card was declined or could not be charged.
       return fail(message || 'Your payment could not be processed.', 402);
     }
@@ -102,7 +97,7 @@ export async function POST(request: NextRequest) {
     // ── Create the order synchronously (idempotent w/ the webhook) ──────
     const result = await createOrderFromSession(
       db,
-      session as PaymentSessionRow,
+      mapSessionRow(session),
       payment.paymentId
     );
 

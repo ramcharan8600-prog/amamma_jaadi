@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getDb, isDbConfigured } from '@/lib/db';
 import { ok, fail } from '@/lib/api';
 
 /**
@@ -11,7 +11,7 @@ import { ok, fail } from '@/lib/api';
  */
 export async function POST(request: NextRequest) {
   try {
-    if (!isSupabaseConfigured()) {
+    if (!isDbConfigured()) {
       return fail('Not configured', 503);
     }
 
@@ -20,32 +20,31 @@ export async function POST(request: NextRequest) {
       return fail('Missing sessionId', 400);
     }
 
-    const { data: session, error } = await getSupabase()
-      .from('payment_sessions')
-      .select('id, payment_status, order_id, expires_at')
-      .eq('id', sessionId)
-      .single();
+    const db = getDb();
+    const session = await db
+      .prepare('SELECT id, payment_status, order_id, expires_at FROM payment_sessions WHERE id = ?')
+      .bind(sessionId)
+      .first<{ id: string; payment_status: string; order_id: string | null; expires_at: string }>();
 
-    if (error || !session) {
+    if (!session) {
       return fail('Session not found', 404);
     }
 
     // Check if session expired
     if (session.payment_status === 'pending' && new Date(session.expires_at) < new Date()) {
-      await getSupabase()
-        .from('payment_sessions')
-        .update({ payment_status: 'expired' })
-        .eq('id', session.id);
+      await db
+        .prepare("UPDATE payment_sessions SET payment_status = 'expired' WHERE id = ?")
+        .bind(session.id)
+        .run();
       return ok({ status: 'expired' });
     }
 
     // If completed, fetch order number
     if (session.payment_status === 'completed' && session.order_id) {
-      const { data: order } = await getSupabase()
-        .from('orders')
-        .select('order_number')
-        .eq('id', session.order_id)
-        .single();
+      const order = await db
+        .prepare('SELECT order_number FROM orders WHERE id = ?')
+        .bind(session.order_id)
+        .first<{ order_number: string }>();
 
       return ok({
         status: 'completed',

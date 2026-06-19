@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
-import { getServiceClient, isSupabaseConfigured } from '@/lib/supabase';
-import { createOrderFromSession } from '@/lib/order-service';
+import { getDb, isDbConfigured } from '@/lib/db';
+import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { ok, fail } from '@/lib/api';
 
 const SQUARE_WEBHOOK_SIGNATURE_KEY = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || '';
@@ -49,7 +49,7 @@ function verifySquareSignature(rawBody: string, signature: string): boolean {
  */
 export async function POST(request: NextRequest) {
   try {
-    if (!isSupabaseConfigured()) {
+    if (!isDbConfigured()) {
       return fail('Not configured', 503);
     }
 
@@ -71,30 +71,20 @@ export async function POST(request: NextRequest) {
     }
 
     const squarePaymentId = payment.id;
-    const db = getServiceClient();
+    const db = getDb();
+    // Square echoes our session id back as reference_id.
+    const referenceId: string | undefined = payment.reference_id;
 
     if (eventType === 'payment.completed' && payment.status === 'COMPLETED') {
-      // Square echoes our session id back as reference_id. Match on either the
-      // already-stamped square_payment_id (set synchronously by create-payment)
-      // OR the reference_id — so the webhook works whether it arrives before or
-      // after the synchronous payment call.
-      const referenceId: string | undefined = payment.reference_id;
+      // Match on either the already-stamped square_payment_id (set synchronously
+      // by create-payment) OR the reference_id — so the webhook works whether it
+      // arrives before or after the synchronous payment call.
+      const raw = await db
+        .prepare('SELECT * FROM payment_sessions WHERE square_payment_id = ? OR id = ? LIMIT 1')
+        .bind(squarePaymentId, referenceId ?? '')
+        .first<Record<string, unknown>>();
 
-      const { data: session } = await db
-        .from('payment_sessions')
-        .select('*')
-        .or(
-          [
-            `square_payment_id.eq.${squarePaymentId}`,
-            referenceId ? `id.eq.${referenceId}` : '',
-          ]
-            .filter(Boolean)
-            .join(',')
-        )
-        .limit(1)
-        .maybeSingle();
-
-      if (!session) {
+      if (!raw) {
         console.error('[webhook] No payment session found for:', squarePaymentId, referenceId);
         return fail('Session not found', 404);
       }
@@ -102,7 +92,11 @@ export async function POST(request: NextRequest) {
       // createOrderFromSession is idempotent (3-layer dedup on the payment id)
       // — a duplicate webhook returns the existing order rather than creating
       // another. Always 200 so Square does not retry.
-      const { orderNumber, duplicate } = await createOrderFromSession(db, session, squarePaymentId);
+      const { orderNumber, duplicate } = await createOrderFromSession(
+        db,
+        mapSessionRow(raw),
+        squarePaymentId
+      );
       if (duplicate) {
         console.log(`[webhook] duplicate delivery for payment ${squarePaymentId} → order ${orderNumber} (no new records)`);
       }
@@ -113,9 +107,9 @@ export async function POST(request: NextRequest) {
     if (['payment.failed', 'payment.canceled'].includes(eventType) ||
         ['FAILED', 'DECLINED', 'CANCELED'].includes(payment.status)) {
       await db
-        .from('payment_sessions')
-        .update({ payment_status: 'failed', square_payment_id: squarePaymentId })
-        .eq('square_payment_id', squarePaymentId);
+        .prepare("UPDATE payment_sessions SET payment_status = 'failed', square_payment_id = ? WHERE square_payment_id = ? OR id = ?")
+        .bind(squarePaymentId, squarePaymentId, referenceId ?? '')
+        .run();
 
       console.log('Payment failed/declined:', squarePaymentId);
       return ok({ received: true });
@@ -126,9 +120,9 @@ export async function POST(request: NextRequest) {
       const refundPaymentId = body.data?.object?.refund?.payment_id;
       if (refundPaymentId) {
         await db
-          .from('orders')
-          .update({ payment_status: 'refunded' })
-          .eq('square_payment_id', refundPaymentId);
+          .prepare("UPDATE orders SET payment_status = 'refunded' WHERE square_payment_id = ?")
+          .bind(refundPaymentId)
+          .run();
       }
       return ok({ received: true });
     }

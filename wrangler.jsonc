@@ -8,6 +8,13 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "amammajaadi",
+      "database_id": "9b65d2d1-e6cc-4e0d-8520-62a3af2288b2"
+    }
+  ],
   "observability": {
     "enabled": true
   }

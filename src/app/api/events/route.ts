@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
 import { ok, fail } from '@/lib/api';
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return fail('Event orders require minimum 2 days advance notice', 400);
     }
 
-    if (!isSupabaseConfigured()) {
+    if (!isDbConfigured()) {
       return fail('Event system not configured. Please contact us via WhatsApp.', 503);
     }
 
@@ -43,26 +43,26 @@ export async function POST(request: NextRequest) {
       ? sweetSelection.map((s: unknown) => sanitize(s, 50)).join(', ')
       : sanitize(sweetSelection, 200);
 
-    const { data, error } = await getSupabase()
-      .from('event_orders')
-      .insert({
-        customer_name: customerName || 'Guest',
-        phone_number: phone,
-        event_type: eventType,
-        product_name: productName,
+    const id = newId();
+    await getDb()
+      .prepare(
+        `INSERT INTO event_orders
+          (id, customer_name, phone_number, event_type, product_name, quantity, event_date, delivery_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        customerName || 'Guest',
+        phone,
+        eventType,
+        productName,
         quantity,
-        event_date: eventDate,
-        delivery_address: deliveryAddress || null,
-      })
-      .select()
-      .single();
+        eventDate,
+        deliveryAddress || null
+      )
+      .run();
 
-    if (error) {
-      console.error('Event inquiry DB error:', error);
-      throw new Error('Failed to save event inquiry');
-    }
-
-    return ok({ inquiry: { id: data.id } }, 201);
+    return ok({ inquiry: { id } }, 201);
   } catch (e) {
     console.error('Event inquiry error:', e);
     return fail('Failed to submit inquiry', 500);

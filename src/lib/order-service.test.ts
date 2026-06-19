@@ -1,22 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the order-number generator (pulls env/Supabase otherwise) and the email
-// service so we can assert exactly how many confirmation emails are sent.
-const { generateOrderNumber, sendOrderConfirmation } = vi.hoisted(() => {
+// Mock the D1 helpers (order number + id generator) and the email service so we
+// can assert exactly how many confirmation emails are sent.
+const { generateOrderNumber, newId, sendOrderConfirmation } = vi.hoisted(() => {
   let seq = 1000;
+  let idc = 0;
   return {
     generateOrderNumber: vi.fn(async () => `AJ-${++seq}`),
+    newId: vi.fn(() => `id_${++idc}`),
     sendOrderConfirmation: vi.fn(async (..._args: unknown[]) => ({ success: true })),
   };
 });
-vi.mock('@/lib/supabase', () => ({ generateOrderNumber }));
+vi.mock('@/lib/db', () => ({
+  generateOrderNumber,
+  newId,
+  parseJson: (v: unknown) => (typeof v === 'string' ? JSON.parse(v) : v),
+  getDb: () => {
+    throw new Error('getDb should not be called in unit tests');
+  },
+  isDbConfigured: () => true,
+}));
 vi.mock('@/lib/email-service', () => ({
   isEmailConfigured: () => true,
   sendOrderConfirmation,
 }));
 
 import { createOrderFromSession, type PaymentSessionRow } from '@/lib/order-service';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { D1Database } from '@cloudflare/workers-types';
 
 interface OrderRow {
   id: string;
@@ -25,85 +35,67 @@ interface OrderRow {
 }
 
 /**
- * Minimal in-memory Supabase double that enforces UNIQUE(square_payment_id) on
- * the orders table — exactly the production DB constraint. `hiddenWinner`
- * simulates a concurrent delivery that committed between our pre-check and
- * insert (the TOCTOU race), surfacing as a 23505 on insert.
+ * Minimal in-memory D1 double that enforces UNIQUE(square_payment_id) on the
+ * orders table — exactly the production constraint. `hiddenWinner` simulates a
+ * concurrent delivery that committed between our pre-check and insert (the
+ * TOCTOU race), surfacing as a "UNIQUE constraint failed" error on insert.
  */
 function makeFakeDb(hiddenWinner: OrderRow | null = null) {
   const orders: OrderRow[] = [];
-  const orderItems: unknown[] = [];
   let raceRevealed = false;
-  let seq = 0;
 
-  function runTerminal(state: {
-    table: string;
-    op: string;
-    payload: Record<string, unknown> | null;
-    filters: Record<string, unknown>;
-  }) {
-    const { table, op, payload, filters } = state;
+  function runRun(sql: string, binds: unknown[]) {
+    if (/INSERT INTO orders/i.test(sql)) {
+      const id = String(binds[0]);
+      const orderNumber = String(binds[1]);
+      const pid = String(binds[12]); // 13th bound param = square_payment_id
 
-    if (op === 'select' && table === 'orders') {
-      const pid = filters.square_payment_id;
-      const found = orders.find((o) => o.square_payment_id === pid) ?? null;
-      return { data: found ? { id: found.id, order_number: found.order_number } : null, error: null };
-    }
-
-    if (op === 'insert' && table === 'orders') {
-      const pid = String(payload!.square_payment_id);
-      // Concurrent racer committed just before us → reveal it + raise 23505.
       if (hiddenWinner && hiddenWinner.square_payment_id === pid && !raceRevealed) {
         raceRevealed = true;
         orders.push(hiddenWinner);
-        return { data: null, error: { code: '23505', message: 'duplicate key value' } };
+        throw new Error('D1_ERROR: UNIQUE constraint failed: orders.square_payment_id');
       }
       if (orders.some((o) => o.square_payment_id === pid)) {
-        return { data: null, error: { code: '23505', message: 'duplicate key value' } };
+        throw new Error('UNIQUE constraint failed: orders.square_payment_id');
       }
-      const order: OrderRow = {
-        id: `ord_${++seq}`,
-        order_number: String(payload!.order_number),
-        square_payment_id: pid,
-      };
-      orders.push(order);
-      return { data: { id: order.id, order_number: order.order_number }, error: null };
+      orders.push({ id, order_number: orderNumber, square_payment_id: pid });
     }
-
-    if (op === 'insert' && table === 'order_items') {
-      orderItems.push(...(payload as unknown as unknown[]));
-      return { error: null };
-    }
-
-    if (op === 'update' && table === 'payment_sessions') {
-      return { error: null };
-    }
-
-    return { data: null, error: null };
+    return { success: true };
   }
 
-  function builder(table: string) {
-    const state = { table, op: 'select', payload: null as Record<string, unknown> | null, filters: {} as Record<string, unknown> };
-    const b = {
-      select() { return b; },
-      eq(col: string, val: unknown) { state.filters[col] = val; return b; },
-      insert(payload: Record<string, unknown>) { state.op = 'insert'; state.payload = payload; return b; },
-      update(payload: Record<string, unknown>) { state.op = 'update'; state.payload = payload; return b; },
-      async maybeSingle() { return runTerminal(state); },
-      async single() { return runTerminal(state); },
-      // Thenable: `await db.from(x).update(y).eq(...)` / `.insert(arr)` resolve here.
-      then(onF: (v: unknown) => void, onR?: (e: unknown) => void) {
-        Promise.resolve(runTerminal(state)).then(onF, onR);
+  function runFirst(sql: string, binds: unknown[]) {
+    if (/SELECT id, order_number FROM orders WHERE square_payment_id/i.test(sql)) {
+      const found = orders.find((o) => o.square_payment_id === String(binds[0]));
+      return found ? { id: found.id, order_number: found.order_number } : null;
+    }
+    return null;
+  }
+
+  function prepare(sql: string) {
+    let bound: unknown[] = [];
+    const stmt = {
+      bind(...args: unknown[]) {
+        bound = args;
+        return stmt;
       },
+      async first() {
+        return runFirst(sql, bound);
+      },
+      async run() {
+        return runRun(sql, bound);
+      },
+      __sql: sql,
+      __bound: () => bound,
     };
-    return b;
+    return stmt;
   }
 
-  return {
-    db: { from: (table: string) => builder(table) } as unknown as SupabaseClient,
-    orders,
-    orderItems,
-  };
+  async function batch(statements: Array<{ __sql: string; __bound: () => unknown[] }>) {
+    for (const s of statements) runRun(s.__sql, s.__bound());
+    return [];
+  }
+
+  return { db: { prepare, batch } as unknown as D1Database, orders };
 }
 
 function makeSession(overrides: Partial<PaymentSessionRow> = {}): PaymentSessionRow {
@@ -121,7 +113,7 @@ function makeSession(overrides: Partial<PaymentSessionRow> = {}): PaymentSession
   };
 }
 
-describe('Square webhook idempotency — createOrderFromSession', () => {
+describe('Square webhook idempotency — createOrderFromSession (D1)', () => {
   beforeEach(() => {
     sendOrderConfirmation.mockClear();
   });
@@ -140,42 +132,37 @@ describe('Square webhook idempotency — createOrderFromSession', () => {
     const session = makeSession();
 
     const first = await createOrderFromSession(db, session, 'PAY_AAA');
-    const second = await createOrderFromSession(db, session, 'PAY_AAA'); // same payment id
+    const second = await createOrderFromSession(db, session, 'PAY_AAA');
 
     expect(first.duplicate).toBe(false);
     expect(second.duplicate).toBe(true);
     expect(second.orderNumber).toBe(first.orderNumber);
-    expect(orders).toHaveLength(1); // still one order
-    expect(sendOrderConfirmation).toHaveBeenCalledTimes(1); // still one email
+    expect(orders).toHaveLength(1);
+    expect(sendOrderConfirmation).toHaveBeenCalledTimes(1);
   });
 
   it('short-circuits when the session is already linked (layer 1)', async () => {
     const { db, orders } = makeFakeDb();
-    // Seed an order for this payment, then deliver with a linked session.
     await createOrderFromSession(db, makeSession(), 'PAY_BBB');
     sendOrderConfirmation.mockClear();
 
-    const res = await createOrderFromSession(
-      db,
-      makeSession({ order_id: 'ord_1' }),
-      'PAY_BBB'
-    );
+    const res = await createOrderFromSession(db, makeSession({ order_id: 'id_1' }), 'PAY_BBB');
 
     expect(res.duplicate).toBe(true);
     expect(orders).toHaveLength(1);
     expect(sendOrderConfirmation).not.toHaveBeenCalled();
   });
 
-  it('handles a concurrent race: 23505 on insert resolves to the winner (layer 3)', async () => {
+  it('handles a concurrent race: UNIQUE violation resolves to the winner (layer 3)', async () => {
     const winner: OrderRow = { id: 'ord_winner', order_number: 'AJ-9001', square_payment_id: 'PAY_RACE' };
     const { db, orders } = makeFakeDb(winner);
 
     const res = await createOrderFromSession(db, makeSession(), 'PAY_RACE');
 
     expect(res.duplicate).toBe(true);
-    expect(res.orderNumber).toBe('AJ-9001'); // the racer's order, not a new one
-    expect(orders).toHaveLength(1); // our insert did NOT add a second row
-    expect(sendOrderConfirmation).not.toHaveBeenCalled(); // no duplicate email
+    expect(res.orderNumber).toBe('AJ-9001');
+    expect(orders).toHaveLength(1);
+    expect(sendOrderConfirmation).not.toHaveBeenCalled();
   });
 
   it('three deliveries of the same payment yield one order and one email', async () => {
