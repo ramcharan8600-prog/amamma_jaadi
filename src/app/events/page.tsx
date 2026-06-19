@@ -184,7 +184,8 @@ export default function EventsPage() {
             min={minDate}
             value={eventDate}
             onChange={(e) => setEventDate(e.target.value)}
-            className="input-field"
+            onClick={(e) => e.currentTarget.showPicker?.()}
+            className="input-field cursor-pointer"
           />
           {eventDate && !validDate && (
             <div className="flex items-center gap-2 mt-1">

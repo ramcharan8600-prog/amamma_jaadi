@@ -550,11 +550,9 @@ export default function CheckoutPage() {
               type="date"
               min={minPickupDate}
               value={pickupDate}
-              onChange={(e) => {
-                setPickupDate(e.target.value);
-                e.target.blur();
-              }}
-              className="input-field"
+              onChange={(e) => setPickupDate(e.target.value)}
+              onClick={(e) => e.currentTarget.showPicker?.()}
+              className="input-field cursor-pointer"
             />
             {largeOrder && pickupDate && pickupDate < minPickupDate && (
               <p className="text-red-500 text-xs mt-1">
