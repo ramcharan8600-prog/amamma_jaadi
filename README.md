@@ -13,9 +13,8 @@ npm run dev
 
 ## Admin
 
-- **Login:** `/admin/login` → `admin` / `REDACTED`
-- **Analytics:** Requires PIN `REDACTED` (server-verified)
-- **Session:** HMAC-SHA256 signed, 8-hour expiry, httpOnly cookies
+- Login: `/admin/login` → See `.env.local` for credentials
+- Analytics: Requires PIN (see environment variables)
 
 ## Architecture
 
