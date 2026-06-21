@@ -14,8 +14,21 @@ interface SquareCard {
   destroy(): Promise<void>;
 }
 
+interface SquareApplePay {
+  tokenize(): Promise<SquareTokenizeResult>;
+}
+
+// Opaque handle returned by payments.paymentRequest(...)
+type SquarePaymentRequest = unknown;
+
 interface SquarePayments {
   card(): Promise<SquareCard>;
+  applePay(request: SquarePaymentRequest): Promise<SquareApplePay>;
+  paymentRequest(options: {
+    countryCode: string;
+    currencyCode: string;
+    total: { amount: string; label: string };
+  }): SquarePaymentRequest;
 }
 
 interface SquareSDK {
