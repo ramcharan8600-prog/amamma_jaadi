@@ -3,7 +3,7 @@ import { safeEqual } from '@/lib/crypto';
 
 describe('safeEqual (constant-time compare)', () => {
   it('returns true for identical strings', () => {
-    expect(safeEqual('REDACTED', 'REDACTED')).toBe(true);
+    expect(safeEqual('correct-horse-battery', 'correct-horse-battery')).toBe(true);
   });
 
   it('returns false for different same-length strings', () => {
