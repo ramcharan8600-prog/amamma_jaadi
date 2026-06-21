@@ -4,7 +4,10 @@ import path from 'path';
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   images: {
-    formats: ['image/avif', 'image/webp'],
+    // Cloudflare Workers doesn't run Next's image optimizer (it would pass the
+    // original through), so serve images as direct, edge-cached static assets.
+    // Source files are pre-sized/compressed instead. No Worker round-trip.
+    unoptimized: true,
   },
   experimental: {
     serverActions: { bodySizeLimit: '2mb' },
