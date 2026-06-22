@@ -47,9 +47,8 @@ export default function Header() {
               className="w-[72px] h-[72px] sm:w-[86px] sm:h-[86px] object-contain"
               priority
             />
-            <span className="flex flex-col leading-none">
-              <span className="font-display font-bold text-brand-gold-light text-lg sm:text-xl tracking-widest uppercase">Amamma</span>
-              <span className="font-display font-bold text-brand-gold-light text-lg sm:text-xl tracking-widest uppercase pl-20">Jaadi</span>
+            <span className="font-display font-bold text-brand-gold-light text-lg sm:text-xl tracking-widest uppercase whitespace-nowrap">
+              Amamma Jaadi
             </span>
           </Link>
 
