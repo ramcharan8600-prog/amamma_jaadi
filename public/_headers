@@ -1,0 +1,6 @@
+# Cloudflare Workers Assets — custom response headers.
+# Images are stable brand assets: cache them hard so Gmail's image proxy and
+# browsers don't re-fetch on every view. If an image changes, rename the file
+# (or add a ?v= query) to bust the cache.
+/images/*
+  Cache-Control: public, max-age=31536000, immutable
