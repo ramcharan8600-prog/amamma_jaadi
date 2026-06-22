@@ -85,7 +85,7 @@ function baseTemplate(content: string): string {
         <table align="center" style="margin: 0 auto;">
           <tr>
             <td style="vertical-align: middle; padding-right: 12px;">
-              <img src="${SITE_URL}/images/brand/logo.png" alt="${BRAND_NAME}" width="52" height="52" style="display: block; border-radius: 50%;" />
+              <img src="${SITE_URL}/images/brand/email-logo.png" alt="${BRAND_NAME}" width="52" height="52" style="display: block; border-radius: 50%;" />
             </td>
             <td style="vertical-align: middle; text-align: left;">
               <div style="color: #7B1F1F; font-size: 24px; font-weight: bold; line-height: 1.1;">${BRAND_NAME}</div>
