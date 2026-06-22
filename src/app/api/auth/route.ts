@@ -9,12 +9,13 @@ import {
 import { safeEqual } from '@/lib/crypto';
 import { ok, fail } from '@/lib/api';
 
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-
 /** POST /api/auth — Login */
 export async function POST(request: NextRequest) {
   try {
+    // Read at request time — runtime secrets aren't reliable at module load on
+    // Cloudflare/OpenNext (would otherwise 503 admin login even when configured).
+    const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
     if (!ADMIN_PASSWORD) {
       return fail('Admin login is not configured.', 503);
     }

@@ -4,8 +4,6 @@ import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 import { safeEqual } from '@/lib/crypto';
 import { ok, fail } from '@/lib/api';
 
-const ANALYTICS_PIN = process.env.ANALYTICS_PIN || '';
-
 export async function POST(request: NextRequest) {
   // Verify admin session first
   const cookieStore = await cookies();
@@ -15,6 +13,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Read at request time — runtime secrets aren't reliable at module load on
+    // Cloudflare/OpenNext.
+    const ANALYTICS_PIN = process.env.ANALYTICS_PIN || '';
     if (!ANALYTICS_PIN) {
       return fail('Analytics access is not configured.', 503);
     }

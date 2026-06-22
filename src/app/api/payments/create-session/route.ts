@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
     if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
       return fail('Cart is empty', 400);
     }
+    // Cap the number of line items to bound work and prevent abuse.
+    if (body.items.length > 50) {
+      return fail('Too many items in cart.', 400);
+    }
     if (!body.phone || typeof body.phone !== 'string' || body.phone.length < 7) {
       return fail('Valid phone number required', 400);
     }

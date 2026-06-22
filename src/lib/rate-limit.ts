@@ -25,6 +25,15 @@ const buckets = new Map<string, Hit>();
  */
 export function rateLimit(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
+
+  // Opportunistic eviction (no global timer — not Workers-friendly): sweep
+  // expired buckets only when the map grows large, keeping memory bounded.
+  if (buckets.size > 5000) {
+    for (const [k, hit] of buckets) {
+      if (now > hit.resetAt) buckets.delete(k);
+    }
+  }
+
   const existing = buckets.get(key);
 
   if (!existing || now > existing.resetAt) {
@@ -40,19 +49,16 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
   return true;
 }
 
-/** Best-effort client IP from request headers. */
+/**
+ * Trusted client IP. On Cloudflare, `cf-connecting-ip` is set by the edge and
+ * cannot be spoofed by the client — unlike `x-forwarded-for`, which a caller can
+ * set to any value to bypass per-IP limits. Prefer it; fall back for non-CF/local.
+ */
 export function getClientIp(request: Request): string {
-  const fwd = request.headers.get('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0].trim();
-  return request.headers.get('x-real-ip') || 'unknown';
-}
-
-// Periodically evict expired buckets so the map doesn't grow unbounded.
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, hit] of buckets) {
-      if (now > hit.resetAt) buckets.delete(key);
-    }
-  }, 5 * 60 * 1000).unref?.();
+  return (
+    request.headers.get('cf-connecting-ip') ||
+    request.headers.get('x-real-ip') ||
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    'unknown'
+  );
 }

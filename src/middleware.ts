@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || '';
 const SESSION_MAX_AGE = 8 * 60 * 60 * 1000;
 const SESSION_COOKIE = 'admin_session';
+
+/**
+ * Read the signing secret at REQUEST time, not module load — on Cloudflare/
+ * OpenNext, runtime secrets aren't reliably populated during module evaluation,
+ * which would otherwise fail-close admin auth even when the secret is set.
+ */
+function getSessionSecret(): string {
+  return process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || '';
+}
 
 /** Verify HMAC-signed session token using Web Crypto API (Edge-compatible) */
 async function verifyToken(token: string): Promise<boolean> {
   try {
     // Fail closed: never verify against an empty/unknown key. An empty HMAC
     // key is publicly known and would let an attacker forge session tokens.
+    const SESSION_SECRET = getSessionSecret();
     if (!SESSION_SECRET) {
       console.error('SESSION_SECRET not set — rejecting all admin sessions');
       return false;

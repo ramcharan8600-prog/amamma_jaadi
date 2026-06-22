@@ -39,6 +39,13 @@ describe('getClientIp', () => {
     expect(getClientIp(req)).toBe('203.0.113.7');
   });
 
+  it('prefers cf-connecting-ip over the spoofable x-forwarded-for', () => {
+    const req = new Request('http://x', {
+      headers: { 'cf-connecting-ip': '9.9.9.9', 'x-forwarded-for': '1.2.3.4' },
+    });
+    expect(getClientIp(req)).toBe('9.9.9.9');
+  });
+
   it('falls back to x-real-ip', () => {
     const req = new Request('http://x', { headers: { 'x-real-ip': '198.51.100.2' } });
     expect(getClientIp(req)).toBe('198.51.100.2');
