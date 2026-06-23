@@ -4,14 +4,14 @@ import { getDb, isDbConfigured } from '@/lib/db';
 import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { ok, fail } from '@/lib/api';
 
-const SQUARE_WEBHOOK_SIGNATURE_KEY = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || '';
-const SQUARE_WEBHOOK_URL = process.env.SQUARE_WEBHOOK_URL || '';
-
 /**
  * Verify Square webhook signature to prevent forged requests.
  * Uses HMAC-SHA256 with the webhook signature key.
+ * Secrets read at REQUEST time (not module load) for Cloudflare/OpenNext.
  */
 function verifySquareSignature(rawBody: string, signature: string): boolean {
+  const SQUARE_WEBHOOK_SIGNATURE_KEY = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || '';
+  const SQUARE_WEBHOOK_URL = process.env.SQUARE_WEBHOOK_URL || '';
   if (!SQUARE_WEBHOOK_SIGNATURE_KEY) {
     // No key configured — reject all webhook requests in every environment
     console.error('SQUARE_WEBHOOK_SIGNATURE_KEY not set — rejecting webhook');

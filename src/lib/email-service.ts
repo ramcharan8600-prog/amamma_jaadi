@@ -14,11 +14,17 @@
 
 import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/constants';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const FROM_EMAIL = process.env.FROM_EMAIL || 'orders@amammajaadi.com';
+// Read at REQUEST time — on Cloudflare/OpenNext runtime secrets aren't populated
+// at module load, so a module-scope read would be empty even when set.
+function getResendKey(): string {
+  return process.env.RESEND_API_KEY || '';
+}
+function getFromEmail(): string {
+  return process.env.FROM_EMAIL || 'orders@amammajaadi.com';
+}
 
 export function isEmailConfigured(): boolean {
-  return !!RESEND_API_KEY;
+  return !!getResendKey();
 }
 
 /** Escape user-influenced values before interpolating into email HTML. */
@@ -48,11 +54,11 @@ async function sendEmail(params: EmailParams): Promise<{ success: boolean; id?: 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
+        Authorization: `Bearer ${getResendKey()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `${BRAND_NAME} <${FROM_EMAIL}>`,
+        from: `${BRAND_NAME} <${getFromEmail()}>`,
         to: params.to,
         subject: params.subject,
         html: params.html,

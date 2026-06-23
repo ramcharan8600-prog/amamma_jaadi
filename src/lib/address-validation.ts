@@ -15,7 +15,11 @@
 import { cache } from '@/lib/cache';
 import type { AddressValidationResult, NormalizedAddress } from '@/types';
 
-const GOOGLE_KEY = process.env.GOOGLE_ADDRESS_VALIDATION_API_KEY || '';
+// Read at REQUEST time — on Cloudflare/OpenNext runtime secrets aren't populated
+// at module load, so a module-scope read would be empty even when the key is set.
+function getGoogleKey(): string {
+  return process.env.GOOGLE_ADDRESS_VALIDATION_API_KEY || '';
+}
 const ENDPOINT = 'https://addressvalidation.googleapis.com/v1:validateAddress';
 const CACHE_TTL_SECONDS = 60 * 60 * 24; // 24h — addresses don't change often
 
@@ -34,7 +38,7 @@ export interface AddressInput {
 }
 
 export function isAddressValidationConfigured(): boolean {
-  return !!GOOGLE_KEY;
+  return !!getGoogleKey();
 }
 
 // ── Google response shapes (only the fields we consume) ──────────────────────
@@ -195,7 +199,7 @@ export async function validateUsAddress(input: AddressInput): Promise<AddressVal
   if (cached) return cached;
 
   try {
-    const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(GOOGLE_KEY)}`, {
+    const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(getGoogleKey())}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
