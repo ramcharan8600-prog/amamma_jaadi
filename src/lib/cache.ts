@@ -15,21 +15,29 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+// Read at REQUEST time — runtime env isn't reliable at module load on
+// Cloudflare/OpenNext. (Upstash is optional; falls back to in-memory if unset.)
+function getUpstash(): { url: string; token: string } {
+  return {
+    url: process.env.UPSTASH_REDIS_REST_URL || '',
+    token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+  };
+}
 
 function isRedisConfigured(): boolean {
-  return !!(UPSTASH_URL && UPSTASH_TOKEN);
+  const { url, token } = getUpstash();
+  return !!(url && token);
 }
 
 /** Low-level Upstash REST API call */
 async function redisCommand(command: string[]): Promise<unknown> {
-  if (!isRedisConfigured()) return null;
+  const { url, token } = getUpstash();
+  if (!url || !token) return null;
   try {
-    const res = await fetch(`${UPSTASH_URL}`, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(command),
