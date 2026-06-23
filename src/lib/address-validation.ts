@@ -183,6 +183,7 @@ export async function validateUsAddress(input: AddressInput): Promise<AddressVal
     return {
       status: 'unavailable',
       message: 'Address validation is temporarily unavailable. Please try again later.',
+      reason: 'not_configured',
     };
   }
 
@@ -217,9 +218,13 @@ export async function validateUsAddress(input: AddressInput): Promise<AddressVal
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       console.error(`[address-validation] Google API ${res.status}: ${text.slice(0, 300)}`);
+      // Surface a short, secret-free reason for the customer-facing error (the
+      // Google status + first word of error, e.g. "api_403_PERMISSION_DENIED").
+      const code = text.match(/"status":\s*"([A-Z_]+)"/)?.[1] || '';
       return {
         status: 'unavailable',
         message: 'Address validation is temporarily unavailable. Please try again later.',
+        reason: `api_${res.status}${code ? '_' + code : ''}`,
       };
     }
 
@@ -236,6 +241,7 @@ export async function validateUsAddress(input: AddressInput): Promise<AddressVal
     return {
       status: 'unavailable',
       message: 'Address validation is temporarily unavailable. Please try again later.',
+      reason: 'request_failed',
     };
   }
 }

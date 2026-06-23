@@ -106,6 +106,8 @@ export interface AddressValidationFailure {
   message: string;
   /** Present for 'unconfirmed' to help the user correct their input. */
   normalized?: NormalizedAddress;
+  /** Safe diagnostic code (no secrets) for debugging 'unavailable' causes. */
+  reason?: string;
 }
 
 export type AddressValidationResult = AddressValidationSuccess | AddressValidationFailure;
