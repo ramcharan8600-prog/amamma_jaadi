@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
-import { getDb, isDbConfigured, parseJson } from '@/lib/db';
+import { getDb, isDbConfigured } from '@/lib/db';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 import { businessDateOffset } from '@/lib/date';
 import { ok, fail } from '@/lib/api';
@@ -80,7 +80,6 @@ export async function GET(request: NextRequest) {
 
       for (const o of orders) {
         o.order_items = itemsByOrder.get(String(o.id)) ?? [];
-        o.delivery_address_normalized = parseJson(o.delivery_address_normalized);
       }
     }
 

@@ -18,14 +18,7 @@ import {
 import { useCartStore } from '@/store/cart';
 import { PICKUP_LOCATIONS, getPickupLocationById } from '@/data/products';
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
-import type {
-  FulfillmentType,
-  PickupDetails,
-  DeliveryDetails,
-  NormalizedAddress,
-  AddressValidationResult,
-} from '@/types';
-import { isAddressValidationFailure } from '@/types';
+import type { FulfillmentType, PickupDetails, DeliveryDetails } from '@/types';
 
 type Step = 'cart' | 'method' | 'details' | 'payment';
 
@@ -62,12 +55,6 @@ export default function CheckoutPage() {
   const [deliveryState, setDeliveryState] = useState('TX');
   const [deliveryCountry] = useState('USA');
   const [deliveryZip, setDeliveryZip] = useState('');
-
-  // Address-validation state
-  const [validatingAddress, setValidatingAddress] = useState(false);
-  const [addressError, setAddressError] = useState('');
-  const [addressSuggestion, setAddressSuggestion] = useState<NormalizedAddress | null>(null);
-  const [validatedAddress, setValidatedAddress] = useState<NormalizedAddress | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -244,12 +231,7 @@ export default function CheckoutPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        if (res.status === 422 && fulfillment.type === 'delivery') {
-          setValidatedAddress(null);
-          setAddressError(err.error || 'Your delivery address could not be validated.');
-        } else {
-          setSubmitError(err.error || 'We could not start checkout. Please try again.');
-        }
+        setSubmitError(err.error || 'We could not start checkout. Please try again.');
         setSubmitting(false);
         return;
       }
@@ -279,76 +261,19 @@ export default function CheckoutPage() {
       email: pickupEmail,
     });
 
-  const buildDelivery = (n: NormalizedAddress | null): DeliveryDetails => ({
-    type: 'delivery',
-    customerName: deliveryName,
-    phone: deliveryPhone,
-    email: deliveryEmail,
-    addressLine1: n?.addressLine1 ?? deliveryAddressLine1,
-    addressLine2: n?.addressLine2 ?? deliveryAddressLine2,
-    city: n?.city ?? deliveryCity,
-    state: n?.state ?? deliveryState,
-    zip: n?.zip ?? deliveryZip,
-    country: 'USA',
-    ...(n ? { normalized: n } : {}),
-  });
-
-  const resetAddressValidation = () => {
-    if (validatedAddress) setValidatedAddress(null);
-    if (addressSuggestion) setAddressSuggestion(null);
-    if (addressError) setAddressError('');
-  };
-
-  /** Validate the delivery address, then continue to payment (or show a fix). */
-  const proceedDelivery = async () => {
-    setAddressError('');
-    setAddressSuggestion(null);
-    setValidatedAddress(null);
-    setValidatingAddress(true);
-    try {
-      const res = await fetch('/api/address/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          addressLine1: deliveryAddressLine1,
-          addressLine2: deliveryAddressLine2,
-          city: deliveryCity,
-          state: deliveryState,
-          zip: deliveryZip,
-        }),
-      });
-      if (!res.ok) {
-        setAddressError('We could not validate your address right now. Please try again.');
-        return;
-      }
-      const result: AddressValidationResult = await res.json();
-      if (isAddressValidationFailure(result)) {
-        setAddressError(result.message || 'Please enter a valid U.S. delivery address.');
-      } else if (result.status === 'valid') {
-        setValidatedAddress(result.normalized);
-        await createSessionAndPay(buildDelivery(result.normalized));
-      } else {
-        setAddressSuggestion(result.normalized); // 'corrected' — confirm first
-      }
-    } catch {
-      setAddressError('We could not validate your address. Please check your connection.');
-    } finally {
-      setValidatingAddress(false);
-    }
-  };
-
-  const acceptSuggestedAddress = async () => {
-    if (!addressSuggestion) return;
-    const n = addressSuggestion;
-    setDeliveryAddressLine1(n.addressLine1);
-    setDeliveryAddressLine2(n.addressLine2);
-    setDeliveryCity(n.city);
-    setDeliveryState(n.state);
-    setDeliveryZip(n.zip);
-    setValidatedAddress(n);
-    setAddressSuggestion(null);
-    await createSessionAndPay(buildDelivery(n));
-  };
+  const proceedDelivery = () =>
+    createSessionAndPay({
+      type: 'delivery',
+      customerName: deliveryName,
+      phone: deliveryPhone,
+      email: deliveryEmail,
+      addressLine1: deliveryAddressLine1,
+      addressLine2: deliveryAddressLine2,
+      city: deliveryCity,
+      state: deliveryState,
+      zip: deliveryZip,
+      country: 'USA',
+    });
 
   // ── Payment submission (shared by card + Apple Pay) ─────────────────
   const submitPayment = async (token: string) => {
@@ -756,12 +681,9 @@ export default function CheckoutPage() {
             <input
               type="text"
               value={deliveryAddressLine1}
-              onChange={(e) => {
-                setDeliveryAddressLine1(e.target.value);
-                resetAddressValidation();
-              }}
+              onChange={(e) => setDeliveryAddressLine1(e.target.value)}
               className="input-field"
-              placeholder="Street address (no PO boxes)"
+              placeholder="Street address"
             />
           </div>
 
@@ -772,10 +694,7 @@ export default function CheckoutPage() {
             <input
               type="text"
               value={deliveryAddressLine2}
-              onChange={(e) => {
-                setDeliveryAddressLine2(e.target.value);
-                resetAddressValidation();
-              }}
+              onChange={(e) => setDeliveryAddressLine2(e.target.value)}
               className="input-field"
               placeholder="Apt, suite, unit, building, floor"
             />
@@ -787,10 +706,7 @@ export default function CheckoutPage() {
               <input
                 type="text"
                 value={deliveryCity}
-                onChange={(e) => {
-                  setDeliveryCity(e.target.value);
-                  resetAddressValidation();
-                }}
+                onChange={(e) => setDeliveryCity(e.target.value)}
                 className="input-field"
               />
             </div>
@@ -799,10 +715,7 @@ export default function CheckoutPage() {
               <input
                 type="text"
                 value={deliveryState}
-                onChange={(e) => {
-                  setDeliveryState(e.target.value);
-                  resetAddressValidation();
-                }}
+                onChange={(e) => setDeliveryState(e.target.value)}
                 className="input-field"
                 placeholder="TX"
                 maxLength={2}
@@ -813,10 +726,7 @@ export default function CheckoutPage() {
               <input
                 type="text"
                 value={deliveryZip}
-                onChange={(e) => {
-                  setDeliveryZip(e.target.value);
-                  resetAddressValidation();
-                }}
+                onChange={(e) => setDeliveryZip(e.target.value)}
                 className="input-field"
                 placeholder="75074"
               />
@@ -837,33 +747,6 @@ export default function CheckoutPage() {
             </p>
           </div>
 
-          {addressError && (
-            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3.5">
-              <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-              <p className="font-body text-sm text-red-700">{addressError}</p>
-            </div>
-          )}
-
-          {addressSuggestion && (
-            <div className="bg-brand-gold/10 border border-brand-gold/40 rounded-xl p-4 space-y-3">
-              <p className="font-body text-sm font-semibold text-brand-charcoal">
-                We found a verified version of your address:
-              </p>
-              <p className="font-body text-sm text-brand-charcoal/80 bg-white rounded-lg p-3 whitespace-pre-line">
-                {addressSuggestion.formatted}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button onClick={acceptSuggestedAddress} disabled={submitting} className="btn-primary flex-1 gap-2">
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                  Use this address
-                </button>
-                <button onClick={() => setAddressSuggestion(null)} className="btn-secondary flex-1">
-                  Keep editing
-                </button>
-              </div>
-            </div>
-          )}
-
           {submitError && (
             <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3.5">
               <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
@@ -871,22 +754,19 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {!addressSuggestion && (
-            <button
-              onClick={proceedDelivery}
-              disabled={!canSubmitDelivery || validatingAddress || submitting}
-              className="btn-primary w-full gap-2"
-            >
-              {validatingAddress || submitting ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />{' '}
-                  {validatingAddress ? 'Validating address…' : 'Starting checkout…'}
-                </>
-              ) : (
-                'Continue to payment'
-              )}
-            </button>
-          )}
+          <button
+            onClick={proceedDelivery}
+            disabled={!canSubmitDelivery || submitting}
+            className="btn-primary w-full gap-2"
+          >
+            {submitting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Starting checkout…
+              </>
+            ) : (
+              'Continue to payment'
+            )}
+          </button>
         </div>
       )}
 

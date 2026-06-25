@@ -67,63 +67,6 @@ export interface DeliveryDetails {
   state: string;
   zip: string;
   country: string;
-  /** Google-normalized address, attached once validation succeeds. */
-  normalized?: NormalizedAddress;
-}
-
-// ── Address validation ──────────────────────────────────────
-/** A USPS/Google-normalized US delivery address. */
-export interface NormalizedAddress {
-  /** Single-line, display-ready formatted address from Google. */
-  formatted: string;
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  /** Two-letter state code. */
-  state: string;
-  /** ZIP or ZIP+4. */
-  zip: string;
-  /** ISO country code — always 'US' for accepted addresses. */
-  country: string;
-}
-
-export type AddressValidationStatus =
-  | 'valid'        // deliverable as entered
-  | 'corrected'    // deliverable, but Google adjusted it — confirm with user
-  | 'unconfirmed'  // incomplete/ambiguous — user must fix
-  | 'invalid'      // rejected (non-US, PO box, undeliverable)
-  | 'unavailable'; // validation service down/unconfigured
-
-export interface AddressValidationSuccess {
-  status: 'valid' | 'corrected';
-  normalized: NormalizedAddress;
-  /** true for 'corrected' — UI should present the suggestion for confirmation. */
-  requiresConfirmation: boolean;
-}
-
-export interface AddressValidationFailure {
-  status: 'unconfirmed' | 'invalid' | 'unavailable';
-  message: string;
-  /** Present for 'unconfirmed' to help the user correct their input. */
-  normalized?: NormalizedAddress;
-  /** Safe diagnostic code (no secrets) for debugging 'unavailable' causes. */
-  reason?: string;
-}
-
-export type AddressValidationResult = AddressValidationSuccess | AddressValidationFailure;
-
-/** Type guard: true when the validation result is a rejection (not deliverable). */
-export function isAddressValidationFailure(
-  r: AddressValidationResult
-): r is AddressValidationFailure {
-  return r.status === 'unconfirmed' || r.status === 'invalid' || r.status === 'unavailable';
-}
-
-/** Type guard: true when the validation result carries a usable normalized address. */
-export function isAddressValidationSuccess(
-  r: AddressValidationResult
-): r is AddressValidationSuccess {
-  return r.status === 'valid' || r.status === 'corrected';
 }
 
 export type FulfillmentDetails = PickupDetails | DeliveryDetails;

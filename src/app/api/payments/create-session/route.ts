@@ -6,8 +6,6 @@ import { calculateSweetPrice } from '@/data/products';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
 import { ok, fail } from '@/lib/api';
-import { validateUsAddress, isAddressValidationConfigured } from '@/lib/address-validation';
-import { isAddressValidationFailure } from '@/types';
 
 /**
  * POST /api/payments/create-session
@@ -80,45 +78,8 @@ export async function POST(request: NextRequest) {
       return fail('Invalid order total', 400);
     }
 
-    // ── DELIVERY ADDRESS GATE (authoritative) ────────────────────────────
-    // Pickup orders bypass entirely. Delivery orders MUST pass US address
-    // validation before a payment session can be created. We re-validate
-    // server-side even though the frontend pre-checks — never trust the client.
-    let fulfillment = body.fulfillment || null;
-    if (fulfillment?.type === 'delivery') {
-      if (!isAddressValidationConfigured()) {
-        return fail(
-          'Delivery is temporarily unavailable. Please choose pickup or try again later.',
-          503
-        );
-      }
-
-      const validation = await validateUsAddress({
-        addressLine1: sanitize(fulfillment.addressLine1, 200),
-        addressLine2: sanitize(fulfillment.addressLine2, 200),
-        city: sanitize(fulfillment.city, 100),
-        state: sanitize(fulfillment.state, 50),
-        zip: sanitize(fulfillment.zip, 20),
-      });
-
-      if (isAddressValidationFailure(validation)) {
-        // 422 = address present but failed validation (distinct from 400 malformed).
-        return fail(validation.message || 'Delivery address could not be validated.', 422);
-      }
-
-      // Persist the Google-normalized address as the source of truth.
-      const n = validation.normalized;
-      fulfillment = {
-        ...fulfillment,
-        addressLine1: n.addressLine1,
-        addressLine2: n.addressLine2,
-        city: n.city,
-        state: n.state,
-        zip: n.zip,
-        country: 'USA',
-        normalized: n,
-      };
-    }
+    // Fulfillment is stored as the customer entered it (no address validation).
+    const fulfillment = body.fulfillment || null;
 
     const sessionId = newId();
     const idempotencyKey = `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;

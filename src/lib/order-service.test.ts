@@ -48,7 +48,7 @@ function makeFakeDb(hiddenWinner: OrderRow | null = null) {
     if (/INSERT INTO orders/i.test(sql)) {
       const id = String(binds[0]);
       const orderNumber = String(binds[1]);
-      const pid = String(binds[12]); // 13th bound param = square_payment_id
+      const pid = String(binds[11]); // 12th bound param = square_payment_id
 
       if (hiddenWinner && hiddenWinner.square_payment_id === pid && !raceRevealed) {
         raceRevealed = true;

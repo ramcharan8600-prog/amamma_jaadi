@@ -12,7 +12,6 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { generateOrderNumber, newId, parseJson } from '@/lib/db';
 import { isEmailConfigured, sendOrderConfirmation } from '@/lib/email-service';
 import { getPickupLocationById } from '@/data/products';
-import type { NormalizedAddress } from '@/types';
 
 export interface PaymentSessionRow {
   id: string;
@@ -36,7 +35,6 @@ interface FulfillmentData {
   state?: string;
   zip?: string;
   country?: string;
-  normalized?: NormalizedAddress;
 }
 
 interface CartLine {
@@ -69,7 +67,6 @@ export function mapSessionRow(raw: Record<string, unknown>): PaymentSessionRow {
 
 function buildDeliveryAddress(f: FulfillmentData): string | null {
   if (f.type !== 'delivery') return null;
-  if (f.normalized?.formatted) return f.normalized.formatted;
   return (
     [
       f.addressLine1,
@@ -138,7 +135,6 @@ export async function createOrderFromSession(
   if (preExisting) return preExisting;
 
   const fulfillment: FulfillmentData = session.fulfillment_data ?? {};
-  const normalized = fulfillment.normalized ?? null;
   const orderNumber = await generateOrderNumber(db);
   const orderId = newId();
 
@@ -147,9 +143,9 @@ export async function createOrderFromSession(
       .prepare(
         `INSERT INTO orders
           (id, order_number, customer_name, phone_number, email, order_type,
-           pickup_date, pickup_location, delivery_address, delivery_address_normalized,
+           pickup_date, pickup_location, delivery_address,
            total_price, tax, square_payment_id, status, payment_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')`
       )
       .bind(
         orderId,
@@ -161,7 +157,6 @@ export async function createOrderFromSession(
         fulfillment.date || null,
         fulfillment.locationId || null,
         buildDeliveryAddress(fulfillment),
-        normalized ? JSON.stringify(normalized) : null,
         session.total_amount,
         session.tax || 0,
         squarePaymentId
