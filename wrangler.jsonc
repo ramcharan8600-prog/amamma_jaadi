@@ -8,6 +8,17 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  // Non-secret runtime config. Lives here (not the dashboard) because
+  // `wrangler deploy` deletes dashboard-added plaintext vars on every deploy
+  // — only values in this file and dashboard Secrets survive. Secrets
+  // (SQUARE_ACCESS_TOKEN, SESSION_SECRET, ...) stay in the dashboard.
+  "keep_vars": true,
+  "vars": {
+    "SQUARE_ENVIRONMENT": "production",
+    "SQUARE_WEBHOOK_URL": "https://amammajaadi.com/api/payments/webhook",
+    "OWNER_NOTIFICATION_EMAIL": "ramcharan8600@gmail.com,amammajaadi@gmail.com",
+    "FROM_EMAIL": "orders@amammajaadi.com"
+  },
   "d1_databases": [
     {
       "binding": "DB",
