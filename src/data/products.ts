@@ -66,7 +66,7 @@ export const PRODUCTS: Product[] = [
     description:
       'A signature Guntur delicacy — deep-fried discs of refined flour soaked in fragrant sugar syrup infused with cardamom. Crispy on the outside, melt-in-your-mouth inside.',
     category: 'sweets',
-    unitPrice: 3,
+    unitPrice: 2.5,
     image: '/images/products/Guntur Malpuri.jpg',
     imageFit: 'contain',
     quantityOptions: [16, 25, 50],
@@ -80,7 +80,7 @@ export const PRODUCTS: Product[] = [
     description:
       'Flaky, layered pastry from Nellore, delicately fried and dipped in sugar syrup. Each layer shatters into a shower of sweetness — a true South Indian masterpiece.',
     category: 'sweets',
-    unitPrice: 4,
+    unitPrice: 3,
     image: '/images/products/nellore malai khaja.jpg',
     quantityOptions: [16, 25, 50],
     inStock: true,
@@ -128,17 +128,30 @@ export const PRODUCTS: Product[] = [
 
   // ── Gift Boxes ───────────────────────────────────────────
   {
-    id: 'gift-box-standard',
-    slug: 'premium-gift-box',
-    name: 'Premium Gift Box',
+    id: 'gift-box-sweet-memories',
+    slug: 'sweet-memories-gift-box',
+    name: 'Sweet Memories Gift Box',
     description:
-      'An elegant aluminium tin filled with your choice of our finest sweets. Perfect for festivals, birthdays, celebrations, and corporate gifting. The small box holds 16 pieces.',
+      'An elegant aluminium tin with a mix of 5 Nellore Malai Khaja and 6 Guntur Malpuri. Perfect for festivals, birthdays, and celebrations. Free pickup at our partner locations, or delivery via our courier partners — charges apply per destination.',
+    category: 'gift-boxes',
+    unitPrice: 30,
+    image: '/images/products/gift box.jpg',
+    isFixedQuantity: true,
+    inStock: true,
+    tags: ['gifting', 'festival', 'celebrations'],
+  },
+  {
+    id: 'gift-box-party',
+    slug: 'event-mini-party-box',
+    name: 'Event / Mini Party Box',
+    description:
+      'Our bigger box for events and parties — a mix of 9 Nellore Malai Khaja and 9 Guntur Malpuri in an elegant aluminium tin. Ideal for gatherings, corporate gifting, and making every event sweeter.',
     category: 'gift-boxes',
     unitPrice: 50,
     image: '/images/products/gift box.jpg',
     isFixedQuantity: true,
     inStock: true,
-    tags: ['gifting', 'premium', 'festival', 'corporate'],
+    tags: ['gifting', 'events', 'party', 'corporate'],
   },
 ];
 

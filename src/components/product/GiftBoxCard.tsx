@@ -36,7 +36,7 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
         <span className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-brand-gold text-white text-sm font-semibold px-3 py-1.5 rounded-full">
           <Gift size={14} />
-          Premium Gift
+          Gift Box
         </span>
       </div>
 
@@ -48,12 +48,6 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
           <p className="font-body text-sm text-brand-charcoal/60 mt-2 leading-relaxed">
             {product.description}
           </p>
-        </div>
-
-        <div className="bg-brand-cream rounded-lg p-3 space-y-1.5">
-          <p className="font-body text-xs font-medium text-brand-charcoal/70">Available packaging:</p>
-          <p className="font-body text-xs text-brand-charcoal/60">• Small aluminium tin — 16 pieces</p>
-          <p className="font-body text-xs text-brand-charcoal/60">• Large aluminium tin — 50 Malai Khaja or 40 Malpuri</p>
         </div>
 
         <p className="font-display text-3xl font-bold text-brand-gold">
