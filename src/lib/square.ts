@@ -76,6 +76,7 @@ export async function createPayment(params: {
       },
       location_id: config.locationId,
       reference_id: params.orderId,
+      note: 'amammajaadi.com — online order',
       buyer_email_address: params.customerEmail,
       verification_token: params.verificationToken,
       autocomplete: true,
