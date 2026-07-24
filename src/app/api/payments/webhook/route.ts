@@ -75,7 +75,9 @@ export async function POST(request: NextRequest) {
     // Square echoes our session id back as reference_id.
     const referenceId: string | undefined = payment.reference_id;
 
-    if (eventType === 'payment.completed' && payment.status === 'COMPLETED') {
+    // Square sends payment.created / payment.updated (there is no
+    // payment.completed event) — completion is signaled by payment.status.
+    if (['payment.created', 'payment.updated'].includes(eventType) && payment.status === 'COMPLETED') {
       // Match on either the already-stamped square_payment_id (set synchronously
       // by create-payment) OR the reference_id — so the webhook works whether it
       // arrives before or after the synchronous payment call.
@@ -104,8 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── FAILED / DECLINED / CANCELED ─────────────────────────
-    if (['payment.failed', 'payment.canceled'].includes(eventType) ||
-        ['FAILED', 'DECLINED', 'CANCELED'].includes(payment.status)) {
+    if (['FAILED', 'DECLINED', 'CANCELED'].includes(payment.status)) {
       await db
         .prepare("UPDATE payment_sessions SET payment_status = 'failed', square_payment_id = ? WHERE square_payment_id = ? OR id = ?")
         .bind(squarePaymentId, squarePaymentId, referenceId ?? '')
