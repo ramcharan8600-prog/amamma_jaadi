@@ -22,9 +22,15 @@ function getResendKey(): string {
 function getFromEmail(): string {
   return process.env.FROM_EMAIL || 'orders@amammajaadi.com';
 }
-/** Owner inbox for new-order alerts; owner alerts are skipped when unset. */
-function getOwnerEmail(): string {
-  return process.env.OWNER_NOTIFICATION_EMAIL || '';
+/**
+ * Owner inboxes for new-order notifications (comma-separated env value).
+ * BCC'd on customer confirmations; used directly when the customer gave no email.
+ */
+function getOwnerEmails(): string[] {
+  return (process.env.OWNER_NOTIFICATION_EMAIL || '')
+    .split(',')
+    .map((e) => e.trim())
+    .filter(Boolean);
 }
 
 export function isEmailConfigured(): boolean {
@@ -42,9 +48,11 @@ function escapeHtml(value: unknown): string {
 }
 
 interface EmailParams {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
+  /** Hidden recipients — not visible to the primary recipient. */
+  bcc?: string[];
 }
 
 /** Send an email via Resend API */
@@ -66,6 +74,7 @@ async function sendEmail(params: EmailParams): Promise<{ success: boolean; id?: 
         to: params.to,
         subject: params.subject,
         html: params.html,
+        ...(params.bcc && params.bcc.length > 0 ? { bcc: params.bcc } : {}),
       }),
     });
 
@@ -178,13 +187,16 @@ export async function sendOrderConfirmation(params: {
     to: params.email,
     subject: `Order Confirmed — ${params.orderNumber}`,
     html,
+    // Owners get a hidden copy of every confirmation — one send, no extra
+    // quota, invisible to the customer.
+    bcc: getOwnerEmails(),
   });
 }
 
 /**
- * Owner alert — a copy of every new order sent to the owner's inbox
- * (OWNER_NOTIFICATION_EMAIL) so orders are visible without the dashboard.
- * Skipped silently when the owner email is not configured.
+ * Owner alert — fallback notification for orders where the customer gave no
+ * email (so there is no confirmation to BCC the owners on). Sent directly to
+ * OWNER_NOTIFICATION_EMAIL; skipped silently when that is not configured.
  */
 export async function sendOwnerOrderAlert(params: {
   orderNumber: string;
@@ -198,8 +210,8 @@ export async function sendOwnerOrderAlert(params: {
   pickupLocation?: string;
   deliveryAddress?: string;
 }): Promise<{ success: boolean }> {
-  const ownerEmail = getOwnerEmail();
-  if (!ownerEmail) return { success: false };
+  const ownerEmails = getOwnerEmails();
+  if (ownerEmails.length === 0) return { success: false };
 
   const itemsHtml = params.items
     .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
@@ -233,7 +245,7 @@ export async function sendOwnerOrderAlert(params: {
   `);
 
   return sendEmail({
-    to: ownerEmail,
+    to: ownerEmails,
     subject: `🔔 New order ${params.orderNumber} — $${params.total.toFixed(2)} (${params.fulfillmentType})`,
     html,
   });

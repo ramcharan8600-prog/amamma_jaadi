@@ -219,8 +219,10 @@ export async function createOrderFromSession(
     price: i.lineTotal,
   }));
 
-  // Owner alert fires on EVERY order (even when the customer gave no email).
-  if (isEmailConfigured()) {
+  // Owners are BCC'd on the customer confirmation below. When the customer
+  // gave no email there is nothing to BCC, so alert the owners directly —
+  // every order must reach the owner inbox one way or the other.
+  if (isEmailConfigured() && !session.email) {
     try {
       await sendOwnerOrderAlert({
         orderNumber,
