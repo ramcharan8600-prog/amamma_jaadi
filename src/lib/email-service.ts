@@ -22,6 +22,10 @@ function getResendKey(): string {
 function getFromEmail(): string {
   return process.env.FROM_EMAIL || 'orders@amammajaadi.com';
 }
+/** Owner inbox for new-order alerts; owner alerts are skipped when unset. */
+function getOwnerEmail(): string {
+  return process.env.OWNER_NOTIFICATION_EMAIL || '';
+}
 
 export function isEmailConfigured(): boolean {
   return !!getResendKey();
@@ -173,6 +177,64 @@ export async function sendOrderConfirmation(params: {
   return sendEmail({
     to: params.email,
     subject: `Order Confirmed — ${params.orderNumber}`,
+    html,
+  });
+}
+
+/**
+ * Owner alert — a copy of every new order sent to the owner's inbox
+ * (OWNER_NOTIFICATION_EMAIL) so orders are visible without the dashboard.
+ * Skipped silently when the owner email is not configured.
+ */
+export async function sendOwnerOrderAlert(params: {
+  orderNumber: string;
+  total: number;
+  customerName: string;
+  phone: string;
+  customerEmail: string | null;
+  items: Array<{ name: string; quantity: number; price: number }>;
+  fulfillmentType: 'pickup' | 'delivery';
+  pickupDate?: string;
+  pickupLocation?: string;
+  deliveryAddress?: string;
+}): Promise<{ success: boolean }> {
+  const ownerEmail = getOwnerEmail();
+  if (!ownerEmail) return { success: false };
+
+  const itemsHtml = params.items
+    .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
+    .join('');
+
+  const fulfillmentHtml =
+    params.fulfillmentType === 'pickup'
+      ? `<p style="margin: 2px 0;"><strong>Pickup:</strong> ${escapeHtml(params.pickupDate || '')}${params.pickupLocation ? ` — ${escapeHtml(params.pickupLocation)}` : ''}</p>`
+      : `<p style="margin: 2px 0;"><strong>Delivery to:</strong></p><p style="margin: 2px 0; white-space: pre-line; color: #444;">${escapeHtml(params.deliveryAddress || '(no address)')}</p>`;
+
+  const html = baseTemplate(`
+    <h2 style="color: #7B1F1F;">New Order — ${params.orderNumber}</h2>
+    <div style="font-size: 14px; color: #444;">
+      <p style="margin: 2px 0;"><strong>Customer:</strong> ${escapeHtml(params.customerName)}</p>
+      <p style="margin: 2px 0;"><strong>Phone:</strong> ${escapeHtml(params.phone)}</p>
+      ${params.customerEmail ? `<p style="margin: 2px 0;"><strong>Email:</strong> ${escapeHtml(params.customerEmail)}</p>` : ''}
+      ${fulfillmentHtml}
+    </div>
+    <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+      <thead><tr style="border-bottom: 2px solid #eee;">
+        <th style="text-align:left; padding:8px 0;">Item</th>
+        <th style="text-align:center;">Qty</th>
+        <th style="text-align:right;">Price</th>
+      </tr></thead>
+      <tbody>${itemsHtml}</tbody>
+      <tfoot><tr style="border-top: 2px solid #7B1F1F;">
+        <td colspan="2" style="padding:12px 0; font-weight:bold;">Total (paid)</td>
+        <td style="text-align:right; font-weight:bold; color:#7B1F1F;">$${params.total.toFixed(2)}</td>
+      </tr></tfoot>
+    </table>
+  `);
+
+  return sendEmail({
+    to: ownerEmail,
+    subject: `🔔 New order ${params.orderNumber} — $${params.total.toFixed(2)} (${params.fulfillmentType})`,
     html,
   });
 }

@@ -10,7 +10,7 @@
 
 import type { D1Database } from '@cloudflare/workers-types';
 import { generateOrderNumber, newId, parseJson } from '@/lib/db';
-import { isEmailConfigured, sendOrderConfirmation } from '@/lib/email-service';
+import { isEmailConfigured, sendOrderConfirmation, sendOwnerOrderAlert } from '@/lib/email-service';
 import { getPickupLocationById } from '@/data/products';
 
 export interface PaymentSessionRow {
@@ -205,14 +205,45 @@ export async function createOrderFromSession(
     .bind(orderId, squarePaymentId, session.id)
     .run();
 
-  // ── Confirmation email (best-effort) ────────────────────────────────
+  // ── Confirmation + owner-alert emails (best-effort) ─────────────────
+  const pickupLoc =
+    fulfillment.type === 'pickup' && fulfillment.locationId
+      ? getPickupLocationById(fulfillment.locationId)
+      : null;
+  const pickupLocationLabel = pickupLoc
+    ? `${pickupLoc.name} — ${pickupLoc.address}, ${pickupLoc.city}, ${pickupLoc.state} ${pickupLoc.zip}`
+    : undefined;
+  const emailItems = cartItems.map((i) => ({
+    name: i.product?.name || 'Item',
+    quantity: i.quantity,
+    price: i.lineTotal,
+  }));
+
+  // Owner alert fires on EVERY order (even when the customer gave no email).
+  if (isEmailConfigured()) {
+    try {
+      await sendOwnerOrderAlert({
+        orderNumber,
+        total: session.total_amount,
+        customerName: session.customer_name,
+        phone: session.phone_number,
+        customerEmail: session.email,
+        items: emailItems,
+        fulfillmentType: fulfillment.type || 'pickup',
+        pickupDate: fulfillment.date,
+        pickupLocation: pickupLocationLabel,
+        deliveryAddress:
+          fulfillment.type === 'delivery'
+            ? buildDeliveryAddress(fulfillment) ?? undefined
+            : undefined,
+      });
+    } catch (e) {
+      console.error('[order-service] owner alert email failed:', e);
+    }
+  }
+
   if (isEmailConfigured() && session.email) {
     try {
-      const pickupLoc =
-        fulfillment.type === 'pickup' && fulfillment.locationId
-          ? getPickupLocationById(fulfillment.locationId)
-          : null;
-
       await sendOrderConfirmation({
         email: session.email,
         orderNumber,
@@ -220,15 +251,9 @@ export async function createOrderFromSession(
         customerName: session.customer_name,
         phone: session.phone_number,
         total: session.total_amount,
-        items: cartItems.map((i) => ({
-          name: i.product?.name || 'Item',
-          quantity: i.quantity,
-          price: i.lineTotal,
-        })),
+        items: emailItems,
         fulfillmentType: fulfillment.type || 'pickup',
-        pickupLocation: pickupLoc
-          ? `${pickupLoc.name} — ${pickupLoc.address}, ${pickupLoc.city}, ${pickupLoc.state} ${pickupLoc.zip}`
-          : undefined,
+        pickupLocation: pickupLocationLabel,
         deliveryAddress:
           fulfillment.type === 'delivery'
             ? buildDeliveryAddress(fulfillment) ?? undefined
