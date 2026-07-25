@@ -209,33 +209,28 @@ export default function CheckoutPage() {
     );
   }
 
-  // ── Build fulfillment + create a payment session, then go to payment ──
-  const createSessionAndPay = async (fulfillment: PickupDetails | DeliveryDetails) => {
-    setSubmitting(true);
-    setSubmitError('');
-    setFulfillment(fulfillment);
+  // ── Session creation (shared by the checkout flow and 409 recovery) ──
+  const requestSession = async (
+    details: PickupDetails | DeliveryDetails
+  ): Promise<{ sessionId: string } | { error: string }> => {
     try {
       const res = await fetch('/api/payments/create-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items,
-          fulfillment,
-          customerName: fulfillment.customerName,
-          email: fulfillment.email,
-          phone: fulfillment.phone,
+          fulfillment: details,
+          customerName: details.customerName,
+          email: details.email,
+          phone: details.phone,
           tax: 0,
           total: subtotal, // reference only — server recomputes authoritatively
         }),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        setSubmitError(err.error || 'We could not start checkout. Please try again.');
-        setSubmitting(false);
-        return;
+        return { error: err.error || 'We could not start checkout. Please try again.' };
       }
-
       const data = await res.json();
       setSessionInfo({
         sessionId: data.sessionId,
@@ -243,12 +238,24 @@ export default function CheckoutPage() {
         appId: data.squareEnabled ? data.squareAppId : null,
         locationId: data.squareEnabled ? data.squareLocationId : null,
       });
-      setStep('payment');
+      return { sessionId: data.sessionId };
     } catch {
-      setSubmitError('We could not start checkout. Please check your connection and try again.');
-    } finally {
-      setSubmitting(false);
+      return { error: 'We could not start checkout. Please check your connection and try again.' };
     }
+  };
+
+  // ── Build fulfillment + create a payment session, then go to payment ──
+  const createSessionAndPay = async (fulfillment: PickupDetails | DeliveryDetails) => {
+    setSubmitting(true);
+    setSubmitError('');
+    setFulfillment(fulfillment);
+    const result = await requestSession(fulfillment);
+    if ('error' in result) {
+      setSubmitError(result.error);
+    } else {
+      setStep('payment');
+    }
+    setSubmitting(false);
   };
 
   const proceedPickup = () =>
@@ -281,11 +288,25 @@ export default function CheckoutPage() {
     setPaying(true);
     setPaymentError('');
     try {
-      const res = await fetch('/api/payments/create-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sessionInfo.sessionId, sourceId: token }),
-      });
+      const charge = (sessionId: string) =>
+        fetch('/api/payments/create-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, sourceId: token }),
+        });
+
+      let res = await charge(sessionInfo.sessionId);
+
+      // A 409 means the session was invalidated (e.g. by an earlier declined
+      // attempt). Mint a fresh session from the saved fulfillment details and
+      // retry once — the token is unused at this point, so it is still valid.
+      if (res.status === 409 && fulfillment) {
+        const recovered = await requestSession(fulfillment);
+        if ('sessionId' in recovered) {
+          res = await charge(recovered.sessionId);
+        }
+      }
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         setPaymentError(data.error || 'Your payment could not be processed. Please try again.');
