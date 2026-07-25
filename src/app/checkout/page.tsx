@@ -323,12 +323,43 @@ export default function CheckoutPage() {
     }
   };
 
+  // Buyer-verification (3DS/SCA) details for tokenization. When the card
+  // network demands verification (Amex SafeKey, Visa Secure, ...), the SDK
+  // can only run the challenge if these are supplied — omitting them gets
+  // such payments declined by Square risk as GENERIC_DECLINE.
+  const buildVerificationDetails = (): SquareVerificationDetails | undefined => {
+    if (!sessionInfo || !fulfillment) return undefined;
+    const [givenName, ...restName] = fulfillment.customerName.trim().split(/\s+/);
+    return {
+      amount: sessionInfo.total.toFixed(2),
+      currencyCode: 'USD',
+      intent: 'CHARGE',
+      customerInitiated: true,
+      sellerKeyedIn: false,
+      billingContact: {
+        givenName: givenName || undefined,
+        familyName: restName.join(' ') || undefined,
+        email: fulfillment.email || undefined,
+        phone: fulfillment.phone || undefined,
+        countryCode: 'US',
+        ...(fulfillment.type === 'delivery'
+          ? {
+              addressLines: [fulfillment.addressLine1, fulfillment.addressLine2].filter(Boolean),
+              city: fulfillment.city,
+              state: fulfillment.state,
+              postalCode: fulfillment.zip,
+            }
+          : {}),
+      },
+    };
+  };
+
   const handleCardPay = async () => {
     if (!squareCardRef.current) return;
     setPaying(true);
     setPaymentError('');
     try {
-      const result = await squareCardRef.current.tokenize();
+      const result = await squareCardRef.current.tokenize(buildVerificationDetails());
       if (result.status !== 'OK' || !result.token) {
         setPaymentError(result.errors?.[0]?.message || 'Please check your card details.');
         setPaying(false);
