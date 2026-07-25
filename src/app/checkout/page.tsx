@@ -32,7 +32,7 @@ const STEP_LABELS: { key: Step | 'done'; label: string }[] = [
 
 export default function CheckoutPage() {
   const [mounted, setMounted] = useState(false);
-  const { items, getSubtotal, getTotalPieces, isLargeOrder, setFulfillment, clearCart, removeItem } =
+  const { items, getSubtotal, getTotalPieces, isLargeOrder, fulfillment, setFulfillment, clearCart, removeItem } =
     useCartStore();
 
   const [step, setStep] = useState<Step>('cart');
