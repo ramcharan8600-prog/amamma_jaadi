@@ -87,8 +87,12 @@ export async function POST(request: NextRequest) {
         .first<Record<string, unknown>>();
 
       if (!raw) {
-        console.error('[webhook] No payment session found for:', squarePaymentId, referenceId);
-        return fail('Session not found', 404);
+        // No matching checkout session — this payment came from another
+        // channel on the same Square account (e.g. the Square Terminal POS
+        // at retail locations), not from the website. Acknowledge with 200
+        // so Square does not retry (persistent non-2xx responses get the
+        // webhook endpoint auto-disabled); there is nothing to record.
+        return ok({ received: true, ignored: 'no matching website session' });
       }
 
       // createOrderFromSession is idempotent (3-layer dedup on the payment id)
