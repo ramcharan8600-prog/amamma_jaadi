@@ -167,7 +167,7 @@ export async function sendOrderConfirmation(params: {
 
   const html = baseTemplate(`
     <h2 style="color: #1B4332;">Order Confirmed!</h2>
-    <p>Hi ${escapeHtml(params.customerName) || 'there'}, thank you for your order. Here are the details:</p>
+    <p>Hi ${escapeHtml(params.customerName) || 'there'},<br />Thank you for your order. Here are the order details:</p>
     <p style="background: #FFF8F0; padding: 12px; border-radius: 8px; font-size: 18px; text-align: center;">
       Order <strong style="color: #7B1F1F;">${params.orderNumber}</strong>
     </p>
@@ -199,6 +199,7 @@ export async function sendOrderConfirmation(params: {
     </table>
     ${fulfillmentHtml}
     <p style="color: #666;">Questions? WhatsApp us at ${PHONE_NUMBER}.</p>
+    <p style="color: #666; margin-top: 16px;">Thanks,<br />Team ${BRAND_NAME}</p>
     <p style="color: #bbb; font-size: 11px; margin-top: 24px;">Payment reference: ${params.squarePaymentId}</p>
   `);
 
