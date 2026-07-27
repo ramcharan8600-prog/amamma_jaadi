@@ -18,6 +18,7 @@ import {
 import { useCartStore } from '@/store/cart';
 import { PICKUP_LOCATIONS, getPickupLocationById } from '@/data/products';
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
+import { calculateOrderTotals, SALES_TAX_LABEL } from '@/lib/pricing';
 import type { FulfillmentType, PickupDetails, DeliveryDetails } from '@/types';
 
 type Step = 'cart' | 'method' | 'details' | 'payment';
@@ -52,7 +53,7 @@ export default function CheckoutPage() {
   const [deliveryAddressLine1, setDeliveryAddressLine1] = useState('');
   const [deliveryAddressLine2, setDeliveryAddressLine2] = useState('');
   const [deliveryCity, setDeliveryCity] = useState('');
-  const [deliveryState, setDeliveryState] = useState('TX');
+  const [deliveryState, setDeliveryState] = useState('');
   const [deliveryCountry] = useState('USA');
   const [deliveryZip, setDeliveryZip] = useState('');
 
@@ -64,9 +65,12 @@ export default function CheckoutPage() {
   // Square payment state
   const [sessionInfo, setSessionInfo] = useState<{
     sessionId: string;
+    subtotal: number;
+    tax: number;
     total: number;
     appId: string | null;
     locationId: string | null;
+    environment: 'sandbox' | 'production';
   } | null>(null);
   const [cardReady, setCardReady] = useState(false);
   const [applePayReady, setApplePayReady] = useState(false);
@@ -82,8 +86,9 @@ export default function CheckoutPage() {
     if (step !== 'payment' || !sessionInfo?.appId || !sessionInfo?.locationId) return;
     let cancelled = false;
 
-    const env =
-      process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT === 'production' ? 'production' : 'sandbox';
+    // Which SDK to load comes from the session (runtime Cloudflare env), not a
+    // build-time NEXT_PUBLIC_* value.
+    const env = sessionInfo.environment === 'production' ? 'production' : 'sandbox';
     const sdkUrl =
       env === 'production'
         ? 'https://web.squarecdn.com/v1/square.js'
@@ -156,6 +161,9 @@ export default function CheckoutPage() {
   }, [step, sessionInfo]);
 
   const subtotal = useMemo(() => (mounted ? getSubtotal() : 0), [mounted, getSubtotal]);
+  // Same helper the server uses in create-session — displayed total always
+  // matches the amount charged.
+  const totals = useMemo(() => calculateOrderTotals(subtotal), [subtotal]);
   const totalPieces = useMemo(() => (mounted ? getTotalPieces() : 0), [mounted, getTotalPieces]);
   const largeOrder = useMemo(() => (mounted ? isLargeOrder() : false), [mounted, isLargeOrder]);
   const minPickupDate = useMemo(() => getMinPickupDate(totalPieces), [totalPieces]);
@@ -234,9 +242,12 @@ export default function CheckoutPage() {
       const data = await res.json();
       setSessionInfo({
         sessionId: data.sessionId,
+        subtotal: Number(data.subtotal ?? 0),
+        tax: Number(data.tax ?? 0),
         total: data.totalAmount,
         appId: data.squareEnabled ? data.squareAppId : null,
         locationId: data.squareEnabled ? data.squareLocationId : null,
+        environment: data.squareEnvironment === 'production' ? 'production' : 'sandbox',
       });
       return { sessionId: data.sessionId };
     } catch {
@@ -486,9 +497,19 @@ export default function CheckoutPage() {
                 </div>
               </div>
             ))}
-            <div className="border-t border-brand-cream-dark pt-3 flex justify-between font-display text-base font-bold">
-              <span>Subtotal</span>
-              <span className="text-brand-maroon">{formatCurrency(subtotal)}</span>
+            <div className="border-t border-brand-cream-dark pt-3 space-y-1.5">
+              <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                <span>Subtotal</span>
+                <span>{formatCurrency(totals.subtotal)}</span>
+              </div>
+              <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                <span>{SALES_TAX_LABEL}</span>
+                <span>{formatCurrency(totals.tax)}</span>
+              </div>
+              <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
+                <span>Total</span>
+                <span className="text-brand-maroon">{formatCurrency(totals.total)}</span>
+              </div>
             </div>
           </div>
 
@@ -769,7 +790,6 @@ export default function CheckoutPage() {
                 value={deliveryState}
                 onChange={(e) => setDeliveryState(e.target.value)}
                 className="input-field"
-                placeholder="TX"
                 maxLength={2}
               />
             </div>
@@ -780,7 +800,6 @@ export default function CheckoutPage() {
                 value={deliveryZip}
                 onChange={(e) => setDeliveryZip(e.target.value)}
                 className="input-field"
-                placeholder="75074"
               />
             </div>
           </div>
@@ -839,11 +858,21 @@ export default function CheckoutPage() {
             <p className="font-body text-sm text-brand-charcoal/60">Payment method</p>
           </div>
 
-          <div className="card p-4 flex justify-between items-center">
-            <span className="font-body text-sm text-brand-charcoal/60">Amount due</span>
-            <span className="font-display text-xl font-bold text-brand-maroon">
-              {formatCurrency(sessionInfo.total)}
-            </span>
+          <div className="card p-4 space-y-1.5">
+            <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
+              <span>Subtotal</span>
+              <span>{formatCurrency(sessionInfo.subtotal)}</span>
+            </div>
+            <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
+              <span>{SALES_TAX_LABEL}</span>
+              <span>{formatCurrency(sessionInfo.tax)}</span>
+            </div>
+            <div className="flex justify-between items-center pt-1.5 border-t border-brand-cream-dark">
+              <span className="font-body text-sm text-brand-charcoal/60">Amount due</span>
+              <span className="font-display text-xl font-bold text-brand-maroon">
+                {formatCurrency(sessionInfo.total)}
+              </span>
+            </div>
           </div>
 
           {sessionInfo.appId && sessionInfo.locationId ? (

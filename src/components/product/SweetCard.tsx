@@ -21,7 +21,10 @@ export default function SweetCard({ product }: SweetCardProps) {
 
   const currentPrice = calculateSweetPrice(product.unitPrice, selectedTier);
 
+  const soldOut = !product.inStock;
+
   const handleAdd = () => {
+    if (soldOut) return;
     addItem(product, 1, selectedTier);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
@@ -40,6 +43,13 @@ export default function SweetCard({ product }: SweetCardProps) {
         <span className="absolute top-3 right-3 bg-brand-gold text-white text-xs font-medium px-2.5 py-1 rounded-full">
           {formatCurrency(product.unitPrice)}/pc
         </span>
+        {soldOut && (
+          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+            <span className="bg-brand-charcoal text-white text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wide">
+              Out of Stock
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="p-5 space-y-4">
@@ -80,9 +90,9 @@ export default function SweetCard({ product }: SweetCardProps) {
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
-          <button onClick={handleAdd} className="btn-primary w-full gap-2">
+          <button onClick={handleAdd} disabled={soldOut} className="btn-primary w-full gap-2">
             <ShoppingBag size={16} />
-            {added ? 'Added!' : 'Add to Cart'}
+            {soldOut ? 'Out of Stock' : added ? 'Added!' : 'Add to Cart'}
           </button>
           <div className="grid grid-cols-2 gap-2">
             <Link href="/checkout" className="btn-secondary text-center text-xs py-2">

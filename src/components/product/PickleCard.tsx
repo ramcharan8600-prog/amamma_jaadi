@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Minus, Plus } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
+import { useStock } from '@/hooks/useStock';
 import { formatCurrency } from '@/lib/utils';
 
 interface PickleCardProps {
@@ -17,8 +18,15 @@ export default function PickleCard({ product }: PickleCardProps) {
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
 
+  // `count === null` = untracked product (no stock limit).
+  const { count, loaded } = useStock(product.id);
+  const soldOut = !product.inStock || (loaded && count !== null && count <= 0);
+  const maxQty = count === null ? Infinity : count;
+  const lowStock = !soldOut && count !== null && count > 0 && count <= 5;
+
   const handleAdd = () => {
-    addItem(product, quantity);
+    if (soldOut) return;
+    addItem(product, Math.min(quantity, maxQty === Infinity ? quantity : maxQty));
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   };
@@ -37,6 +45,13 @@ export default function PickleCard({ product }: PickleCardProps) {
           <span className="absolute top-3 left-3 bg-brand-maroon/90 text-white text-xs font-medium px-2.5 py-1 rounded-full">
             {product.sizeLabel}
           </span>
+        )}
+        {soldOut && (
+          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+            <span className="bg-brand-charcoal text-white text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wide">
+              Out of Stock
+            </span>
+          </div>
         )}
       </div>
 
@@ -69,20 +84,26 @@ export default function PickleCard({ product }: PickleCardProps) {
               {quantity}
             </span>
             <button
-              onClick={() => setQuantity((q) => q + 1)}
-              className="p-2 hover:bg-brand-cream transition-colors"
+              onClick={() => setQuantity((q) => (q + 1 > maxQty ? q : q + 1))}
+              disabled={soldOut || quantity >= maxQty}
+              className="p-2 hover:bg-brand-cream transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Increase"
             >
               <Plus size={14} />
             </button>
           </div>
+          {lowStock && (
+            <span className="font-body text-xs font-medium text-amber-600">
+              Only {count} left
+            </span>
+          )}
         </div>
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
-          <button onClick={handleAdd} className="btn-primary w-full gap-2">
+          <button onClick={handleAdd} disabled={soldOut} className="btn-primary w-full gap-2">
             <ShoppingBag size={16} />
-            {added ? 'Added!' : 'Add to Cart'}
+            {soldOut ? 'Out of Stock' : added ? 'Added!' : 'Add to Cart'}
           </button>
           <div className="grid grid-cols-2 gap-2">
             <Link href="/checkout" className="btn-secondary text-center text-xs py-2">

@@ -65,6 +65,22 @@ CREATE TABLE IF NOT EXISTS event_orders (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Stock counts for tracked products (pickles). IMPORTANT: a product with NO row
+-- here is treated as UNTRACKED / always available, so adding this table can
+-- never make an existing product silently disappear from the storefront.
+CREATE TABLE IF NOT EXISTS inventory (
+  product_id TEXT PRIMARY KEY,
+  stock_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Seed the three pickles. `OR IGNORE` keeps existing counts on re-apply.
+-- Starting value is a placeholder — set real counts in the admin dashboard.
+INSERT OR IGNORE INTO inventory (product_id, stock_count) VALUES
+  ('pickle-chicken', 20),
+  ('pickle-mutton', 20),
+  ('pickle-prawns', 20);
+
 -- Atomic order-number counter (replaces the Postgres sequence).
 CREATE TABLE IF NOT EXISTS counters (
   name TEXT PRIMARY KEY,
@@ -79,3 +95,15 @@ CREATE INDEX IF NOT EXISTS idx_orders_square_payment ON orders(square_payment_id
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_square ON payment_sessions(square_payment_id);
 CREATE INDEX IF NOT EXISTS idx_events_date ON event_orders(event_date);
+
+-- Keep orders.updated_at current on every row change (refunds, status updates).
+-- The WHEN guard skips rows where updated_at was already set by the statement;
+-- SQLite also runs triggers non-recursively by default, so the inner UPDATE
+-- here never re-fires this trigger.
+CREATE TRIGGER IF NOT EXISTS trg_orders_updated_at
+AFTER UPDATE ON orders
+FOR EACH ROW
+WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+  UPDATE orders SET updated_at = datetime('now') WHERE id = NEW.id;
+END;

@@ -7,7 +7,7 @@
  *
  * Prices here are authoritative — create-session recomputes every total from them.
  */
-import { Product, PickupLocation } from '@/types';
+import { Product, PickupLocation, ProductCategory } from '@/types';
 
 // ============================================================
 // Product Catalog — Amamma Jaadi
@@ -154,6 +154,13 @@ export const PRODUCTS: Product[] = [
     tags: ['gifting', 'events', 'party', 'corporate'],
   },
 ];
+
+/**
+ * The one product category with counted stock. Pickles are jarred in batches,
+ * so they can genuinely run out; sweets and gift boxes are made fresh to order
+ * and are always available. See lib/inventory.ts.
+ */
+export const TRACKED_CATEGORY: ProductCategory = 'pickles';
 
 // ── Pickup Locations ────────────────────────────────────────
 export const PICKUP_LOCATIONS: PickupLocation[] = [

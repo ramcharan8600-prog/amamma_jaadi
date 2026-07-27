@@ -17,7 +17,10 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
 
+  const soldOut = !product.inStock;
+
   const handleAdd = () => {
+    if (soldOut) return;
     addItem(product, quantity);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
@@ -38,6 +41,13 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
           <Gift size={14} />
           Gift Box
         </span>
+        {soldOut && (
+          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+            <span className="bg-brand-charcoal text-white text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wide">
+              Out of Stock
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="p-6 space-y-4">
@@ -76,9 +86,9 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
         </div>
 
         <div className="flex flex-col gap-2">
-          <button onClick={handleAdd} className="btn-gold w-full gap-2">
+          <button onClick={handleAdd} disabled={soldOut} className="btn-gold w-full gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
             <ShoppingBag size={16} />
-            {added ? 'Added!' : 'Add to Cart'}
+            {soldOut ? 'Out of Stock' : added ? 'Added!' : 'Add to Cart'}
           </button>
           <div className="grid grid-cols-2 gap-2">
             <Link href="/checkout" className="btn-secondary text-center text-xs py-2">

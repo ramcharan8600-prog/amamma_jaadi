@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import InventoryPanel from '@/components/admin/InventoryPanel';
 import type { OrderRecord } from '@/types';
 
 interface ProductionItem {
@@ -138,6 +139,9 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {/* Inventory */}
+      <InventoryPanel />
+
       {/* Production Requirements */}
       {production.length > 0 && (
         <div className="card p-6 mb-8">
@@ -244,11 +248,32 @@ export default function AdminDashboardPage() {
                       <br />
                       <span className="text-brand-charcoal/40">{order.phone_number || ''}</span>
                     </td>
-                    <td className="py-3 px-2 font-body text-xs max-w-[140px] text-brand-charcoal/60">
-                      —
+                    <td className="py-3 px-2 font-body text-xs max-w-[180px] text-brand-charcoal/70">
+                      {order.order_items && order.order_items.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {order.order_items.map((it, idx) => (
+                            <div key={idx}>
+                              {it.product_name}
+                              {it.selected_tier ? (
+                                <span className="text-brand-charcoal/40"> ({it.selected_tier} pcs)</span>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="py-3 px-2 font-body text-xs text-brand-charcoal/60">
-                      —
+                      {order.order_items && order.order_items.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {order.order_items.map((it, idx) => (
+                            <div key={idx}>× {it.quantity}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="py-3 px-2">
                       <span
