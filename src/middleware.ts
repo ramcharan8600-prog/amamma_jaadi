@@ -60,6 +60,53 @@ async function verifyToken(token: string): Promise<boolean> {
   }
 }
 
+/**
+ * Content-Security-Policy for the storefront + admin.
+ *
+ * `'unsafe-inline'` is required for `script-src` because the Next.js App Router
+ * injects inline bootstrap/hydration scripts; tightening this to a per-request
+ * nonce is a worthwhile future step. The Square Web Payments SDK is allowed
+ * explicitly — it loads `square.js`, mounts the card fields inside an iframe,
+ * and posts the card token to `pci-connect.*`, so `script-src` / `frame-src` /
+ * `connect-src` must include Square's origins. Both production and sandbox
+ * hosts are listed so the same policy works in either environment.
+ *
+ * ⚠️  A wrong directive here silently breaks the LIVE card form. Verify checkout
+ *     on a preview deploy before promoting any change to this policy. To debug
+ *     without blocking, temporarily send this value as the
+ *     `Content-Security-Policy-Report-Only` header instead.
+ */
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com",
+  "script-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://js.squareup.com",
+  "frame-src https://web.squarecdn.com https://sandbox.web.squarecdn.com https://connect.squareup.com https://connect.squareupsandbox.com",
+  "connect-src 'self' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://pci-connect.squareup.com https://pci-connect.squareupsandbox.com https://connect.squareup.com https://connect.squareupsandbox.com",
+  'upgrade-insecure-requests',
+].join('; ');
+
+/** Apply hardening headers to every response (redirects included). */
+function withSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+  // CSP + HSTS only in production: local `next dev` serves over plain http and
+  // uses inline eval for HMR, so enforcing these would only add dev-console noise.
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('Content-Security-Policy', CSP);
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -67,18 +114,13 @@ export async function middleware(request: NextRequest) {
     const session = request.cookies.get(SESSION_COOKIE);
 
     if (!session?.value || !(await verifyToken(session.value))) {
-      const response = NextResponse.redirect(new URL('/admin/login', request.url));
-      response.cookies.delete(SESSION_COOKIE);
-      return response;
+      const redirect = NextResponse.redirect(new URL('/admin/login', request.url));
+      redirect.cookies.delete(SESSION_COOKIE);
+      return withSecurityHeaders(redirect);
     }
   }
 
-  // Security headers for all routes
-  const response = NextResponse.next();
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  return response;
+  return withSecurityHeaders(NextResponse.next());
 }
 
 export const config = {

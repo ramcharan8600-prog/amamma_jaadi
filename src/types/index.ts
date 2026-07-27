@@ -91,8 +91,9 @@ export interface Order {
 }
 
 /**
- * Database row shapes (snake_case) — match the Supabase `orders` / `order_items`
- * tables exactly. These are the canonical shapes that admin/analytics consume,
+ * Database row shapes (snake_case) — match the Cloudflare D1 `orders` /
+ * `order_items` tables (see src/lib/d1-schema.sql). These are the canonical
+ * shapes that admin/analytics consume,
  * unlike the camelCase `Order` domain type above (used for the cart/checkout flow).
  */
 export interface OrderItemRecord {
