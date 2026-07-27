@@ -70,6 +70,24 @@ export async function POST(request: NextRequest) {
       return fail('Invalid order amount', 400);
     }
 
+    // ── Build payment note with item details ─────────────────────────────
+    let note = 'amammajaadi.com — online order';
+    try {
+      const cartData = typeof session.cart_data === 'string'
+        ? JSON.parse(session.cart_data)
+        : session.cart_data;
+      if (Array.isArray(cartData) && cartData.length > 0) {
+        const items = cartData
+          .map((item: { name?: string; product?: { name?: string }; quantity?: number }) =>
+            `${item.product?.name || item.name || 'Item'}${(item.quantity ?? 1) > 1 ? ` x${item.quantity}` : ''}`)
+          .join(', ');
+        const detailed = `amammajaadi.com — ${items}`;
+        note = detailed.length <= 500 ? detailed : detailed.slice(0, 497) + '...';
+      }
+    } catch {
+      // cart_data parse failed — fall back to generic note
+    }
+
     // ── Charge the card via Square ──────────────────────────────────────
     let payment: { paymentId: string; status: string };
     try {
@@ -80,6 +98,7 @@ export async function POST(request: NextRequest) {
         idempotencyKey: (session.idempotency_key as string) || sessionId,
         customerEmail: (session.email as string) || undefined,
         verificationToken,
+        note,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Payment failed';

@@ -17,6 +17,8 @@
  * 5. Webhooks handle async payment updates
  */
 
+import { getCloudflareContext } from '@opennextjs/cloudflare';
+
 interface SquareConfig {
   accessToken: string;
   environment: 'sandbox' | 'production';
@@ -24,18 +26,66 @@ interface SquareConfig {
   appId: string;
 }
 
+/**
+ * Square config from the Worker env, read at REQUEST time — NOT build time.
+ *
+ * `NEXT_PUBLIC_*` values are normally inlined into the bundle by Next.js at
+ * build time, which freezes whatever the build machine's env held (e.g. sandbox
+ * values from `.env.local`). Reading them here via the Cloudflare context
+ * instead means the deployed values flow live from the Cloudflare dashboard
+ * variables — change the location/app id there and it takes effect on the next
+ * request, no rebuild or redeploy.
+ */
+function getEnv(): Record<string, string | undefined> {
+  // Merge Node's process.env (OpenNext populates it with the Worker's vars +
+  // secrets at runtime) with the Cloudflare binding env, so a value is found
+  // whichever source carries it. Neither holds the build-inlined `NEXT_PUBLIC_*`
+  // literal — that only exists at static `process.env.NEXT_PUBLIC_X` sites, which
+  // this file no longer has — so these reads return the true runtime values.
+  let cf: Record<string, string | undefined> = {};
+  try {
+    cf = getCloudflareContext().env as unknown as Record<string, string | undefined>;
+  } catch {
+    // Not in a request scope (e.g. during build) — fall back to process.env only.
+  }
+  return { ...(process.env as Record<string, string | undefined>), ...cf };
+}
+
 function getConfig(): SquareConfig {
+  const env = getEnv();
   return {
-    accessToken: process.env.SQUARE_ACCESS_TOKEN || '',
-    environment: (process.env.SQUARE_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
-    locationId: process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '',
-    appId: process.env.NEXT_PUBLIC_SQUARE_APP_ID || '',
+    accessToken: env.SQUARE_ACCESS_TOKEN || '',
+    environment: (env.SQUARE_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
+    locationId: env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '',
+    appId: env.NEXT_PUBLIC_SQUARE_APP_ID || '',
   };
 }
 
 export function isSquareEnabled(): boolean {
   const config = getConfig();
   return !!(config.accessToken && config.locationId);
+}
+
+/**
+ * Public (client-safe) Square values for the Web Payments SDK — application id,
+ * location id, and which SDK to load (sandbox vs production). Returned by
+ * create-session and consumed by the checkout page, so the browser never relies
+ * on a build-time `NEXT_PUBLIC_*` value being baked in.
+ */
+export function getSquarePublicConfig(): {
+  appId: string;
+  locationId: string;
+  environment: 'sandbox' | 'production';
+} {
+  const env = getEnv();
+  return {
+    appId: env.NEXT_PUBLIC_SQUARE_APP_ID || '',
+    locationId: env.NEXT_PUBLIC_SQUARE_LOCATION_ID || '',
+    environment:
+      (env.NEXT_PUBLIC_SQUARE_ENVIRONMENT as 'sandbox' | 'production') ||
+      (env.SQUARE_ENVIRONMENT as 'sandbox' | 'production') ||
+      'sandbox',
+  };
 }
 
 /**
@@ -50,6 +100,7 @@ export async function createPayment(params: {
   idempotencyKey: string; // caller-provided for safe retries
   customerEmail?: string;
   verificationToken?: string; // SCA / 3DS buyer verification (from frontend SDK)
+  note?: string;
 }): Promise<{ paymentId: string; status: string }> {
   const config = getConfig();
   if (!isSquareEnabled()) {
@@ -76,7 +127,7 @@ export async function createPayment(params: {
       },
       location_id: config.locationId,
       reference_id: params.orderId,
-      note: 'amammajaadi.com — online order',
+      note: params.note || 'amammajaadi.com — online order',
       buyer_email_address: params.customerEmail,
       verification_token: params.verificationToken,
       autocomplete: true,
@@ -134,19 +185,6 @@ export async function verifyPayment(paymentId: string): Promise<{
   };
 }
 
-/**
- * Calculate tax using Square Orders API.
- * Delegates tax calculation to Square for accuracy.
- */
-export async function calculateTax(params: {
-  lineItems: Array<{ name: string; amount: number; quantity: number }>;
-}): Promise<{ tax: number; total: number }> {
-  // Future: Use Square Orders API for tax calculation
-  // For now, return estimated 8.25% Texas sales tax
-  const subtotal = params.lineItems.reduce(
-    (sum, item) => sum + item.amount * item.quantity,
-    0
-  );
-  const tax = Math.round(subtotal * 0.0825);
-  return { tax, total: subtotal + tax };
-}
+// NOTE: sales tax is NOT calculated here. All order money math lives in
+// `src/lib/pricing.ts` (single source of truth, shared by the checkout UI and
+// create-session) so the displayed total and the charged total cannot drift.

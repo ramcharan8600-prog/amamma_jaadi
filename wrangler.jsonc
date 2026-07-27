@@ -15,6 +15,12 @@
   "keep_vars": true,
   "vars": {
     "SQUARE_ENVIRONMENT": "production",
+    // Square public (non-secret) config — client Web Payments SDK reads these
+    // from the runtime Worker env (see src/lib/square.ts). Kept here in config
+    // (not only the dashboard) so every deploy carries them reliably.
+    "NEXT_PUBLIC_SQUARE_ENVIRONMENT": "production",
+    "NEXT_PUBLIC_SQUARE_APP_ID": "sq0idp-nQcHJJ0deLrkQXFT7rPuCw",
+    "NEXT_PUBLIC_SQUARE_LOCATION_ID": "L91NP356QX30A",
     "SQUARE_WEBHOOK_URL": "https://amammajaadi.com/api/payments/webhook",
     "OWNER_NOTIFICATION_EMAIL": "ramcharan8600@gmail.com,amammajaadi@gmail.com",
     "FROM_EMAIL": "orders@amammajaadi.com"
