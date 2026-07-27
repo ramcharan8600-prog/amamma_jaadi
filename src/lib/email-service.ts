@@ -13,6 +13,8 @@
  */
 
 import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/constants';
+import { formatPickupDate } from '@/lib/date';
+import { SALES_TAX_LABEL } from '@/lib/pricing';
 
 // Read at REQUEST time — on Cloudflare/OpenNext runtime secrets aren't populated
 // at module load, so a module-scope read would be empty even when set.
@@ -130,8 +132,14 @@ export async function sendOrderConfirmation(params: {
   customerName: string;
   phone: string;
   total: number;
+  /** Pre-tax subtotal — omit to hide the breakdown (older callers). */
+  subtotal?: number;
+  /** Sales tax charged on this order. */
+  tax?: number;
   items: Array<{ name: string; quantity: number; price: number }>;
   fulfillmentType: 'pickup' | 'delivery';
+  /** Pickup date (YYYY-MM-DD) — shown for pickup orders. */
+  pickupDate?: string;
   /** Pickup location (name + address) — shown for pickup orders. */
   pickupLocation?: string;
   /** Delivery address — shown for delivery orders. */
@@ -146,6 +154,7 @@ export async function sendOrderConfirmation(params: {
       ? `
     <div style="background: #FFF8F0; padding: 14px 16px; border-radius: 8px; margin: 16px 0;">
       <p style="margin: 0 0 6px; font-weight: bold; color: #7B1F1F;">Pickup</p>
+      ${params.pickupDate ? `<p style="margin: 0 0 6px; color: #2D2926; font-size: 16px;"><strong>Date:</strong> <strong style="color: #7B1F1F;">${escapeHtml(formatPickupDate(params.pickupDate))}</strong></p>` : ''}
       ${params.pickupLocation ? `<p style="margin: 0 0 6px; color: #444;">${escapeHtml(params.pickupLocation)}</p>` : ''}
       <p style="margin: 0; color: #666;">You can pick up your order between <strong>6:30 PM and 1:30 AM</strong> at the selected location.</p>
     </div>`
@@ -173,10 +182,20 @@ export async function sendOrderConfirmation(params: {
         <th style="text-align:right;">Price</th>
       </tr></thead>
       <tbody>${itemsHtml}</tbody>
-      <tfoot><tr style="border-top: 2px solid #7B1F1F;">
-        <td colspan="2" style="padding:12px 0; font-weight:bold;">Total</td>
-        <td style="text-align:right; font-weight:bold; color:#7B1F1F;">$${params.total.toFixed(2)}</td>
-      </tr></tfoot>
+      <tfoot>
+        ${
+          params.tax != null && params.subtotal != null
+            ? `<tr><td colspan="2" style="padding:10px 0 2px; color:#666;">Subtotal</td>
+               <td style="text-align:right; padding:10px 0 2px; color:#666;">$${Number(params.subtotal).toFixed(2)}</td></tr>
+               <tr><td colspan="2" style="padding:2px 0 10px; color:#666;">${SALES_TAX_LABEL}</td>
+               <td style="text-align:right; padding:2px 0 10px; color:#666;">$${Number(params.tax).toFixed(2)}</td></tr>`
+            : ''
+        }
+        <tr style="border-top: 2px solid #7B1F1F;">
+          <td colspan="2" style="padding:12px 0; font-weight:bold;">Total</td>
+          <td style="text-align:right; font-weight:bold; color:#7B1F1F;">$${params.total.toFixed(2)}</td>
+        </tr>
+      </tfoot>
     </table>
     ${fulfillmentHtml}
     <p style="color: #666;">Questions? WhatsApp us at ${PHONE_NUMBER}.</p>
@@ -219,7 +238,7 @@ export async function sendOwnerOrderAlert(params: {
 
   const fulfillmentHtml =
     params.fulfillmentType === 'pickup'
-      ? `<p style="margin: 2px 0;"><strong>Pickup:</strong> ${escapeHtml(params.pickupDate || '')}${params.pickupLocation ? ` — ${escapeHtml(params.pickupLocation)}` : ''}</p>`
+      ? `<p style="margin: 2px 0;"><strong>Pickup:</strong> ${escapeHtml(params.pickupDate ? formatPickupDate(params.pickupDate) : '')}${params.pickupLocation ? ` — ${escapeHtml(params.pickupLocation)}` : ''}</p>`
       : `<p style="margin: 2px 0;"><strong>Delivery to:</strong></p><p style="margin: 2px 0; white-space: pre-line; color: #444;">${escapeHtml(params.deliveryAddress || '(no address)')}</p>`;
 
   const html = baseTemplate(`

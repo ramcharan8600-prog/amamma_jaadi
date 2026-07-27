@@ -12,6 +12,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { generateOrderNumber, newId, parseJson } from '@/lib/db';
 import { isEmailConfigured, sendOrderConfirmation, sendOwnerOrderAlert } from '@/lib/email-service';
 import { getPickupLocationById } from '@/data/products';
+import { decrementStockForOrder } from '@/lib/inventory';
 
 export interface PaymentSessionRow {
   id: string;
@@ -38,6 +39,7 @@ interface FulfillmentData {
 }
 
 interface CartLine {
+  productId?: string;
   product?: { name?: string };
   quantity: number;
   selectedTier?: number | null;
@@ -199,6 +201,12 @@ export async function createOrderFromSession(
     }
   }
 
+  // ── Stock decrement (tracked products only) ─────────────────────────
+  // Runs only on a genuine first creation — the idempotency layers above
+  // return early for duplicate webhooks, so stock is never double-counted.
+  // Never throws: the customer has already paid.
+  await decrementStockForOrder(db, cartItems, orderNumber);
+
   // ── Link session → order ────────────────────────────────────────────
   await db
     .prepare("UPDATE payment_sessions SET payment_status = 'completed', order_id = ?, square_payment_id = ? WHERE id = ?")
@@ -253,8 +261,12 @@ export async function createOrderFromSession(
         customerName: session.customer_name,
         phone: session.phone_number,
         total: session.total_amount,
+        // Subtotal is derived, not stored — total already includes the tax.
+        subtotal: Math.round((session.total_amount - (session.tax || 0)) * 100) / 100,
+        tax: session.tax || 0,
         items: emailItems,
         fulfillmentType: fulfillment.type || 'pickup',
+        pickupDate: fulfillment.date,
         pickupLocation: pickupLocationLabel,
         deliveryAddress:
           fulfillment.type === 'delivery'
