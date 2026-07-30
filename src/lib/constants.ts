@@ -13,7 +13,18 @@ export const INSTAGRAM_HANDLE = 'AMAMMA_JAADI';
 // wa.me requires international format with no '+' or punctuation (e.g. US: 1 + 10 digits).
 // Falls back to the business line so the link works even without the env var set.
 export const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '15105745578';
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://amammajaadi.com';
+/**
+ * Canonical public site origin. Deliberately a CONSTANT, not an env var.
+ *
+ * This is used for absolute URLs that leave the site — the logo in transactional
+ * emails and the SEO/JSON-LD metadata — where the production domain is the only
+ * correct value. It used to read `NEXT_PUBLIC_SITE_URL`, which Next.js inlines at
+ * BUILD time: a local build picked up `http://localhost:3000` from .env.local and
+ * shipped it, so order confirmation emails asked the recipient's own machine for
+ * the logo and showed a broken image. Same failure mode as the Square sandbox
+ * config leak — a build-time env value must never decide a production URL.
+ */
+export const SITE_URL = 'https://amammajaadi.com';
 
 /** The shop operates in Dallas, TX (US Central). Used for all business-date math. */
 export const BUSINESS_TZ = 'America/Chicago';
