@@ -28,3 +28,6 @@ export const SITE_URL = 'https://amammajaadi.com';
 
 /** The shop operates in Dallas, TX (US Central). Used for all business-date math. */
 export const BUSINESS_TZ = 'America/Chicago';
+
+/** Delivery orders at or above this subtotal ship free; below it a small fee applies. */
+export const FREE_SHIPPING_THRESHOLD = 50;

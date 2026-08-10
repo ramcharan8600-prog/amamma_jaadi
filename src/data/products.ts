@@ -80,7 +80,7 @@ export const PRODUCTS: Product[] = [
     description:
       'Flaky, layered pastry from Nellore, delicately fried and dipped in sugar syrup. Each layer shatters into a shower of sweetness — a true South Indian masterpiece.',
     category: 'sweets',
-    unitPrice: 3,
+    unitPrice: 2.5,
     image: '/images/products/nellore malai khaja.jpg',
     quantityOptions: [16, 25, 50],
     inStock: true,
@@ -93,7 +93,7 @@ export const PRODUCTS: Product[] = [
     description:
       'Thin, golden flatbreads stuffed with a sweet filling of chana dal and jaggery, cooked on a griddle with pure ghee. Amamma\'s recipe, made with patience and love.',
     category: 'sweets',
-    unitPrice: 4,
+    unitPrice: 3,
     image: '/images/products/bobbatlu.jpg',
     quantityOptions: [16, 25, 50],
     inStock: true,

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getProductsByCategory } from '@/data/products';
 import SweetCard from '@/components/product/SweetCard';
+import FreeShippingNotice from '@/components/FreeShippingNotice';
 
 export const metadata: Metadata = {
   title: 'Sweets — Freshly Baked South Indian Sweets',
@@ -25,6 +26,8 @@ export default function SweetsPage() {
           ingredients — just like Amamma used to make.
         </p>
       </div>
+
+      <FreeShippingNotice className="max-w-2xl mx-auto mb-10" />
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {sweets.map((product) => (

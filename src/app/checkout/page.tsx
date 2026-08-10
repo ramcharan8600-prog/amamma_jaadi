@@ -19,6 +19,7 @@ import { useCartStore } from '@/store/cart';
 import { PICKUP_LOCATIONS, getPickupLocationById } from '@/data/products';
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
 import { calculateOrderTotals, SALES_TAX_LABEL } from '@/lib/pricing';
+import FreeShippingNotice from '@/components/FreeShippingNotice';
 import type { FulfillmentType, PickupDetails, DeliveryDetails } from '@/types';
 
 type Step = 'cart' | 'method' | 'details' | 'payment';
@@ -512,6 +513,8 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+
+          <FreeShippingNotice />
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Link href="/" className="btn-secondary flex-1 text-center">

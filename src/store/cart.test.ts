@@ -3,8 +3,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useCartStore } from '@/store/cart';
 import { getProductById } from '@/data/products';
 
-const sweet = getProductById('sweet-bobbatlu')!; // unitPrice 4
-const pickle = getProductById('pickle-chicken')!; // unitPrice 14
+// Prices come from the catalog (per piece / per unit) so these tests don't
+// hardcode a value that lives in data/products.ts.
+const sweet = getProductById('sweet-bobbatlu')!;
+const pickle = getProductById('pickle-chicken')!;
 
 function reset() {
   useCartStore.getState().clearCart();
@@ -17,13 +19,13 @@ describe('cart store', () => {
     useCartStore.getState().addItem(sweet, 1, 16);
     const items = useCartStore.getState().items;
     expect(items).toHaveLength(1);
-    expect(items[0].lineTotal).toBe(4 * 16); // 64
-    expect(useCartStore.getState().getSubtotal()).toBe(64);
+    expect(items[0].lineTotal).toBe(sweet.unitPrice * 16);
+    expect(useCartStore.getState().getSubtotal()).toBe(sweet.unitPrice * 16);
   });
 
   it('adds a pickle priced by unit', () => {
     useCartStore.getState().addItem(pickle, 2);
-    expect(useCartStore.getState().getSubtotal()).toBe(28);
+    expect(useCartStore.getState().getSubtotal()).toBe(pickle.unitPrice * 2);
     expect(useCartStore.getState().getItemCount()).toBe(2);
   });
 
@@ -33,7 +35,7 @@ describe('cart store', () => {
     const items = useCartStore.getState().items;
     expect(items).toHaveLength(1);
     expect(items[0].quantity).toBe(3);
-    expect(items[0].lineTotal).toBe(4 * 16 * 3); // 192
+    expect(items[0].lineTotal).toBe(sweet.unitPrice * 16 * 3);
   });
 
   it('keeps different tiers of the same sweet as separate lines', () => {
