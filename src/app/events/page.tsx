@@ -21,6 +21,8 @@ export default function EventsPage() {
   const sweets = PRODUCTS.filter((p) => p.category === 'sweets');
   const minDate = getMinEventDate();
 
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [eventType, setEventType] = useState('');
   const [selectedSweets, setSelectedSweets] = useState<string[]>([]);
   const [quantity, setQuantity] = useState('');
@@ -29,12 +31,17 @@ export default function EventsPage() {
   const [eventDate, setEventDate] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const quantityNum = parseInt(quantity) || 0;
   const validQuantity = quantityNum >= 100;
   const validDate = eventDate >= minDate;
 
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim());
+
   const canSubmit =
+    customerName.trim() &&
+    validEmail &&
     eventType &&
     selectedSweets.length > 0 &&
     validQuantity &&
@@ -52,12 +59,15 @@ export default function EventsPage() {
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
+    setSubmitError('');
 
     try {
-      await fetch('/api/events', {
+      const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          customerName,
+          email: customerEmail,
           eventType,
           sweetSelection: selectedSweets,
           quantity: quantityNum,
@@ -66,11 +76,21 @@ export default function EventsPage() {
           eventDate,
         }),
       });
+      // Only confirm if the inquiry was actually saved — otherwise the customer
+      // would think we received it when we didn't, and no one gets notified.
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setSubmitError(
+          err.error || 'We could not submit your inquiry. Please try again or reach us on WhatsApp.'
+        );
+      }
     } catch (e) {
       console.error('Event submission error:', e);
+      setSubmitError('Something went wrong. Please check your connection or reach us on WhatsApp.');
     }
 
-    setSubmitted(true);
     setSubmitting(false);
   };
 
@@ -103,6 +123,31 @@ export default function EventsPage() {
       </div>
 
       <div className="card p-6 sm:p-8 space-y-6">
+        <div>
+          <label className="label-text">Your Name</label>
+          <input
+            type="text"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            placeholder="Full name"
+            className="input-field"
+          />
+        </div>
+
+        <div>
+          <label className="label-text">Email Address</label>
+          <input
+            type="email"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="input-field"
+          />
+          <p className="font-body text-xs text-brand-charcoal/50 mt-1">
+            We&apos;ll send your inquiry confirmation here.
+          </p>
+        </div>
+
         <div>
           <label className="label-text">Event Type</label>
           <select
@@ -224,6 +269,13 @@ export default function EventsPage() {
           <p>• Minimum 1–2 day advance notice required</p>
           <p>• Payment details will be shared after confirmation</p>
         </div>
+
+        {submitError && (
+          <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3.5">
+            <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+            <p className="font-body text-sm text-red-700">{submitError}</p>
+          </div>
+        )}
 
         <button
           onClick={handleSubmit}

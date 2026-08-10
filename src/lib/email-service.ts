@@ -53,6 +53,8 @@ interface EmailParams {
   to: string | string[];
   subject: string;
   html: string;
+  /** Visible carbon-copy recipients. */
+  cc?: string[];
   /** Hidden recipients — not visible to the primary recipient. */
   bcc?: string[];
 }
@@ -76,6 +78,7 @@ async function sendEmail(params: EmailParams): Promise<{ success: boolean; id?: 
         to: params.to,
         subject: params.subject,
         html: params.html,
+        ...(params.cc && params.cc.length > 0 ? { cc: params.cc } : {}),
         ...(params.bcc && params.bcc.length > 0 ? { bcc: params.bcc } : {}),
       }),
     });
@@ -267,6 +270,59 @@ export async function sendOwnerOrderAlert(params: {
   return sendEmail({
     to: ownerEmails,
     subject: `🔔 New order ${params.orderNumber} — $${params.total.toFixed(2)} (${params.fulfillmentType})`,
+    html,
+  });
+}
+
+/**
+ * Confirmation for a new event / bulk inquiry from the Events page.
+ *
+ * Sent TO the customer, with the business inbox (amammajaadi@gmail.com) CC'd so
+ * the owner is notified on the same message and can call the customer back.
+ * The business address in OWNER_NOTIFICATION_EMAIL is used for the visible CC;
+ * a personal owner address, if any, is BCC'd so it isn't exposed to customers.
+ */
+export async function sendEventInquiry(params: {
+  customerEmail: string;
+  customerName: string;
+  phone: string;
+  eventType: string;
+  eventDate: string;
+  quantity: number;
+  sweets: string;
+  deliveryAddress: string;
+}): Promise<{ success: boolean }> {
+  const owners = getOwnerEmails();
+  // Visible CC = the public business inbox; hidden BCC = any personal owner
+  // address (so a customer never sees the owner's personal email).
+  const cc = owners.filter((e) => e.toLowerCase().includes('amammajaadi'));
+  const bcc = owners.filter((e) => !cc.includes(e));
+
+  const details = `
+    <div style="font-size: 14px; color: #444; background: #FFF8F0; padding: 14px 16px; border-radius: 8px; margin: 12px 0;">
+      <p style="margin: 3px 0;"><strong>Name:</strong> ${escapeHtml(params.customerName)}</p>
+      <p style="margin: 3px 0;"><strong>Phone:</strong> ${escapeHtml(params.phone)}</p>
+      <p style="margin: 3px 0;"><strong>Event:</strong> ${escapeHtml(params.eventType)}</p>
+      <p style="margin: 3px 0;"><strong>Date:</strong> ${escapeHtml(formatPickupDate(params.eventDate))}</p>
+      <p style="margin: 3px 0;"><strong>Quantity:</strong> ${Number(params.quantity) || 0} pieces</p>
+      <p style="margin: 3px 0;"><strong>Sweets:</strong> ${escapeHtml(params.sweets)}</p>
+      <p style="margin: 8px 0 3px;"><strong>Delivery address:</strong></p>
+      <p style="margin: 0; white-space: pre-line;">${escapeHtml(params.deliveryAddress || '(not provided)')}</p>
+    </div>`;
+
+  const html = baseTemplate(`
+    <h2 style="color: #1B4332;">Event Inquiry Received</h2>
+    <p>Hi ${escapeHtml(params.customerName) || 'there'},<br />Thank you for your event inquiry. Our team will contact you within 24 hours to confirm the details and share pricing. Here's what we received:</p>
+    ${details}
+    <p style="color: #666;">Questions? WhatsApp us at ${PHONE_NUMBER}.</p>
+    <p style="color: #666; margin-top: 16px;">Thanks,<br />Team ${BRAND_NAME}</p>
+  `);
+
+  return sendEmail({
+    to: params.customerEmail,
+    cc: cc.length > 0 ? cc : undefined,
+    bcc: bcc.length > 0 ? bcc : undefined,
+    subject: `Event Inquiry Received — ${params.eventType}`,
     html,
   });
 }

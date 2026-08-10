@@ -8,6 +8,7 @@ import {
   getPickupLocationById,
   calculateSweetPrice,
   getTotalPieces,
+  productNamesFromIds,
 } from '@/data/products';
 
 describe('product catalog integrity', () => {
@@ -46,6 +47,13 @@ describe('lookups', () => {
 
   it('getProductBySlug resolves by slug', () => {
     expect(getProductBySlug('kova')?.id).toBe('sweet-kova');
+  });
+
+  it('productNamesFromIds maps ids to readable names for the event email', () => {
+    expect(productNamesFromIds(['sweet-kova', 'sweet-bobbatlu'])).toBe('Kova, Bobbatlu');
+    // Unknown ids are kept as-is rather than dropped.
+    expect(productNamesFromIds(['sweet-kova', 'mystery'])).toBe('Kova, mystery');
+    expect(productNamesFromIds([])).toBe('');
   });
 
   it('getProductsByCategory filters correctly', () => {

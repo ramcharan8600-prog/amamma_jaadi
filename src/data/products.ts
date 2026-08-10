@@ -212,6 +212,11 @@ export function getPickupLocationById(id: string): PickupLocation | undefined {
   return PICKUP_LOCATIONS.find((l) => l.id === id);
 }
 
+/** Map product ids to a comma-joined list of readable names (unknown ids kept as-is). */
+export function productNamesFromIds(ids: string[]): string {
+  return ids.map((id) => getProductById(id)?.name || id).join(', ');
+}
+
 export function calculateSweetPrice(unitPrice: number, tier: number): number {
   return unitPrice * tier;
 }

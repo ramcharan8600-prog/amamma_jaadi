@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
+import { productNamesFromIds } from '@/data/products';
+import { isEmailConfigured, sendEventInquiry } from '@/lib/email-service';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
 import { ok, fail } from '@/lib/api';
@@ -18,11 +20,15 @@ export async function POST(request: NextRequest) {
     const phone = sanitize(body.phone, 20);
     const eventDate = sanitize(body.eventDate, 10);
     const customerName = sanitize(body.customerName, 100);
+    const email = sanitize(body.email, 200);
     const deliveryAddress = sanitize(body.deliveryAddress, 500);
 
     // Validation
     if (!eventType || !phone || !eventDate) {
       return fail('Missing required fields', 400);
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return fail('A valid email address is required', 400);
     }
     if (isNaN(quantity) || quantity < 100) {
       return fail('Minimum event order is 100 pieces', 400);
@@ -39,9 +45,12 @@ export async function POST(request: NextRequest) {
       return fail('Event system not configured. Please contact us via WhatsApp.', 503);
     }
 
-    const productName = Array.isArray(sweetSelection)
-      ? sweetSelection.map((s: unknown) => sanitize(s, 50)).join(', ')
-      : sanitize(sweetSelection, 200);
+    // The form sends product ids; store readable names (e.g. "Kova, Bobbatlu").
+    const sweetIds = Array.isArray(sweetSelection)
+      ? sweetSelection.map((s: unknown) => sanitize(s, 50)).filter(Boolean)
+      : [sanitize(sweetSelection, 200)].filter(Boolean);
+    const productName = productNamesFromIds(sweetIds);
+    const name = customerName || 'Guest';
 
     const id = newId();
     await getDb()
@@ -52,7 +61,7 @@ export async function POST(request: NextRequest) {
       )
       .bind(
         id,
-        customerName || 'Guest',
+        name,
         phone,
         eventType,
         productName,
@@ -61,6 +70,25 @@ export async function POST(request: NextRequest) {
         deliveryAddress || null
       )
       .run();
+
+    // Confirm to the customer + CC the business inbox (best-effort — a mail
+    // failure must not fail an inquiry that was already saved).
+    if (isEmailConfigured()) {
+      try {
+        await sendEventInquiry({
+          customerEmail: email,
+          customerName: name,
+          phone,
+          eventType,
+          eventDate,
+          quantity,
+          sweets: productName,
+          deliveryAddress,
+        });
+      } catch (e) {
+        console.error('[events] inquiry email failed:', e);
+      }
+    }
 
     return ok({ inquiry: { id } }, 201);
   } catch (e) {
