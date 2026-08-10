@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ShoppingBag, Eye, CreditCard } from 'lucide-react';
+import { ShoppingBag, Eye, CreditCard, Clock } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
 import { calculateSweetPrice } from '@/data/products';
@@ -61,6 +61,13 @@ export default function SweetCard({ product }: SweetCardProps) {
             {product.description}
           </p>
         </div>
+
+        {product.prepNotice && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <Clock size={14} className="text-amber-600 shrink-0 mt-0.5" />
+            <p className="font-body text-xs text-amber-800">{product.prepNotice}</p>
+          </div>
+        )}
 
         {/* Tier Selection */}
         <div>

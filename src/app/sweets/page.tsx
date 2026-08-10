@@ -5,7 +5,7 @@ import SweetCard from '@/components/product/SweetCard';
 export const metadata: Metadata = {
   title: 'Sweets — Freshly Baked South Indian Sweets',
   description:
-    'Order fresh Bobbatlu, Kaju Katli, Malai Khaja, Kova & Guntur Malpuri. Made daily with pure ghee, A2 milk & organic ingredients. Pickup or delivery in Dallas, TX.',
+    'Order fresh Bobbatlu, Malai Khaja, Kova & Guntur Malpuri. Made daily with pure ghee, A2 milk & organic ingredients. Pickup or delivery in Dallas, TX.',
 };
 
 export default function SweetsPage() {

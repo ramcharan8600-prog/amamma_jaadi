@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: '%s | Amamma Jaadi',
   },
   description:
-    'Premium South Indian sweets, pickles & gift boxes in Dallas, Texas. Freshly baked daily with pure ghee, A2 milk & organic ingredients. Order Bobbatlu, Kaju Katli, Malai Khaja & more.',
+    'Premium South Indian sweets, pickles & gift boxes in Dallas, Texas. Freshly baked daily with pure ghee, A2 milk & organic ingredients. Order Bobbatlu, Malai Khaja, Kova & more.',
   keywords: [
     'South Indian sweets Dallas',
     'Authentic Indian sweets Texas',
@@ -35,7 +35,6 @@ export const metadata: Metadata = {
     'Andhra sweets USA',
     'Telugu sweets Texas',
     'Indian sweets delivery Dallas',
-    'Kaju Katli Dallas',
     'Malai Khaja Texas',
     'Indian pickles Dallas',
     'NRI sweets USA',

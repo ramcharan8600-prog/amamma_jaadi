@@ -97,6 +97,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/products/bobbatlu.jpg',
     quantityOptions: [16, 25, 50],
     inStock: true,
+    prepNotice: 'Baked fresh to order — please place this order at least 2 days in advance.',
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
   },
   {
@@ -110,20 +111,8 @@ export const PRODUCTS: Product[] = [
     image: '/images/products/Pala kova.jpg',
     quantityOptions: [16, 25, 50],
     inStock: true,
+    prepNotice: 'Baked fresh to order — please place this order at least 2 days in advance.',
     tags: ['traditional', 'andhra', 'milk-based'],
-  },
-  {
-    id: 'sweet-kaju-katli',
-    slug: 'kaju-katli',
-    name: 'Kaju Katli',
-    description:
-      'Diamond-shaped cashew fudge made from hand-ground premium cashews, sugar, and a touch of cardamom. Finished with a delicate layer of edible silver foil.',
-    category: 'sweets',
-    unitPrice: 2,
-    image: '/images/products/Kaju Katli.jpeg',
-    quantityOptions: [16, 25, 50],
-    inStock: true,
-    tags: ['premium', 'cashew', 'festival', 'gifting'],
   },
 
   // ── Gift Boxes ───────────────────────────────────────────

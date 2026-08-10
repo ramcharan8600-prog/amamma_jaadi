@@ -45,7 +45,7 @@ describe('lookups', () => {
   });
 
   it('getProductBySlug resolves by slug', () => {
-    expect(getProductBySlug('kaju-katli')?.id).toBe('sweet-kaju-katli');
+    expect(getProductBySlug('kova')?.id).toBe('sweet-kova');
   });
 
   it('getProductsByCategory filters correctly', () => {

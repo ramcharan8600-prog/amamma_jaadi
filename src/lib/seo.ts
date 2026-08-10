@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { BRAND_NAME, SITE_URL, PHONE_E164 } from '@/lib/constants';
 
-const DEFAULT_DESCRIPTION = 'Authentic South Indian sweets and pickles made fresh in Dallas, TX. Kaju Katli, Bobbatlu, Malai Khaja, Guntur Malpuri & more. Pickup and delivery across DFW.';
+const DEFAULT_DESCRIPTION = 'Authentic South Indian sweets and pickles made fresh in Dallas, TX. Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & more. Pickup and delivery across DFW.';
 
 export function createMetadata(params: {
   title: string;
@@ -23,7 +23,6 @@ export function createMetadata(params: {
       'Andhra sweets Dallas',
       'Fresh Bobbatlu Dallas',
       'Indian sweets delivery Texas',
-      'Kaju Katli Dallas',
       'Indian pickles Dallas',
       ...(params.keywords || []),
     ],

@@ -79,8 +79,8 @@ export default function HomePage() {
                   </div>
                   <div className="rounded-2xl overflow-hidden shadow-lg aspect-[4/3]">
                     <Image
-                      src="/images/products/Kaju Katli.jpeg"
-                      alt="Kaju Katli"
+                      src="/images/products/Pala kova.jpg"
+                      alt="Kova"
                       width={400}
                       height={300}
                       className="object-cover w-full h-full"
@@ -199,7 +199,7 @@ export default function HomePage() {
         <div className="section-padding">
           <div className="grid sm:grid-cols-3 gap-6">
             {[
-              { title: 'Sweets', desc: 'Bobbatlu, Kaju Katli, Kova & more', href: '/sweets', img: '/images/products/bobbatlu.jpg' },
+              { title: 'Sweets', desc: 'Bobbatlu, Malai Khaja, Kova & more', href: '/sweets', img: '/images/products/bobbatlu.jpg' },
               { title: 'Pickles', desc: 'Chicken, Mutton & Prawns', href: '/pickles', img: '/images/products/Chicken Pickle.jpg' },
               { title: 'Gift Boxes', desc: 'Premium aluminium tin packaging', href: '/gift-boxes', img: '/images/products/gift box.jpg' },
             ].map((cat) => (
