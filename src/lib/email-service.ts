@@ -139,6 +139,8 @@ export async function sendOrderConfirmation(params: {
   subtotal?: number;
   /** Sales tax charged on this order. */
   tax?: number;
+  /** Delivery fee charged (0 / omitted = free or pickup). */
+  shipping?: number;
   items: Array<{ name: string; quantity: number; price: number }>;
   fulfillmentType: 'pickup' | 'delivery';
   /** Pickup date (YYYY-MM-DD) — shown for pickup orders. */
@@ -190,8 +192,14 @@ export async function sendOrderConfirmation(params: {
           params.tax != null && params.subtotal != null
             ? `<tr><td colspan="2" style="padding:10px 0 2px; color:#666;">Subtotal</td>
                <td style="text-align:right; padding:10px 0 2px; color:#666;">$${Number(params.subtotal).toFixed(2)}</td></tr>
-               <tr><td colspan="2" style="padding:2px 0 10px; color:#666;">${SALES_TAX_LABEL}</td>
-               <td style="text-align:right; padding:2px 0 10px; color:#666;">$${Number(params.tax).toFixed(2)}</td></tr>`
+               <tr><td colspan="2" style="padding:2px 0 ${params.fulfillmentType === 'delivery' ? '2' : '10'}px; color:#666;">${SALES_TAX_LABEL}</td>
+               <td style="text-align:right; padding:2px 0 ${params.fulfillmentType === 'delivery' ? '2' : '10'}px; color:#666;">$${Number(params.tax).toFixed(2)}</td></tr>
+               ${
+                 params.fulfillmentType === 'delivery'
+                   ? `<tr><td colspan="2" style="padding:2px 0 10px; color:#666;">Delivery</td>
+                      <td style="text-align:right; padding:2px 0 10px; color:#666;">${Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free'}</td></tr>`
+                   : ''
+               }`
             : ''
         }
         <tr style="border-top: 2px solid #7B1F1F;">
@@ -224,6 +232,9 @@ export async function sendOrderConfirmation(params: {
 export async function sendOwnerOrderAlert(params: {
   orderNumber: string;
   total: number;
+  subtotal?: number;
+  tax?: number;
+  shipping?: number;
   customerName: string;
   phone: string;
   customerEmail: string | null;
@@ -260,10 +271,26 @@ export async function sendOwnerOrderAlert(params: {
         <th style="text-align:right;">Price</th>
       </tr></thead>
       <tbody>${itemsHtml}</tbody>
-      <tfoot><tr style="border-top: 2px solid #7B1F1F;">
-        <td colspan="2" style="padding:12px 0; font-weight:bold;">Total (paid)</td>
-        <td style="text-align:right; font-weight:bold; color:#7B1F1F;">$${params.total.toFixed(2)}</td>
-      </tr></tfoot>
+      <tfoot>
+        ${
+          params.tax != null && params.subtotal != null
+            ? `<tr><td colspan="2" style="padding:10px 0 2px; color:#666;">Subtotal</td>
+               <td style="text-align:right; padding:10px 0 2px; color:#666;">$${Number(params.subtotal).toFixed(2)}</td></tr>
+               <tr><td colspan="2" style="padding:2px 0; color:#666;">${SALES_TAX_LABEL}</td>
+               <td style="text-align:right; padding:2px 0; color:#666;">$${Number(params.tax).toFixed(2)}</td></tr>
+               ${
+                 params.fulfillmentType === 'delivery'
+                   ? `<tr><td colspan="2" style="padding:2px 0 10px; color:#666;">Delivery</td>
+                      <td style="text-align:right; padding:2px 0 10px; color:#666;">${Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free'}</td></tr>`
+                   : ''
+               }`
+            : ''
+        }
+        <tr style="border-top: 2px solid #7B1F1F;">
+          <td colspan="2" style="padding:12px 0; font-weight:bold;">Total (paid)</td>
+          <td style="text-align:right; font-weight:bold; color:#7B1F1F;">$${params.total.toFixed(2)}</td>
+        </tr>
+      </tfoot>
     </table>
   `);
 

@@ -20,6 +20,7 @@ import { PICKUP_LOCATIONS, getPickupLocationById } from '@/data/products';
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
 import { calculateOrderTotals, SALES_TAX_LABEL } from '@/lib/pricing';
 import FreeShippingNotice from '@/components/FreeShippingNotice';
+import { validatePromoCode } from '@/lib/promo';
 import type { FulfillmentType, PickupDetails, DeliveryDetails } from '@/types';
 
 type Step = 'cart' | 'method' | 'details' | 'payment';
@@ -68,11 +69,16 @@ export default function CheckoutPage() {
     sessionId: string;
     subtotal: number;
     tax: number;
+    shipping: number;
     total: number;
     appId: string | null;
     locationId: string | null;
     environment: 'sandbox' | 'production';
   } | null>(null);
+
+  // Promo code — captured for future promotions; none are active yet.
+  const [promoCode, setPromoCode] = useState('');
+  const [promoMsg, setPromoMsg] = useState('');
   const [cardReady, setCardReady] = useState(false);
   const [applePayReady, setApplePayReady] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -245,6 +251,7 @@ export default function CheckoutPage() {
         sessionId: data.sessionId,
         subtotal: Number(data.subtotal ?? 0),
         tax: Number(data.tax ?? 0),
+        shipping: Number(data.shipping ?? 0),
         total: data.totalAmount,
         appId: data.squareEnabled ? data.squareAppId : null,
         locationId: data.squareEnabled ? data.squareLocationId : null,
@@ -515,6 +522,44 @@ export default function CheckoutPage() {
           </div>
 
           <FreeShippingNotice />
+
+          {/* Promo code — captured for future promotions; none active yet. */}
+          <div className="card p-4 space-y-2">
+            <label className="label-text mb-0">Promo code</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(e) => {
+                  setPromoCode(e.target.value);
+                  setPromoMsg('');
+                }}
+                placeholder="Enter code"
+                className="input-field flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const result = validatePromoCode(promoCode, totals.subtotal);
+                  // No codes are active today, so this always reports back a
+                  // reason. Adding an entry to PROMO_CODES makes it apply — the
+                  // discount must then also be applied server-side.
+                  setPromoMsg(
+                    result.ok
+                      ? `${result.promo.label} applied — you save ${formatCurrency(result.discount)}.`
+                      : result.reason
+                  );
+                }}
+                disabled={!promoCode.trim()}
+                className="btn-secondary px-5"
+              >
+                Apply
+              </button>
+            </div>
+            {promoMsg && (
+              <p className="font-body text-xs text-brand-charcoal/60">{promoMsg}</p>
+            )}
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Link href="/" className="btn-secondary flex-1 text-center">
@@ -870,6 +915,12 @@ export default function CheckoutPage() {
               <span>{SALES_TAX_LABEL}</span>
               <span>{formatCurrency(sessionInfo.tax)}</span>
             </div>
+            {fulfillment?.type === 'delivery' && (
+              <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
+                <span>Delivery</span>
+                <span>{sessionInfo.shipping > 0 ? formatCurrency(sessionInfo.shipping) : 'Free'}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-1.5 border-t border-brand-cream-dark">
               <span className="font-body text-sm text-brand-charcoal/60">Amount due</span>
               <span className="font-display text-xl font-bold text-brand-maroon">

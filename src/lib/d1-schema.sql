@@ -42,8 +42,9 @@ CREATE TABLE IF NOT EXISTS payment_sessions (
   phone_number TEXT NOT NULL,
   cart_data TEXT NOT NULL,             -- JSON string
   fulfillment_data TEXT,               -- JSON string
-  total_amount REAL NOT NULL,
+  total_amount REAL NOT NULL,          -- tax-inclusive charged total (incl shipping)
   tax REAL DEFAULT 0,
+  shipping REAL NOT NULL DEFAULT 0,    -- flat delivery fee (0 for pickup / free shipping)
   payment_status TEXT NOT NULL DEFAULT 'pending',
   order_id TEXT,
   idempotency_key TEXT UNIQUE,

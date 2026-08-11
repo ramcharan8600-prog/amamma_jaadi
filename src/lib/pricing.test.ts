@@ -12,20 +12,43 @@ describe('pricing — Texas sales tax', () => {
     expect(SALES_TAX_LABEL).toBe('Sales Tax (8.25%)');
   });
 
-  it('adds 8.25% on top of the subtotal', () => {
+  it('adds 8.25% on top of the subtotal (no shipping for pickup)', () => {
     // $14.00 chicken pickle → 14 * 0.0825 = 1.155 → rounds to 1.16
-    expect(calculateOrderTotals(14)).toEqual({ subtotal: 14, tax: 1.16, total: 15.16 });
+    expect(calculateOrderTotals(14)).toEqual({ subtotal: 14, tax: 1.16, shipping: 0, total: 15.16 });
   });
 
   it('handles a clean round case', () => {
-    // $100 → exactly $8.25 tax
-    expect(calculateOrderTotals(100)).toEqual({ subtotal: 100, tax: 8.25, total: 108.25 });
+    // $100 → exactly $8.25 tax, no shipping (over threshold)
+    expect(calculateOrderTotals(100, { fulfillmentType: 'delivery' })).toEqual({
+      subtotal: 100,
+      tax: 8.25,
+      shipping: 0,
+      total: 108.25,
+    });
   });
 
-  it('subtotal + tax always equals total exactly (no float dust)', () => {
+  it('charges a $4 delivery fee on delivery orders below $50', () => {
+    expect(calculateOrderTotals(30, { fulfillmentType: 'delivery' })).toEqual({
+      subtotal: 30,
+      tax: 2.48,
+      shipping: 4,
+      total: 36.48,
+    });
+  });
+
+  it('does NOT charge shipping for pickup, even below $50', () => {
+    expect(calculateOrderTotals(30, { fulfillmentType: 'pickup' }).shipping).toBe(0);
+  });
+
+  it('ships free at exactly the $50 threshold for delivery', () => {
+    expect(calculateOrderTotals(50, { fulfillmentType: 'delivery' }).shipping).toBe(0);
+    expect(calculateOrderTotals(49.99, { fulfillmentType: 'delivery' }).shipping).toBe(4);
+  });
+
+  it('subtotal + tax + shipping always equals total exactly (no float dust)', () => {
     for (const s of [2.5, 5, 14, 16, 30, 37.5, 49.99, 123.45, 999.99]) {
-      const { subtotal, tax, total } = calculateOrderTotals(s);
-      expect(roundMoney(subtotal + tax)).toBe(total);
+      const { subtotal, tax, shipping, total } = calculateOrderTotals(s, { fulfillmentType: 'delivery' });
+      expect(roundMoney(subtotal + tax + shipping)).toBe(total);
     }
   });
 
@@ -39,11 +62,12 @@ describe('pricing — Texas sales tax', () => {
   });
 
   it('coerces junk and negatives to a zero order', () => {
-    expect(calculateOrderTotals(0)).toEqual({ subtotal: 0, tax: 0, total: 0 });
-    expect(calculateOrderTotals(-5)).toEqual({ subtotal: 0, tax: 0, total: 0 });
+    expect(calculateOrderTotals(0)).toEqual({ subtotal: 0, tax: 0, shipping: 0, total: 0 });
+    expect(calculateOrderTotals(-5)).toEqual({ subtotal: 0, tax: 0, shipping: 0, total: 0 });
     expect(calculateOrderTotals(NaN as unknown as number)).toEqual({
       subtotal: 0,
       tax: 0,
+      shipping: 0,
       total: 0,
     });
   });

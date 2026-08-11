@@ -1,5 +1,5 @@
 import { Truck } from 'lucide-react';
-import { FREE_SHIPPING_THRESHOLD } from '@/lib/constants';
+import { FREE_SHIPPING_THRESHOLD, DELIVERY_FEE } from '@/lib/constants';
 
 /**
  * Informational banner: free shipping over the threshold, small fee below.
@@ -13,8 +13,8 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
     >
       <Truck size={18} className="text-brand-gold shrink-0 mt-0.5" />
       <p className="font-body text-sm text-brand-charcoal/80">
-        <strong>Free shipping</strong> on orders over ${FREE_SHIPPING_THRESHOLD} — orders below $
-        {FREE_SHIPPING_THRESHOLD} carry a small delivery charge.
+        <strong>Free shipping</strong> on delivery orders over ${FREE_SHIPPING_THRESHOLD} — a flat $
+        {DELIVERY_FEE} delivery fee applies below that.
       </p>
     </div>
   );

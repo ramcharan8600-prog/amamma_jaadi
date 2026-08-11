@@ -24,6 +24,7 @@ export interface PaymentSessionRow {
   fulfillment_data: FulfillmentData | null;
   total_amount: number;
   tax: number | null;
+  shipping: number | null;
 }
 
 interface FulfillmentData {
@@ -64,6 +65,7 @@ export function mapSessionRow(raw: Record<string, unknown>): PaymentSessionRow {
     fulfillment_data: parseJson<FulfillmentData>(raw.fulfillment_data),
     total_amount: Number(raw.total_amount ?? 0),
     tax: raw.tax == null ? 0 : Number(raw.tax),
+    shipping: raw.shipping == null ? 0 : Number(raw.shipping),
   };
 }
 
@@ -227,6 +229,11 @@ export async function createOrderFromSession(
     price: i.lineTotal,
   }));
 
+  // total_amount is tax- and shipping-inclusive; derive the pieces for the
+  // email breakdown so Subtotal + Tax + Shipping == Total.
+  const shipping = session.shipping || 0;
+  const subtotal = Math.round((session.total_amount - (session.tax || 0) - shipping) * 100) / 100;
+
   // Owners are BCC'd on the customer confirmation below. When the customer
   // gave no email there is nothing to BCC, so alert the owners directly —
   // every order must reach the owner inbox one way or the other.
@@ -235,6 +242,9 @@ export async function createOrderFromSession(
       await sendOwnerOrderAlert({
         orderNumber,
         total: session.total_amount,
+        subtotal,
+        tax: session.tax || 0,
+        shipping,
         customerName: session.customer_name,
         phone: session.phone_number,
         customerEmail: session.email,
@@ -261,9 +271,9 @@ export async function createOrderFromSession(
         customerName: session.customer_name,
         phone: session.phone_number,
         total: session.total_amount,
-        // Subtotal is derived, not stored — total already includes the tax.
-        subtotal: Math.round((session.total_amount - (session.tax || 0)) * 100) / 100,
+        subtotal,
         tax: session.tax || 0,
+        shipping,
         items: emailItems,
         fulfillmentType: fulfillment.type || 'pickup',
         pickupDate: fulfillment.date,

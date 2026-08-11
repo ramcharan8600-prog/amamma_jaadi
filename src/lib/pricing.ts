@@ -7,6 +7,8 @@
  * drift apart.
  */
 
+import { FREE_SHIPPING_THRESHOLD, DELIVERY_FEE } from '@/lib/constants';
+
 /** Texas sales tax applied to every order. */
 export const SALES_TAX_RATE = 0.0825;
 
@@ -21,15 +23,27 @@ export function roundMoney(amount: number): number {
 export interface OrderTotals {
   subtotal: number;
   tax: number;
+  shipping: number;
   total: number;
 }
 
 /**
- * Break a subtotal into subtotal + tax + total.
- * Tax is rounded to cents first, so `subtotal + tax === total` exactly.
+ * Break a subtotal into subtotal + tax + shipping + total.
+ *
+ * Tax is charged on the subtotal (not on shipping) and rounded to cents.
+ * Shipping is a flat DELIVERY_FEE, applied ONLY to delivery orders below the
+ * free-shipping threshold — pickup orders and delivery orders at/above the
+ * threshold ship free. `subtotal + tax + shipping === total` exactly.
  */
-export function calculateOrderTotals(subtotal: number): OrderTotals {
+export function calculateOrderTotals(
+  subtotal: number,
+  opts: { fulfillmentType?: 'pickup' | 'delivery' } = {}
+): OrderTotals {
   const safeSubtotal = roundMoney(Math.max(0, Number(subtotal) || 0));
   const tax = roundMoney(safeSubtotal * SALES_TAX_RATE);
-  return { subtotal: safeSubtotal, tax, total: roundMoney(safeSubtotal + tax) };
+  const shipping =
+    opts.fulfillmentType === 'delivery' && safeSubtotal < FREE_SHIPPING_THRESHOLD
+      ? DELIVERY_FEE
+      : 0;
+  return { subtotal: safeSubtotal, tax, shipping, total: roundMoney(safeSubtotal + tax + shipping) };
 }

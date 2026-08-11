@@ -109,6 +109,7 @@ function makeSession(overrides: Partial<PaymentSessionRow> = {}): PaymentSession
     fulfillment_data: { type: 'pickup' },
     total_amount: 64,
     tax: 0,
+    shipping: 0,
     ...overrides,
   };
 }

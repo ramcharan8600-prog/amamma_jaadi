@@ -107,16 +107,18 @@ export async function POST(request: NextRequest) {
       serverTotal += lineTotal;
     }
 
-    // Subtotal → + Texas sales tax → charged total. Same helper the checkout UI
-    // uses, so the amount shown and the amount charged are always identical.
-    const { subtotal, tax, total } = calculateOrderTotals(serverTotal);
+    // Fulfillment is stored as the customer entered it (no address validation).
+    const fulfillment = body.fulfillment || null;
+    const fulfillmentType = fulfillment?.type === 'delivery' ? 'delivery' : 'pickup';
+
+    // Subtotal → + Texas sales tax → + delivery fee → charged total. Same helper
+    // the checkout UI uses, so the amount shown always matches the amount charged.
+    // Shipping applies only to delivery orders below the free-shipping threshold.
+    const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, { fulfillmentType });
 
     if (total <= 0) {
       return fail('Invalid order total', 400);
     }
-
-    // Fulfillment is stored as the customer entered it (no address validation).
-    const fulfillment = body.fulfillment || null;
 
     const sessionId = newId();
     const idempotencyKey = `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -126,8 +128,8 @@ export async function POST(request: NextRequest) {
       .prepare(
         `INSERT INTO payment_sessions
           (id, customer_name, email, phone_number, cart_data, fulfillment_data,
-           total_amount, tax, payment_status, idempotency_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+           total_amount, tax, shipping, payment_status, idempotency_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
       )
       .bind(
         sessionId,
@@ -138,6 +140,7 @@ export async function POST(request: NextRequest) {
         fulfillment ? JSON.stringify(fulfillment) : null,
         total,
         tax,
+        shipping,
         idempotencyKey
       )
       .run();
@@ -150,6 +153,7 @@ export async function POST(request: NextRequest) {
       sessionId,
       subtotal,
       tax,
+      shipping,
       totalAmount: total,
       idempotencyKey,
       squareEnabled: isSquareEnabled(),
