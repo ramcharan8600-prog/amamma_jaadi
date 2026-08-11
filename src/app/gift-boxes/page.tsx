@@ -6,7 +6,7 @@ import { Gift, Star, Calendar, Building2, Truck } from 'lucide-react';
 export const metadata: Metadata = {
   title: 'Events, Party Packs & Gift Boxes — South Indian Sweet Gifting',
   description:
-    'Aluminium tin gift boxes filled with authentic South Indian sweets — Malai Khaja and Guntur Malpuri mixes from $30. Perfect for festivals, events, parties & corporate gifting.',
+    'Desi-style sweets gift boxes filled with authentic South Indian sweets — Malai Khaja and Guntur Malpuri mixes from $30. Perfect for festivals, events, parties & corporate gifting.',
 };
 
 const OCCASIONS = [
@@ -31,8 +31,9 @@ export default function GiftBoxesPage() {
             Celebrate Your Sweet Memories
           </h1>
           <p className="font-body text-lg text-white/70 max-w-lg mx-auto">
-            Elegantly packaged in aluminium tins, our gift boxes make every
-            occasion sweeter. A taste of tradition, wrapped with love.
+            Elegantly packed in desi-style matt-finish sweets boxes, our gift
+            boxes make every occasion sweeter. A taste of tradition, wrapped
+            with love.
           </p>
         </div>
       </section>

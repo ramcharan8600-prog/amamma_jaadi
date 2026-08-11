@@ -125,7 +125,7 @@ export const PRODUCTS: Product[] = [
     slug: 'sweet-memories-gift-box',
     name: 'Sweet Memories Gift Box',
     description:
-      'An elegant aluminium tin with a mix of 5 Nellore Malai Khaja and 6 Guntur Malpuri. Perfect for festivals, birthdays, and celebrations. Free pickup at our partner locations, or delivery via our courier partners — charges apply per destination.',
+      'A desi-style sweets gift box with 6 Nellore Malai Khaja and 6 Guntur Malpuri, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. Free pickup at our partner locations, or delivery via our courier partners — charges apply per destination.',
     category: 'gift-boxes',
     unitPrice: 30,
     image: '/images/products/gift box.jpg',
@@ -138,7 +138,7 @@ export const PRODUCTS: Product[] = [
     slug: 'event-mini-party-box',
     name: 'Event / Mini Party Box',
     description:
-      'Our bigger box for events and parties — a mix of 9 Nellore Malai Khaja and 9 Guntur Malpuri in an elegant aluminium tin. Ideal for gatherings, corporate gifting, and making every event sweeter.',
+      'Our bigger box for events and parties — 10 Nellore Malai Khaja and 10 Guntur Malpuri in a desi-style matt-finish sweets gift box. Ideal for gatherings, corporate gifting, and making every event sweeter.',
     category: 'gift-boxes',
     unitPrice: 50,
     image: '/images/products/gift box.jpg',
