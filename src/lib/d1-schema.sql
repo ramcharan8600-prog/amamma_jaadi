@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS event_orders (
   id TEXT PRIMARY KEY,
   customer_name TEXT NOT NULL,
   phone_number TEXT NOT NULL,
+  email TEXT,                          -- collected since 2026-07-30; NULL on older rows
   event_type TEXT NOT NULL,
   product_name TEXT NOT NULL,
   quantity INTEGER NOT NULL,

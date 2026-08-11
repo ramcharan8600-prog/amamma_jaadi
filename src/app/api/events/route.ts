@@ -56,13 +56,14 @@ export async function POST(request: NextRequest) {
     await getDb()
       .prepare(
         `INSERT INTO event_orders
-          (id, customer_name, phone_number, event_type, product_name, quantity, event_date, delivery_address)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          (id, customer_name, phone_number, email, event_type, product_name, quantity, event_date, delivery_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         id,
         name,
         phone,
+        email,
         eventType,
         productName,
         quantity,
