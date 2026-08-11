@@ -38,6 +38,37 @@ describe('cart store', () => {
     expect(items[0].lineTotal).toBe(sweet.unitPrice * 16 * 3);
   });
 
+  it('keeps different gift-box contents as separate lines', () => {
+    const box = getProductById('gift-box-sweet-memories')!;
+    const [malpuri, khaja] = box.variantOptions!;
+    useCartStore.getState().addItem(box, 1, undefined, malpuri);
+    useCartStore.getState().addItem(box, 1, undefined, khaja);
+    const items = useCartStore.getState().items;
+    expect(items).toHaveLength(2);
+    expect(items.map((i) => i.selectedVariant)).toEqual([malpuri, khaja]);
+  });
+
+  it('merges gift boxes only when the contents match', () => {
+    const box = getProductById('gift-box-sweet-memories')!;
+    const [malpuri] = box.variantOptions!;
+    useCartStore.getState().addItem(box, 1, undefined, malpuri);
+    useCartStore.getState().addItem(box, 2, undefined, malpuri);
+    const items = useCartStore.getState().items;
+    expect(items).toHaveLength(1);
+    expect(items[0].quantity).toBe(3);
+  });
+
+  it('removeItem removes only the matching gift-box variant', () => {
+    const box = getProductById('gift-box-sweet-memories')!;
+    const [malpuri, khaja] = box.variantOptions!;
+    useCartStore.getState().addItem(box, 1, undefined, malpuri);
+    useCartStore.getState().addItem(box, 1, undefined, khaja);
+    useCartStore.getState().removeItem(box.id, undefined, malpuri);
+    const items = useCartStore.getState().items;
+    expect(items).toHaveLength(1);
+    expect(items[0].selectedVariant).toBe(khaja);
+  });
+
   it('keeps different tiers of the same sweet as separate lines', () => {
     useCartStore.getState().addItem(sweet, 1, 16);
     useCartStore.getState().addItem(sweet, 1, 50);

@@ -88,6 +88,14 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+      // Gift boxes carry a contents choice. It doesn't change the price, but
+      // reject unknown values so a tampered cart can't reach the kitchen with
+      // instructions we never offered.
+      if (product.variantOptions?.length) {
+        if (!product.variantOptions.includes(String(item.selectedVariant))) {
+          return fail(`Please choose the contents for ${product.name}.`, 400);
+        }
+      }
       const qty = Math.max(1, Math.floor(Number(item.quantity)));
 
       let lineTotal: number;

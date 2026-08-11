@@ -10,9 +10,19 @@ interface CartState {
   fulfillment: FulfillmentDetails | null;
 
   // Actions
-  addItem: (product: Product, quantity: number, selectedTier?: number) => void;
-  removeItem: (productId: string, selectedTier?: number) => void;
-  updateQuantity: (productId: string, quantity: number, selectedTier?: number) => void;
+  addItem: (
+    product: Product,
+    quantity: number,
+    selectedTier?: number,
+    selectedVariant?: string
+  ) => void;
+  removeItem: (productId: string, selectedTier?: number, selectedVariant?: string) => void;
+  updateQuantity: (
+    productId: string,
+    quantity: number,
+    selectedTier?: number,
+    selectedVariant?: string
+  ) => void;
   clearCart: () => void;
   setFulfillment: (details: FulfillmentDetails) => void;
 
@@ -30,9 +40,12 @@ function computeLineTotal(product: Product, quantity: number, selectedTier?: num
   return product.unitPrice * quantity;
 }
 
-/** Unique key for a cart line (product + tier combo) */
-function lineKey(productId: string, selectedTier?: number): string {
-  return selectedTier ? `${productId}__${selectedTier}` : productId;
+/**
+ * Unique key for a cart line: product + tier + variant.
+ * Two gift boxes with different contents are separate lines, not merged.
+ */
+function lineKey(productId: string, selectedTier?: number, selectedVariant?: string): string {
+  return [productId, selectedTier ?? '', selectedVariant ?? ''].join('__');
 }
 
 export const useCartStore = create<CartState>()(
@@ -41,17 +54,17 @@ export const useCartStore = create<CartState>()(
       items: [],
       fulfillment: null,
 
-      addItem: (product, quantity, selectedTier) => {
+      addItem: (product, quantity, selectedTier, selectedVariant) => {
         set((state) => {
-          const key = lineKey(product.id, selectedTier);
+          const key = lineKey(product.id, selectedTier, selectedVariant);
           const existing = state.items.find(
-            (i) => lineKey(i.productId, i.selectedTier) === key
+            (i) => lineKey(i.productId, i.selectedTier, i.selectedVariant) === key
           );
 
           if (existing) {
             return {
               items: state.items.map((i) =>
-                lineKey(i.productId, i.selectedTier) === key
+                lineKey(i.productId, i.selectedTier, i.selectedVariant) === key
                   ? {
                       ...i,
                       quantity: i.quantity + quantity,
@@ -70,6 +83,7 @@ export const useCartStore = create<CartState>()(
                 product,
                 quantity,
                 selectedTier,
+                selectedVariant,
                 lineTotal: computeLineTotal(product, quantity, selectedTier),
               },
             ],
@@ -77,22 +91,25 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      removeItem: (productId, selectedTier) => {
+      removeItem: (productId, selectedTier, selectedVariant) => {
         set((state) => ({
           items: state.items.filter(
-            (i) => lineKey(i.productId, i.selectedTier) !== lineKey(productId, selectedTier)
+            (i) =>
+              lineKey(i.productId, i.selectedTier, i.selectedVariant) !==
+              lineKey(productId, selectedTier, selectedVariant)
           ),
         }));
       },
 
-      updateQuantity: (productId, quantity, selectedTier) => {
+      updateQuantity: (productId, quantity, selectedTier, selectedVariant) => {
         if (quantity <= 0) {
-          get().removeItem(productId, selectedTier);
+          get().removeItem(productId, selectedTier, selectedVariant);
           return;
         }
         set((state) => ({
           items: state.items.map((i) =>
-            lineKey(i.productId, i.selectedTier) === lineKey(productId, selectedTier)
+            lineKey(i.productId, i.selectedTier, i.selectedVariant) ===
+            lineKey(productId, selectedTier, selectedVariant)
               ? {
                   ...i,
                   quantity,

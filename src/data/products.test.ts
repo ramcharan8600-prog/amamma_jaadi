@@ -66,6 +66,30 @@ describe('lookups', () => {
     expect(isProductTaxExempt(getProductById('pickle-mutton')!)).toBe(false);
   });
 
+  it('both gift boxes offer three contents options at one price', () => {
+    for (const id of ['gift-box-sweet-memories', 'gift-box-party']) {
+      const box = getProductById(id)!;
+      expect(box.variantOptions).toHaveLength(3);
+      // All-Malpuri, all-Malai Khaja, and an even mix.
+      expect(box.variantOptions!.some((v) => /Malpuri/.test(v))).toBe(true);
+      expect(box.variantOptions!.some((v) => /Malai Khaja/.test(v))).toBe(true);
+      expect(box.variantOptions!.some((v) => /^Mix/.test(v))).toBe(true);
+    }
+  });
+
+  it('gift box piece counts match the box size', () => {
+    expect(getProductById('gift-box-sweet-memories')!.variantOptions).toEqual([
+      '12 pcs Guntur Malpuri',
+      '12 pcs Nellore Malai Khaja',
+      'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja',
+    ]);
+    expect(getProductById('gift-box-party')!.variantOptions).toEqual([
+      '20 pcs Guntur Malpuri',
+      '20 pcs Nellore Malai Khaja',
+      'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja',
+    ]);
+  });
+
   it('getProductsByCategory filters correctly', () => {
     const sweets = getProductsByCategory('sweets');
     expect(sweets.length).toBeGreaterThan(0);

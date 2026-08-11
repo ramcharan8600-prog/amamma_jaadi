@@ -495,20 +495,27 @@ export default function CheckoutPage() {
           <div className="card p-4 space-y-3">
             {items.map((item) => (
               <div
-                key={`${item.productId}-${item.selectedTier}`}
+                key={`${item.productId}-${item.selectedTier}-${item.selectedVariant ?? ''}`}
                 className="flex justify-between items-start gap-3 font-body text-sm"
               >
                 <span className="text-brand-charcoal/80">
                   {item.product.name}
                   {item.selectedTier ? ` (${item.selectedTier} pcs)` : ''}
                   <span className="text-brand-charcoal/40"> × {item.quantity}</span>
+                  {item.selectedVariant && (
+                    <span className="block text-xs text-brand-charcoal/50">
+                      {item.selectedVariant}
+                    </span>
+                  )}
                 </span>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="font-medium text-brand-charcoal">
                     {formatCurrency(item.lineTotal)}
                   </span>
                   <button
-                    onClick={() => removeItem(item.productId, item.selectedTier)}
+                    onClick={() =>
+                      removeItem(item.productId, item.selectedTier, item.selectedVariant)
+                    }
                     aria-label={`Remove ${item.product.name}`}
                     className="text-brand-charcoal/30 hover:text-red-500 transition-colors"
                   >

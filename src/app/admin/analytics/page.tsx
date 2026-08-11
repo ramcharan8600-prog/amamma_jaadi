@@ -16,9 +16,14 @@ import { formatCurrency } from '@/lib/utils';
 import { PRODUCTS } from '@/data/products';
 import type { OrderRecord } from '@/types';
 
-/** Resolve a product's category from the catalog by name (order_items store name only). */
+/**
+ * Resolve a product's category from the catalog by name (order_items store the
+ * name only). Gift box lines are recorded as "Name (chosen contents)", so strip
+ * any trailing parenthetical before matching or they'd fall into 'other'.
+ */
 function categoryForProduct(name: string): string {
-  return PRODUCTS.find((p) => p.name === name)?.category || 'other';
+  const base = String(name).replace(/\s*\(.*\)\s*$/, '').trim();
+  return PRODUCTS.find((p) => p.name === base)?.category || 'other';
 }
 
 export default function AnalyticsPage() {

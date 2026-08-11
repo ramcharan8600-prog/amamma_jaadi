@@ -44,7 +44,15 @@ interface CartLine {
   product?: { name?: string };
   quantity: number;
   selectedTier?: number | null;
+  /** Gift box contents chosen by the customer — must reach the kitchen. */
+  selectedVariant?: string | null;
   lineTotal: number;
+}
+
+/** Product name plus the chosen gift-box contents, e.g. "Gift Box (12 pcs Malpuri)". */
+function lineLabel(item: CartLine): string {
+  const name = item.product?.name || 'Unknown';
+  return item.selectedVariant ? `${name} (${item.selectedVariant})` : name;
 }
 
 export interface CreateOrderResult {
@@ -189,7 +197,7 @@ export async function createOrderFromSession(
       return stmt.bind(
         newId(),
         orderId,
-        item.product?.name || 'Unknown',
+        lineLabel(item),
         qty,
         Math.round((lineTotal / qty) * 100) / 100,
         item.selectedTier ?? null,
@@ -224,7 +232,7 @@ export async function createOrderFromSession(
     ? `${pickupLoc.name} — ${pickupLoc.address}, ${pickupLoc.city}, ${pickupLoc.state} ${pickupLoc.zip}`
     : undefined;
   const emailItems = cartItems.map((i) => ({
-    name: i.product?.name || 'Item',
+    name: lineLabel(i),
     quantity: i.quantity,
     price: i.lineTotal,
   }));

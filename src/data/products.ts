@@ -131,6 +131,11 @@ export const PRODUCTS: Product[] = [
     image: '/images/products/gift box.jpg',
     isFixedQuantity: true,
     inStock: true,
+    variantOptions: [
+      '12 pcs Guntur Malpuri',
+      '12 pcs Nellore Malai Khaja',
+      'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja',
+    ],
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {
@@ -144,6 +149,11 @@ export const PRODUCTS: Product[] = [
     image: '/images/products/gift box.jpg',
     isFixedQuantity: true,
     inStock: true,
+    variantOptions: [
+      '20 pcs Guntur Malpuri',
+      '20 pcs Nellore Malai Khaja',
+      'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja',
+    ],
     tags: ['gifting', 'events', 'party', 'corporate'],
   },
 ];

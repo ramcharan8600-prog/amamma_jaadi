@@ -78,8 +78,18 @@ export async function POST(request: NextRequest) {
         : session.cart_data;
       if (Array.isArray(cartData) && cartData.length > 0) {
         const items = cartData
-          .map((item: { name?: string; product?: { name?: string }; quantity?: number }) =>
-            `${item.product?.name || item.name || 'Item'}${(item.quantity ?? 1) > 1 ? ` x${item.quantity}` : ''}`)
+          .map(
+            (item: {
+              name?: string;
+              product?: { name?: string };
+              selectedVariant?: string;
+              quantity?: number;
+            }) => {
+              const base = item.product?.name || item.name || 'Item';
+              const withVariant = item.selectedVariant ? `${base} (${item.selectedVariant})` : base;
+              return `${withVariant}${(item.quantity ?? 1) > 1 ? ` x${item.quantity}` : ''}`;
+            }
+          )
           .join(', ');
         const detailed = `amammajaadi.com — ${items}`;
         note = detailed.length <= 500 ? detailed : detailed.slice(0, 497) + '...';

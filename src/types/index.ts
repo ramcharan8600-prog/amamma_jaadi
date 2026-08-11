@@ -18,6 +18,13 @@ export interface Product {
   sizeLabel?: string;
   /** For sweets: available quantity tiers */
   quantityOptions?: number[];
+  /**
+   * Selectable contents for a fixed-price product (gift boxes). Same price for
+   * every option — only what goes in the box changes. The chosen label is
+   * carried through the cart to the order, emails and the Square note so the
+   * box is packed correctly.
+   */
+  variantOptions?: string[];
   /** Optional lead-time / freshness notice shown on the product card. */
   prepNotice?: string;
   /**
@@ -40,6 +47,8 @@ export interface CartItem {
   quantity: number;
   /** For sweets: selected tier (16, 25, 50) */
   selectedTier?: number;
+  /** For gift boxes: which contents the customer chose (one of Product.variantOptions). */
+  selectedVariant?: string;
   /** Computed line total */
   lineTotal: number;
 }

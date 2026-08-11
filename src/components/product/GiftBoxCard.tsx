@@ -13,7 +13,9 @@ interface GiftBoxCardProps {
 }
 
 export default function GiftBoxCard({ product }: GiftBoxCardProps) {
+  const variants = product.variantOptions ?? [];
   const [quantity, setQuantity] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState(variants[0]);
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
 
@@ -21,7 +23,7 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
 
   const handleAdd = () => {
     if (soldOut) return;
-    addItem(product, quantity);
+    addItem(product, quantity, undefined, selectedVariant);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   };
@@ -63,6 +65,27 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
         <p className="font-display text-3xl font-bold text-brand-gold">
           {formatCurrency(product.unitPrice)}
         </p>
+
+        {variants.length > 0 && (
+          <div>
+            <label className="label-text">Choose contents</label>
+            <select
+              value={selectedVariant}
+              onChange={(e) => setSelectedVariant(e.target.value)}
+              disabled={soldOut}
+              className="input-field"
+            >
+              {variants.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            <p className="font-body text-xs text-brand-charcoal/50 mt-1">
+              Same price for every option.
+            </p>
+          </div>
+        )}
 
         <div className="flex items-center gap-3">
           <span className="label-text mb-0">Qty</span>
