@@ -16,7 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
-import { PICKUP_LOCATIONS, getPickupLocationById } from '@/data/products';
+import { PICKUP_LOCATIONS, getPickupLocationById, isProductTaxExempt } from '@/data/products';
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
 import { calculateOrderTotals, SALES_TAX_LABEL } from '@/lib/pricing';
 import FreeShippingNotice from '@/components/FreeShippingNotice';
@@ -170,7 +170,19 @@ export default function CheckoutPage() {
   const subtotal = useMemo(() => (mounted ? getSubtotal() : 0), [mounted, getSubtotal]);
   // Same helper the server uses in create-session — displayed total always
   // matches the amount charged.
-  const totals = useMemo(() => calculateOrderTotals(subtotal), [subtotal]);
+  // Only non-exempt lines (pickles) are taxed — bakery items are exempt. Mirrors
+  // the same calculation the server does in create-session.
+  const taxableSubtotal = useMemo(
+    () =>
+      mounted
+        ? items.reduce((sum, i) => (isProductTaxExempt(i.product) ? sum : sum + i.lineTotal), 0)
+        : 0,
+    [mounted, items]
+  );
+  const totals = useMemo(
+    () => calculateOrderTotals(subtotal, { taxableSubtotal }),
+    [subtotal, taxableSubtotal]
+  );
   const totalPieces = useMemo(() => (mounted ? getTotalPieces() : 0), [mounted, getTotalPieces]);
   const largeOrder = useMemo(() => (mounted ? isLargeOrder() : false), [mounted, isLargeOrder]);
   const minPickupDate = useMemo(() => getMinPickupDate(totalPieces), [totalPieces]);
@@ -510,10 +522,12 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
-              <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                <span>{SALES_TAX_LABEL}</span>
-                <span>{formatCurrency(totals.tax)}</span>
-              </div>
+              {totals.tax > 0 && (
+                <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                  <span>{SALES_TAX_LABEL}</span>
+                  <span>{formatCurrency(totals.tax)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
                 <span>Total</span>
                 <span className="text-brand-maroon">{formatCurrency(totals.total)}</span>
@@ -911,10 +925,12 @@ export default function CheckoutPage() {
               <span>Subtotal</span>
               <span>{formatCurrency(sessionInfo.subtotal)}</span>
             </div>
-            <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
-              <span>{SALES_TAX_LABEL}</span>
-              <span>{formatCurrency(sessionInfo.tax)}</span>
-            </div>
+            {sessionInfo.tax > 0 && (
+              <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
+                <span>{SALES_TAX_LABEL}</span>
+                <span>{formatCurrency(sessionInfo.tax)}</span>
+              </div>
+            )}
             {fulfillment?.type === 'delivery' && (
               <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
                 <span>Delivery</span>

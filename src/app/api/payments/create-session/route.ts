@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
-import { PRODUCTS } from '@/data/products';
-import { calculateSweetPrice } from '@/data/products';
+import { PRODUCTS, calculateSweetPrice, isProductTaxExempt } from '@/data/products';
 import { calculateOrderTotals } from '@/lib/pricing';
 import { getStockMap } from '@/lib/inventory';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
@@ -64,6 +63,7 @@ export async function POST(request: NextRequest) {
     // Recompute total server-side from authoritative product prices.
     // Never trust the client-sent total — prevents price manipulation.
     let serverTotal = 0;
+    let taxableTotal = 0;
     for (const item of body.items) {
       const product = PRODUCTS.find((p) => p.id === item.productId);
       if (!product) {
@@ -105,6 +105,8 @@ export async function POST(request: NextRequest) {
         lineTotal = product.unitPrice * qty;
       }
       serverTotal += lineTotal;
+      // Only non-exempt lines (pickles) are taxed — bakery items are exempt.
+      if (!isProductTaxExempt(product)) taxableTotal += lineTotal;
     }
 
     // Fulfillment is stored as the customer entered it (no address validation).
@@ -114,7 +116,10 @@ export async function POST(request: NextRequest) {
     // Subtotal → + Texas sales tax → + delivery fee → charged total. Same helper
     // the checkout UI uses, so the amount shown always matches the amount charged.
     // Shipping applies only to delivery orders below the free-shipping threshold.
-    const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, { fulfillmentType });
+    const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, {
+      fulfillmentType,
+      taxableSubtotal: taxableTotal,
+    });
 
     if (total <= 0) {
       return fail('Invalid order total', 400);

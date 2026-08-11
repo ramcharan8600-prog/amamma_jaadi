@@ -9,6 +9,7 @@ import {
   calculateSweetPrice,
   getTotalPieces,
   productNamesFromIds,
+  isProductTaxExempt,
 } from '@/data/products';
 
 describe('product catalog integrity', () => {
@@ -54,6 +55,15 @@ describe('lookups', () => {
     // Unknown ids are kept as-is rather than dropped.
     expect(productNamesFromIds(['sweet-kova', 'mystery'])).toBe('Kova, mystery');
     expect(productNamesFromIds([])).toBe('');
+  });
+
+  it('taxes pickles but exempts bakery items (Texas bakery exemption)', () => {
+    // Sweets and gift boxes are baked goods → exempt. Pickles are taxable.
+    expect(isProductTaxExempt(getProductById('sweet-kova')!)).toBe(true);
+    expect(isProductTaxExempt(getProductById('sweet-bobbatlu')!)).toBe(true);
+    expect(isProductTaxExempt(getProductById('gift-box-sweet-memories')!)).toBe(true);
+    expect(isProductTaxExempt(getProductById('pickle-chicken')!)).toBe(false);
+    expect(isProductTaxExempt(getProductById('pickle-mutton')!)).toBe(false);
   });
 
   it('getProductsByCategory filters correctly', () => {

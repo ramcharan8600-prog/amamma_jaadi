@@ -212,6 +212,21 @@ export function getPickupLocationById(id: string): PickupLocation | undefined {
   return PICKUP_LOCATIONS.find((l) => l.id === id);
 }
 
+/**
+ * Categories exempt from Texas sales tax.
+ *
+ * Texas exempts bakery items, so sweets/pastries are not taxed. Gift boxes are
+ * included because they contain only baked sweets. Pickles are taxable.
+ * Changing this list is the ONLY place tax treatment needs to be edited — both
+ * the checkout UI and the server read it through `isProductTaxExempt`.
+ */
+export const TAX_EXEMPT_CATEGORIES: ProductCategory[] = ['sweets', 'gift-boxes'];
+
+/** True when a product is not subject to sales tax. */
+export function isProductTaxExempt(product: Pick<Product, 'category'>): boolean {
+  return TAX_EXEMPT_CATEGORIES.includes(product.category);
+}
+
 /** Map product ids to a comma-joined list of readable names (unknown ids kept as-is). */
 export function productNamesFromIds(ids: string[]): string {
   return ids.map((id) => getProductById(id)?.name || id).join(', ');

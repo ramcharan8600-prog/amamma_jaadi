@@ -127,6 +127,46 @@ function baseTemplate(content: string): string {
   `;
 }
 
+/**
+ * Subtotal / tax / delivery rows for an order table footer.
+ *
+ * Lines that don't apply are omitted rather than shown as $0.00: tax is hidden
+ * while the sales-tax rate is 0, and delivery only appears for delivery orders.
+ * Returns '' when there's no breakdown to show, leaving just the Total row.
+ */
+function totalsFooterRows(params: {
+  subtotal?: number;
+  tax?: number;
+  shipping?: number;
+  fulfillmentType: 'pickup' | 'delivery';
+}): string {
+  if (params.subtotal == null) return '';
+
+  const cell = 'padding:2px 0; color:#666;';
+  const rows: string[] = [
+    `<tr><td colspan="2" style="padding:10px 0 2px; color:#666;">Subtotal</td>
+     <td style="text-align:right; padding:10px 0 2px; color:#666;">$${Number(params.subtotal).toFixed(2)}</td></tr>`,
+  ];
+
+  if (Number(params.tax) > 0) {
+    rows.push(
+      `<tr><td colspan="2" style="${cell}">${SALES_TAX_LABEL}</td>
+       <td style="text-align:right; ${cell}">$${Number(params.tax).toFixed(2)}</td></tr>`
+    );
+  }
+
+  if (params.fulfillmentType === 'delivery') {
+    const fee = Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free';
+    rows.push(
+      `<tr><td colspan="2" style="${cell}">Delivery</td>
+       <td style="text-align:right; ${cell}">${fee}</td></tr>`
+    );
+  }
+
+  // Breathing room before the Total rule.
+  return rows.join('') + '<tr><td colspan="3" style="padding-bottom:8px;"></td></tr>';
+}
+
 /** 1. Order Confirmation */
 export async function sendOrderConfirmation(params: {
   email: string;
@@ -188,20 +228,7 @@ export async function sendOrderConfirmation(params: {
       </tr></thead>
       <tbody>${itemsHtml}</tbody>
       <tfoot>
-        ${
-          params.tax != null && params.subtotal != null
-            ? `<tr><td colspan="2" style="padding:10px 0 2px; color:#666;">Subtotal</td>
-               <td style="text-align:right; padding:10px 0 2px; color:#666;">$${Number(params.subtotal).toFixed(2)}</td></tr>
-               <tr><td colspan="2" style="padding:2px 0 ${params.fulfillmentType === 'delivery' ? '2' : '10'}px; color:#666;">${SALES_TAX_LABEL}</td>
-               <td style="text-align:right; padding:2px 0 ${params.fulfillmentType === 'delivery' ? '2' : '10'}px; color:#666;">$${Number(params.tax).toFixed(2)}</td></tr>
-               ${
-                 params.fulfillmentType === 'delivery'
-                   ? `<tr><td colspan="2" style="padding:2px 0 10px; color:#666;">Delivery</td>
-                      <td style="text-align:right; padding:2px 0 10px; color:#666;">${Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free'}</td></tr>`
-                   : ''
-               }`
-            : ''
-        }
+        ${totalsFooterRows(params)}
         <tr style="border-top: 2px solid #7B1F1F;">
           <td colspan="2" style="padding:12px 0; font-weight:bold;">Total</td>
           <td style="text-align:right; font-weight:bold; color:#7B1F1F;">$${params.total.toFixed(2)}</td>
