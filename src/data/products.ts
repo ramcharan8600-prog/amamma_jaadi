@@ -71,6 +71,8 @@ export const PRODUCTS: Product[] = [
     imageFit: 'contain',
     quantityOptions: [16, 25, 50],
     inStock: true,
+    prepNotice: 'Baked fresh every day.',
+    prepNoticeTone: 'fresh',
     tags: ['traditional', 'andhra', 'festival'],
   },
   {
@@ -84,6 +86,8 @@ export const PRODUCTS: Product[] = [
     image: '/images/products/nellore malai khaja.jpg',
     quantityOptions: [16, 25, 50],
     inStock: true,
+    prepNotice: 'Baked fresh every day.',
+    prepNoticeTone: 'fresh',
     tags: ['traditional', 'andhra', 'festival', 'premium'],
   },
   {

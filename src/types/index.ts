@@ -18,8 +18,14 @@ export interface Product {
   sizeLabel?: string;
   /** For sweets: available quantity tiers */
   quantityOptions?: number[];
-  /** Optional lead-time / freshness notice shown on the product card (e.g. bake-to-order items). */
+  /** Optional lead-time / freshness notice shown on the product card. */
   prepNotice?: string;
+  /**
+   * How to present `prepNotice`.
+   * 'lead-time' (default) = amber caution, the customer must plan ahead.
+   * 'fresh' = green reassurance, e.g. baked daily.
+   */
+  prepNoticeTone?: 'lead-time' | 'fresh';
   /** For pickles: fixed jar quantity (always 1) */
   isFixedQuantity?: boolean;
   /** Square catalog ID for future integration */
