@@ -29,7 +29,11 @@ export const SITE_URL = 'https://amammajaadi.com';
 /** The shop operates in Dallas, TX (US Central). Used for all business-date math. */
 export const BUSINESS_TZ = 'America/Chicago';
 
-/** Delivery orders at or above this subtotal ship free; below it a flat fee applies. */
+/**
+ * Free-shipping threshold, INCLUSIVE: a delivery order of exactly this amount
+ * ships free, and the fee applies only strictly BELOW it. Customer-facing copy
+ * must say "$50 and above" — "over $50" would wrongly imply $50 is charged.
+ */
 export const FREE_SHIPPING_THRESHOLD = 50;
 
 /** Flat delivery fee charged on delivery orders below the free-shipping threshold. */

@@ -13,8 +13,9 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
     >
       <Truck size={18} className="text-brand-gold shrink-0 mt-0.5" />
       <p className="font-body text-sm text-brand-charcoal/80">
-        <strong>Free shipping</strong> on delivery orders over ${FREE_SHIPPING_THRESHOLD} — a flat $
-        {DELIVERY_FEE} delivery fee applies below that.
+        {/* "$50 and above", never "over $50" — an order of exactly $50 ships free. */}
+        <strong>Free shipping</strong> on delivery orders of ${FREE_SHIPPING_THRESHOLD} and above —
+        a flat ${DELIVERY_FEE} delivery fee applies under ${FREE_SHIPPING_THRESHOLD}.
       </p>
     </div>
   );
