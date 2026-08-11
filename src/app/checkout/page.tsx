@@ -179,9 +179,17 @@ export default function CheckoutPage() {
         : 0,
     [mounted, items]
   );
+  // Pickle jars carry their own delivery fee scale — mirrors create-session.
+  const pickleJars = useMemo(
+    () =>
+      mounted
+        ? items.reduce((n, i) => (i.product.category === 'pickles' ? n + i.quantity : n), 0)
+        : 0,
+    [mounted, items]
+  );
   const totals = useMemo(
-    () => calculateOrderTotals(subtotal, { taxableSubtotal }),
-    [subtotal, taxableSubtotal]
+    () => calculateOrderTotals(subtotal, { taxableSubtotal, pickleJars }),
+    [subtotal, taxableSubtotal, pickleJars]
   );
   const totalPieces = useMemo(() => (mounted ? getTotalPieces() : 0), [mounted, getTotalPieces]);
   const largeOrder = useMemo(() => (mounted ? isLargeOrder() : false), [mounted, isLargeOrder]);

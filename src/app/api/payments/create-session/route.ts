@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
     // Never trust the client-sent total — prevents price manipulation.
     let serverTotal = 0;
     let taxableTotal = 0;
+    let pickleJars = 0;
     for (const item of body.items) {
       const product = PRODUCTS.find((p) => p.id === item.productId);
       if (!product) {
@@ -115,6 +116,8 @@ export async function POST(request: NextRequest) {
       serverTotal += lineTotal;
       // Only non-exempt lines (pickles) are taxed — bakery items are exempt.
       if (!isProductTaxExempt(product)) taxableTotal += lineTotal;
+      // Jars drive the delivery fee scale.
+      if (product.category === 'pickles') pickleJars += qty;
     }
 
     // Fulfillment is stored as the customer entered it (no address validation).
@@ -127,6 +130,7 @@ export async function POST(request: NextRequest) {
     const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, {
       fulfillmentType,
       taxableSubtotal: taxableTotal,
+      pickleJars,
     });
 
     if (total <= 0) {

@@ -7,7 +7,7 @@
  * drift apart.
  */
 
-import { FREE_SHIPPING_THRESHOLD, DELIVERY_FEE } from '@/lib/constants';
+import { FREE_SHIPPING_THRESHOLD, DELIVERY_FEE, PICKLE_DELIVERY_FEES } from '@/lib/constants';
 
 /**
  * Texas sales tax rate.
@@ -24,6 +24,16 @@ export const SALES_TAX_LABEL = `Sales Tax (${(SALES_TAX_RATE * 100).toFixed(2).r
 /** Round to whole cents — money must never carry float dust. */
 export function roundMoney(amount: number): number {
   return Math.round((Number(amount) + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Delivery fee for a given number of pickle jars — the TOTAL for the order.
+ * 0 jars is 0; counts beyond the table use the last (cheapest) tier.
+ */
+export function pickleDeliveryFee(jars: number): number {
+  const n = Math.max(0, Math.floor(Number(jars) || 0));
+  if (n === 0) return 0;
+  return PICKLE_DELIVERY_FEES[Math.min(n, PICKLE_DELIVERY_FEES.length - 1)];
 }
 
 export interface OrderTotals {
@@ -45,16 +55,24 @@ export interface OrderTotals {
  */
 export function calculateOrderTotals(
   subtotal: number,
-  opts: { fulfillmentType?: 'pickup' | 'delivery'; taxableSubtotal?: number } = {}
+  opts: {
+    fulfillmentType?: 'pickup' | 'delivery';
+    taxableSubtotal?: number;
+    /** Number of pickle jars in the cart — they carry their own fee scale. */
+    pickleJars?: number;
+  } = {}
 ): OrderTotals {
   const safeSubtotal = roundMoney(Math.max(0, Number(subtotal) || 0));
   const taxable = roundMoney(
     Math.min(safeSubtotal, Math.max(0, Number(opts.taxableSubtotal ?? safeSubtotal) || 0))
   );
   const tax = roundMoney(taxable * SALES_TAX_RATE);
+  // Below the threshold, every delivery pays at least the base fee, and jars
+  // (heavy and fragile) can push it higher: $8 for one, $7 for two, back to
+  // the base from three. One rule, no "which one wins" special case.
   const shipping =
     opts.fulfillmentType === 'delivery' && safeSubtotal < FREE_SHIPPING_THRESHOLD
-      ? DELIVERY_FEE
+      ? roundMoney(Math.max(pickleDeliveryFee(opts.pickleJars ?? 0), DELIVERY_FEE))
       : 0;
   return { subtotal: safeSubtotal, tax, shipping, total: roundMoney(safeSubtotal + tax + shipping) };
 }
