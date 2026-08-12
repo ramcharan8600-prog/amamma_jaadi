@@ -1,16 +1,23 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
+import { MapPin } from 'lucide-react';
 import { WHATSAPP_NUMBER, PHONE_NUMBER } from '@/lib/utils';
+import { DFW_CITIES, WIDER_TEXAS_CITIES } from '@/data/service-areas';
+import { FAQS } from '@/data/faq';
+import JsonLd from '@/components/JsonLd';
+import { getFaqSchema } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Our Story',
+  title: 'Our Story, Areas We Serve & FAQs',
   description:
-    'The story behind Amamma Jaadi — how a passion for traditional South Indian sweets brought authentic flavors of Andhra Pradesh to Dallas, Texas.',
+    'The story behind Amamma Jaadi — authentic Andhra sweets in Dallas, TX. Serving Plano, Frisco, Irving, Denton, McKinney, Allen, Richardson, Carrollton & across DFW, with shipping statewide.',
 };
 
 export default function AboutPage() {
   return (
     <>
+      {/* Every Q&A below is rendered on the page — required for FAQ rich results. */}
+      <JsonLd data={getFaqSchema()} />
       {/* Hero */}
       <section className="bg-gradient-to-br from-brand-cream to-brand-cream-dark py-16 sm:py-24">
         <div className="section-padding text-center space-y-4">
@@ -129,6 +136,65 @@ export default function AboutPage() {
               We are always delighted to see the smile on your face when you
               have our sweets. ❤️
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Where we serve */}
+      <section id="areas-we-serve" className="py-12 sm:py-16 bg-brand-cream/40 scroll-mt-24">
+        <div className="section-padding max-w-3xl mx-auto space-y-5">
+          <div className="flex items-center gap-2">
+            <MapPin size={22} className="text-brand-gold" />
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-charcoal">
+              Areas We Serve
+            </h2>
+          </div>
+          <p className="font-body text-brand-charcoal/70 leading-relaxed">
+            We have happy customers right across the Dallas–Fort Worth
+            metroplex, with free pickup at our partner locations and delivery to
+            your doorstep:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DFW_CITIES.map((city) => (
+              <span
+                key={city}
+                className="font-body text-sm bg-white border border-brand-cream-dark rounded-full px-3 py-1 text-brand-charcoal/80"
+              >
+                {city}
+              </span>
+            ))}
+          </div>
+          <p className="font-body text-brand-charcoal/70 leading-relaxed">
+            We also ship further afield across Texas — including{' '}
+            {WIDER_TEXAS_CITIES.join(', ')} — through our courier partners.
+            Delivery charges apply per destination.
+          </p>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="py-12 sm:py-16 scroll-mt-24">
+        <div className="section-padding max-w-3xl mx-auto space-y-5">
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-brand-charcoal">
+            Frequently Asked Questions
+          </h2>
+          <div className="space-y-3">
+            {FAQS.map((faq) => (
+              <details
+                key={faq.question}
+                className="group bg-white border border-brand-cream-dark rounded-xl p-4"
+              >
+                <summary className="font-body font-semibold text-brand-charcoal cursor-pointer list-none flex justify-between items-center gap-3">
+                  {faq.question}
+                  <span className="text-brand-gold shrink-0 transition-transform group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="font-body text-sm text-brand-charcoal/70 leading-relaxed mt-3">
+                  {faq.answer}
+                </p>
+              </details>
+            ))}
           </div>
         </div>
       </section>

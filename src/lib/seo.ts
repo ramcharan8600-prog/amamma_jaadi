@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { BRAND_NAME, SITE_URL, PHONE_E164 } from '@/lib/constants';
+import { ALL_SERVICE_AREAS } from '@/data/service-areas';
+import { FAQS } from '@/data/faq';
+import { PICKUP_LOCATIONS } from '@/data/products';
 
 const DEFAULT_DESCRIPTION = 'Authentic South Indian sweets and pickles made fresh in Dallas, TX. Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & more. Pickup and delivery across DFW.';
 
@@ -68,6 +71,28 @@ export function getLocalBusinessSchema() {
       latitude: '32.7767',
       longitude: '-96.7970',
     },
+    // Every city we actually serve — mirrors the About page so the claim on
+    // the page and the claim in the markup can never disagree.
+    areaServed: ALL_SERVICE_AREAS.map((city) => ({
+      '@type': 'City',
+      name: city,
+      addressRegion: 'TX',
+      addressCountry: 'US',
+    })),
+    // Real, visitable collection points. Helps Google associate the business
+    // with those neighbourhoods rather than just "Dallas".
+    hasPOS: PICKUP_LOCATIONS.map((loc) => ({
+      '@type': 'Place',
+      name: loc.name,
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: loc.address,
+        addressLocality: loc.city,
+        addressRegion: loc.state,
+        postalCode: loc.zip,
+        addressCountry: 'US',
+      },
+    })),
     servesCuisine: ['South Indian', 'Telugu', 'Andhra', 'Indian Sweets'],
     priceRange: '$$',
     openingHoursSpecification: {
@@ -79,6 +104,23 @@ export function getLocalBusinessSchema() {
     sameAs: [
       'https://www.instagram.com/AMAMMA_JAADI',
     ],
+  };
+}
+
+/**
+ * FAQPage structured data, built from the same FAQS list the About page
+ * renders. Eligible for FAQ rich results in Google — but ONLY because every
+ * question and answer here is also visible on the page.
+ */
+export function getFaqSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map((f) => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: { '@type': 'Answer', text: f.answer },
+    })),
   };
 }
 

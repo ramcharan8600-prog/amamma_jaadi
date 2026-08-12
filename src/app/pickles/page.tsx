@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { getProductsByCategory } from '@/data/products';
 import PickleCard from '@/components/product/PickleCard';
+import JsonLd from '@/components/JsonLd';
+import { getProductListSchema } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Pickles — Authentic Andhra Non-Veg Pickles',
@@ -13,6 +15,7 @@ export default function PicklesPage() {
 
   return (
     <div className="section-padding py-12 sm:py-16">
+      <JsonLd data={getProductListSchema(pickles)} />
       <div className="text-center space-y-3 mb-12">
         <p className="font-body text-sm font-semibold tracking-widest text-brand-gold uppercase">
           Category

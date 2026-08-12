@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { getProductsByCategory } from '@/data/products';
 import GiftBoxCard from '@/components/product/GiftBoxCard';
+import JsonLd from '@/components/JsonLd';
+import { getProductListSchema } from '@/lib/seo';
 import { Gift, Star, Calendar, Building2, Truck } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -21,6 +23,7 @@ export default function GiftBoxesPage() {
 
   return (
     <>
+      <JsonLd data={getProductListSchema(giftBoxes)} />
       {/* Hero */}
       <section className="bg-gradient-to-br from-brand-charcoal via-brand-maroon-dark to-brand-charcoal py-16 sm:py-24">
         <div className="section-padding text-center space-y-4">
