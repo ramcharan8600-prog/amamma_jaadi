@@ -9,7 +9,7 @@ import { useCartStore } from '@/store/cart';
 const NAV_LINKS = [
   { label: 'Pickles', href: '/pickles' },
   { label: 'Sweets', href: '/sweets' },
-  { label: 'Gift Boxes', href: '/gift-boxes' },
+  { label: 'Sweets Gift Packs', href: '/gift-boxes' },
   { label: 'Events', href: '/events' },
   { label: 'About Us', href: '/about' },
 ];

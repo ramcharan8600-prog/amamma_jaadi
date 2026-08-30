@@ -40,7 +40,7 @@ export default function HomePage() {
                   Order Sweets <ArrowRight size={16} />
                 </Link>
                 <Link href="/gift-boxes" className="btn-gold gap-2">
-                  Gift Boxes
+                  Sweets Gift Packs
                 </Link>
                 <Link href="/pickles" className="btn-secondary">
                   Pickles
@@ -201,7 +201,7 @@ export default function HomePage() {
             {[
               { title: 'Sweets', desc: 'Bobbatlu, Malai Khaja, Kova & more', href: '/sweets', img: '/images/products/bobbatlu.jpg' },
               { title: 'Pickles', desc: 'Chicken, Mutton & Prawns', href: '/pickles', img: '/images/products/Chicken Pickle.jpg' },
-              { title: 'Gift Boxes', desc: 'Desi-style matt-finish sweets boxes', href: '/gift-boxes', img: '/images/products/gift box.jpg' },
+              { title: 'Sweets Gift Packs', desc: 'Desi-style matt-finish sweets boxes', href: '/gift-boxes', img: '/images/products/gift box.jpg' },
             ].map((cat) => (
               <Link key={cat.href} href={cat.href} className="group relative rounded-2xl overflow-hidden aspect-[3/2]">
                 <Image src={cat.img} alt={cat.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
