@@ -192,8 +192,13 @@ export default function CheckoutPage() {
     [mounted, items]
   );
   const totals = useMemo(
-    () => calculateOrderTotals(subtotal, { taxableSubtotal, pickleJars }),
-    [subtotal, taxableSubtotal, pickleJars]
+    () => calculateOrderTotals(subtotal, {
+      taxableSubtotal,
+      pickleJars,
+      fulfillmentType: fulfillmentType ?? undefined,
+      deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,
+    }),
+    [subtotal, taxableSubtotal, pickleJars, fulfillmentType, deliveryState]
   );
   const totalPieces = useMemo(() => (mounted ? getTotalPieces() : 0), [mounted, getTotalPieces]);
   const largeOrder = useMemo(() => (mounted ? isLargeOrder() : false), [mounted, isLargeOrder]);
@@ -914,6 +919,29 @@ export default function CheckoutPage() {
               We currently deliver within the United States only.
             </p>
           </div>
+
+          {deliveryState.trim() && (
+            <div className="card p-4 space-y-1.5">
+              <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                <span>Subtotal</span>
+                <span>{formatCurrency(totals.subtotal)}</span>
+              </div>
+              {totals.tax > 0 && (
+                <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                  <span>{SALES_TAX_LABEL}</span>
+                  <span>{formatCurrency(totals.tax)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                <span>Delivery</span>
+                <span>{totals.shipping > 0 ? formatCurrency(totals.shipping) : 'Free'}</span>
+              </div>
+              <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
+                <span>Total</span>
+                <span className="text-brand-maroon">{formatCurrency(totals.total)}</span>
+              </div>
+            </div>
+          )}
 
           {submitError && (
             <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3.5">

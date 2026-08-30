@@ -45,7 +45,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'Delivery is free on orders of $60 and above. Below $60 a small delivery fee applies, and the exact amount is always shown before you pay. Pickup from our partner locations is always free.',
+      'Within Texas, delivery is free on orders of $60 and above. Below $60, a $4.99 delivery fee applies. For out-of-state orders, delivery is $2.99 on orders of $60 and above, and $6.99 below $60. The exact fee is always shown before you pay. Pickup from our partner locations is always free.',
   },
   {
     question: 'Where can I pick up my order?',

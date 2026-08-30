@@ -36,8 +36,11 @@ export const BUSINESS_TZ = 'America/Chicago';
  */
 export const FREE_SHIPPING_THRESHOLD = 60;
 
-/** Base delivery fee on a delivery order below the free-shipping threshold. */
-export const DELIVERY_FEE = 4;
+/** Delivery fees vary by destination (Texas vs out-of-state) and subtotal. */
+export const SHIPPING_TX_BELOW = 4.99;
+export const SHIPPING_TX_ABOVE = 0;
+export const SHIPPING_OOS_BELOW = 6.99;
+export const SHIPPING_OOS_ABOVE = 2.99;
 
 /**
  * Delivery fee by number of pickle JARS — the TOTAL for the order, not per jar.
@@ -45,7 +48,7 @@ export const DELIVERY_FEE = 4;
  * two cost more to ship; by three the order is near the free-shipping
  * threshold and settles back to the base fee.
  *
- * Applies only below the free-shipping threshold, and never drops the order
- * BELOW `DELIVERY_FEE` — every delivery under the threshold pays at least the base fee.
+ * Applies only below the free-shipping threshold for Texas orders, and never
+ * drops the order BELOW the applicable base fee.
  */
-export const PICKLE_DELIVERY_FEES = [0, 8, 7, 4];
+export const PICKLE_DELIVERY_FEES = [0, 8, 7, 4.99];

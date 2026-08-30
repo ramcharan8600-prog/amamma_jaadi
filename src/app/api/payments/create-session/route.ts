@@ -126,11 +126,14 @@ export async function POST(request: NextRequest) {
 
     // Subtotal → + Texas sales tax → + delivery fee → charged total. Same helper
     // the checkout UI uses, so the amount shown always matches the amount charged.
-    // Shipping applies only to delivery orders below the free-shipping threshold.
+    const deliveryState = fulfillmentType === 'delivery' && fulfillment?.state
+      ? String(fulfillment.state).trim()
+      : undefined;
     const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, {
       fulfillmentType,
       taxableSubtotal: taxableTotal,
       pickleJars,
+      deliveryState,
     });
 
     if (total <= 0) {

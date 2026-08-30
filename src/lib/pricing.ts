@@ -7,7 +7,14 @@
  * drift apart.
  */
 
-import { FREE_SHIPPING_THRESHOLD, DELIVERY_FEE, PICKLE_DELIVERY_FEES } from '@/lib/constants';
+import {
+  FREE_SHIPPING_THRESHOLD,
+  SHIPPING_TX_BELOW,
+  SHIPPING_TX_ABOVE,
+  SHIPPING_OOS_BELOW,
+  SHIPPING_OOS_ABOVE,
+  PICKLE_DELIVERY_FEES,
+} from '@/lib/constants';
 
 /**
  * Texas sales tax rate.
@@ -24,6 +31,11 @@ export const SALES_TAX_LABEL = `Sales Tax (${(SALES_TAX_RATE * 100).toFixed(2).r
 /** Round to whole cents — money must never carry float dust. */
 export function roundMoney(amount: number): number {
   return Math.round((Number(amount) + Number.EPSILON) * 100) / 100;
+}
+
+/** True when the delivery state (2-letter code) is Texas. */
+export function isTexas(state: string | undefined | null): boolean {
+  return (state ?? '').trim().toUpperCase() === 'TX';
 }
 
 /**
@@ -46,20 +58,21 @@ export interface OrderTotals {
 /**
  * Break a subtotal into subtotal + tax + shipping + total.
  *
- * Tax is charged on `taxableSubtotal` only — the portion of the order that
- * isn't tax-exempt (Texas exempts bakery items, so sweets contribute nothing).
- * Omit it and the whole subtotal is treated as taxable. Tax is never charged
- * on shipping. Shipping is a flat DELIVERY_FEE, applied ONLY to delivery orders
- * below the free-shipping threshold — pickup, and delivery at/above the
- * threshold, ship free. `subtotal + tax + shipping === total` exactly.
+ * Shipping depends on the delivery state:
+ *   Texas, under $60:       $4.99   |  $60+:  free
+ *   Out-of-state, under $60: $6.99  |  $60+:  $2.99
+ *
+ * Pickup is always free. Pickle-only carts use the jar-based fee scale when
+ * it exceeds the base fee (Texas, below threshold only). Mixed carts pay the
+ * base fee. `subtotal + tax + shipping === total` exactly.
  */
 export function calculateOrderTotals(
   subtotal: number,
   opts: {
     fulfillmentType?: 'pickup' | 'delivery';
     taxableSubtotal?: number;
-    /** Number of pickle jars in the cart — they carry their own fee scale. */
     pickleJars?: number;
+    deliveryState?: string;
   } = {}
 ): OrderTotals {
   const safeSubtotal = roundMoney(Math.max(0, Number(subtotal) || 0));
@@ -67,14 +80,27 @@ export function calculateOrderTotals(
     Math.min(safeSubtotal, Math.max(0, Number(opts.taxableSubtotal ?? safeSubtotal) || 0))
   );
   const tax = roundMoney(taxable * SALES_TAX_RATE);
-  // Below the threshold, every delivery pays at least the base fee. Pickle-only
-  // orders use the jar fee scale (heavy/fragile); mixed carts (pickles + other
-  // items) pay the flat base fee — the extra weight is offset by the larger order.
-  const jars = opts.pickleJars ?? 0;
-  const isMixedCart = jars > 0 && safeSubtotal > taxable;
-  const shipping =
-    opts.fulfillmentType === 'delivery' && safeSubtotal < FREE_SHIPPING_THRESHOLD
-      ? (isMixedCart ? DELIVERY_FEE : roundMoney(Math.max(pickleDeliveryFee(jars), DELIVERY_FEE)))
-      : 0;
+
+  let shipping = 0;
+  if (opts.fulfillmentType === 'delivery') {
+    const tx = isTexas(opts.deliveryState);
+    const aboveThreshold = safeSubtotal >= FREE_SHIPPING_THRESHOLD;
+
+    if (tx) {
+      if (aboveThreshold) {
+        shipping = SHIPPING_TX_ABOVE; // free
+      } else {
+        const jars = opts.pickleJars ?? 0;
+        const isMixedCart = jars > 0 && safeSubtotal > taxable;
+        const baseFee = SHIPPING_TX_BELOW;
+        shipping = isMixedCart
+          ? baseFee
+          : roundMoney(Math.max(pickleDeliveryFee(jars), baseFee));
+      }
+    } else {
+      shipping = aboveThreshold ? SHIPPING_OOS_ABOVE : SHIPPING_OOS_BELOW;
+    }
+  }
+
   return { subtotal: safeSubtotal, tax, shipping, total: roundMoney(safeSubtotal + tax + shipping) };
 }
