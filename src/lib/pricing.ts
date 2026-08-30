@@ -67,12 +67,14 @@ export function calculateOrderTotals(
     Math.min(safeSubtotal, Math.max(0, Number(opts.taxableSubtotal ?? safeSubtotal) || 0))
   );
   const tax = roundMoney(taxable * SALES_TAX_RATE);
-  // Below the threshold, every delivery pays at least the base fee, and jars
-  // (heavy and fragile) can push it higher: $8 for one, $7 for two, back to
-  // the base from three. One rule, no "which one wins" special case.
+  // Below the threshold, every delivery pays at least the base fee. Pickle-only
+  // orders use the jar fee scale (heavy/fragile); mixed carts (pickles + other
+  // items) pay the flat base fee — the extra weight is offset by the larger order.
+  const jars = opts.pickleJars ?? 0;
+  const isMixedCart = jars > 0 && safeSubtotal > taxable;
   const shipping =
     opts.fulfillmentType === 'delivery' && safeSubtotal < FREE_SHIPPING_THRESHOLD
-      ? roundMoney(Math.max(pickleDeliveryFee(opts.pickleJars ?? 0), DELIVERY_FEE))
+      ? (isMixedCart ? DELIVERY_FEE : roundMoney(Math.max(pickleDeliveryFee(jars), DELIVERY_FEE)))
       : 0;
   return { subtotal: safeSubtotal, tax, shipping, total: roundMoney(safeSubtotal + tax + shipping) };
 }

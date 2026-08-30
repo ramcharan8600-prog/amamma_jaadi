@@ -32,9 +32,9 @@ export const BUSINESS_TZ = 'America/Chicago';
 /**
  * Free-shipping threshold, INCLUSIVE: a delivery order of exactly this amount
  * ships free, and the fee applies only strictly BELOW it. Customer-facing copy
- * must say "$50 and above" — "over $50" would wrongly imply $50 is charged.
+ * must say "$60 and above" — "over $60" would wrongly imply $60 is charged.
  */
-export const FREE_SHIPPING_THRESHOLD = 50;
+export const FREE_SHIPPING_THRESHOLD = 60;
 
 /** Base delivery fee on a delivery order below the free-shipping threshold. */
 export const DELIVERY_FEE = 4;
@@ -43,9 +43,9 @@ export const DELIVERY_FEE = 4;
  * Delivery fee by number of pickle JARS — the TOTAL for the order, not per jar.
  * Index = jar count; 3 or more uses the last entry. Jars are heavy, so one or
  * two cost more to ship; by three the order is near the free-shipping
- * threshold and settles back to the base fee (4 jars is $56 and ships free).
+ * threshold and settles back to the base fee.
  *
  * Applies only below the free-shipping threshold, and never drops the order
- * BELOW `DELIVERY_FEE` — every delivery under $50 pays at least the base fee.
+ * BELOW `DELIVERY_FEE` — every delivery under the threshold pays at least the base fee.
  */
 export const PICKLE_DELIVERY_FEES = [0, 8, 7, 4];

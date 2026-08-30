@@ -14,8 +14,8 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
       <Truck size={18} className="text-brand-gold shrink-0 mt-0.5" />
       <p className="font-body text-sm text-brand-charcoal/80">
         {/*
-          "$50 and above", never "over $50" — an order of exactly $50 ships free.
-          The exact under-$50 fee depends on the cart (pickle jars ship at their
+          "$60 and above", never "over $60" — an order of exactly $60 ships free.
+          The exact under-$60 fee depends on the cart (pickle jars ship at their
           own rate), so it is quoted at checkout rather than stated here.
         */}
         <strong>Free shipping</strong> on delivery orders of ${FREE_SHIPPING_THRESHOLD} and above —

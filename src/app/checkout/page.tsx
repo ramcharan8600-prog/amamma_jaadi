@@ -20,7 +20,6 @@ import { PICKUP_LOCATIONS, getPickupLocationById, isProductTaxExempt } from '@/d
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
 import { calculateOrderTotals, SALES_TAX_LABEL } from '@/lib/pricing';
 import FreeShippingNotice from '@/components/FreeShippingNotice';
-import { validatePromoCode } from '@/lib/promo';
 import type { FulfillmentType, PickupDetails, DeliveryDetails } from '@/types';
 
 type Step = 'cart' | 'method' | 'details' | 'payment';
@@ -76,9 +75,14 @@ export default function CheckoutPage() {
     environment: 'sandbox' | 'production';
   } | null>(null);
 
-  // Promo code — captured for future promotions; none are active yet.
   const [promoCode, setPromoCode] = useState('');
   const [promoMsg, setPromoMsg] = useState('');
+  const [promoApplying, setPromoApplying] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    bonusItem: string;
+    bonusQty: number;
+  } | null>(null);
   const [cardReady, setCardReady] = useState(false);
   const [applePayReady, setApplePayReady] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -260,6 +264,7 @@ export default function CheckoutPage() {
           phone: details.phone,
           tax: 0,
           total: subtotal, // reference only — server recomputes authoritatively
+          couponCode: appliedCoupon?.code || null,
         }),
       });
       if (!res.ok) {
@@ -552,7 +557,6 @@ export default function CheckoutPage() {
 
           <FreeShippingNotice />
 
-          {/* Promo code — captured for future promotions; none active yet. */}
           <div className="card p-4 space-y-2">
             <label className="label-text mb-0">Promo code</label>
             <div className="flex gap-2">
@@ -562,31 +566,47 @@ export default function CheckoutPage() {
                 onChange={(e) => {
                   setPromoCode(e.target.value);
                   setPromoMsg('');
+                  if (appliedCoupon) setAppliedCoupon(null);
                 }}
                 placeholder="Enter code"
                 className="input-field flex-1"
               />
               <button
                 type="button"
-                onClick={() => {
-                  const result = validatePromoCode(promoCode, totals.subtotal);
-                  // No codes are active today, so this always reports back a
-                  // reason. Adding an entry to PROMO_CODES makes it apply — the
-                  // discount must then also be applied server-side.
-                  setPromoMsg(
-                    result.ok
-                      ? `${result.promo.label} applied — you save ${formatCurrency(result.discount)}.`
-                      : result.reason
-                  );
+                onClick={async () => {
+                  if (!promoCode.trim()) return;
+                  setPromoApplying(true);
+                  setPromoMsg('');
+                  try {
+                    const res = await fetch('/api/coupons/validate', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ code: promoCode }),
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.code) {
+                      setPromoCode(data.code);
+                      setAppliedCoupon({ code: data.code, bonusItem: data.bonusItem, bonusQty: data.bonusQty });
+                      setPromoMsg(`Code applied! ${data.bonusQty} complimentary ${data.bonusItem} will be added to your order.`);
+                    } else {
+                      setAppliedCoupon(null);
+                      setPromoMsg(data.error || "That promo code isn't valid.");
+                    }
+                  } catch {
+                    setPromoMsg('Could not verify code. Please try again.');
+                  }
+                  setPromoApplying(false);
                 }}
-                disabled={!promoCode.trim()}
+                disabled={!promoCode.trim() || promoApplying}
                 className="btn-secondary px-5"
               >
-                Apply
+                {promoApplying ? '...' : 'Apply'}
               </button>
             </div>
             {promoMsg && (
-              <p className="font-body text-xs text-brand-charcoal/60">{promoMsg}</p>
+              <p className={`font-body text-xs ${appliedCoupon ? 'text-green-600 font-medium' : 'text-brand-charcoal/60'}`}>
+                {promoMsg}
+              </p>
             )}
           </div>
 

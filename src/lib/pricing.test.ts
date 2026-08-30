@@ -52,7 +52,7 @@ describe('pricing — Texas sales tax on the taxable portion only', () => {
     expect(calculateOrderTotals(10, { taxableSubtotal: -5 }).tax).toBe(0);
   });
 
-  it('charges a $4 delivery fee on delivery orders below $50, tax-free goods included', () => {
+  it('charges a $4 delivery fee on delivery orders below $60, tax-free goods included', () => {
     expect(calculateOrderTotals(30, { fulfillmentType: 'delivery', taxableSubtotal: 0 })).toEqual({
       subtotal: 30,
       tax: 0,
@@ -87,28 +87,33 @@ describe('pricing — Texas sales tax on the taxable portion only', () => {
     expect(three).toEqual({ subtotal: 42, tax: 3.47, shipping: 4, total: 49.47 });
   });
 
-  it('4+ jars reach $50 and ship free', () => {
-    // 4 jars = $56, over the threshold.
+  it('4+ jars at $60+ ship free', () => {
+    // 5 jars = $70, over the threshold.
+    expect(
+      calculateOrderTotals(70, { fulfillmentType: 'delivery', taxableSubtotal: 70, pickleJars: 5 })
+        .shipping
+    ).toBe(0);
+    // 4 jars = $56, still under $60 threshold.
     expect(
       calculateOrderTotals(56, { fulfillmentType: 'delivery', taxableSubtotal: 56, pickleJars: 4 })
         .shipping
-    ).toBe(0);
+    ).toBe(4);
   });
 
-  it('a mixed cart under $50 pays the HIGHER of the pickle and base fees', () => {
-    // 1 jar ($14, taxable) + $30 gift box (exempt) = $44 → max($8, $4) = $8.
+  it('a mixed cart under $60 pays the flat base delivery fee', () => {
+    // 1 jar ($14, taxable) + $30 gift box (exempt) = $44 → flat $4 base fee.
     const mixed = calculateOrderTotals(44, {
       fulfillmentType: 'delivery',
       taxableSubtotal: 14,
       pickleJars: 1,
     });
-    expect(mixed.shipping).toBe(8);
+    expect(mixed.shipping).toBe(4);
     expect(mixed.tax).toBe(1.16); // tax on the pickle only
-    expect(mixed.total).toBe(53.16);
+    expect(mixed.total).toBe(49.16);
   });
 
   it('never charges less than the base fee, whatever the jar count', () => {
-    // Every delivery under $50 pays at least $4; jars only ever push it up.
+    // Every delivery under $60 pays at least $4; jars only ever push it up.
     for (const jars of [0, 1, 2, 3, 4, 10]) {
       const { shipping } = calculateOrderTotals(30, { fulfillmentType: 'delivery', pickleJars: jars });
       expect(shipping).toBeGreaterThanOrEqual(4);
@@ -116,7 +121,7 @@ describe('pricing — Texas sales tax on the taxable portion only', () => {
     expect(calculateOrderTotals(42, { fulfillmentType: 'delivery', pickleJars: 3 }).shipping).toBe(4);
   });
 
-  it('sweets-only under $50 pays the base fee', () => {
+  it('sweets-only under $60 pays the base fee', () => {
     expect(
       calculateOrderTotals(30, { fulfillmentType: 'delivery', taxableSubtotal: 0, pickleJars: 0 })
         .shipping
@@ -145,13 +150,13 @@ describe('pricing — Texas sales tax on the taxable portion only', () => {
     expect(t.total).toBe(roundMoney(30 + t.tax + 4));
   });
 
-  it('does NOT charge shipping for pickup, even below $50', () => {
+  it('does NOT charge shipping for pickup, even below $60', () => {
     expect(calculateOrderTotals(30, { fulfillmentType: 'pickup' }).shipping).toBe(0);
   });
 
-  it('ships free at exactly the $50 threshold for delivery', () => {
-    expect(calculateOrderTotals(50, { fulfillmentType: 'delivery' }).shipping).toBe(0);
-    expect(calculateOrderTotals(49.99, { fulfillmentType: 'delivery' }).shipping).toBe(4);
+  it('ships free at exactly the $60 threshold for delivery', () => {
+    expect(calculateOrderTotals(60, { fulfillmentType: 'delivery' }).shipping).toBe(0);
+    expect(calculateOrderTotals(59.99, { fulfillmentType: 'delivery' }).shipping).toBe(4);
   });
 
   it('subtotal + tax + shipping always equals total exactly (no float dust)', () => {

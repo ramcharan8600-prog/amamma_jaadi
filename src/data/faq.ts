@@ -45,11 +45,11 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'Delivery is free on orders of $50 and above. Below $50 a small delivery fee applies, and the exact amount is always shown before you pay. Pickup from our partner locations is always free.',
+      'Delivery is free on orders of $60 and above. Below $60 a small delivery fee applies, and the exact amount is always shown before you pay. Pickup from our partner locations is always free.',
   },
   {
     question: 'Where can I pick up my order?',
     answer:
-      'We have partner pickup locations across DFW in Plano, Irving, Frisco and Denton. You choose your location at checkout, and orders can be collected between 6:30 PM and 1:30 AM.',
+      'We have partner pickup locations across DFW in Plano, Irving, and Frisco. You choose your location at checkout, and orders can be collected between 6:30 PM and 1:30 AM.',
   },
 ];

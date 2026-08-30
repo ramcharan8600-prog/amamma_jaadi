@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT NOT NULL DEFAULT 'confirmed',
   payment_status TEXT NOT NULL DEFAULT 'pending',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  coupon_code TEXT,                         -- influencer coupon used (NULL if none)
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS payment_sessions (
   total_amount REAL NOT NULL,          -- tax-inclusive charged total (incl shipping)
   tax REAL DEFAULT 0,
   shipping REAL NOT NULL DEFAULT 0,    -- flat delivery fee (0 for pickup / free shipping)
+  coupon_code TEXT,                         -- influencer coupon used (NULL if none)
   payment_status TEXT NOT NULL DEFAULT 'pending',
   order_id TEXT,
   idempotency_key TEXT UNIQUE,
@@ -82,6 +84,18 @@ INSERT OR IGNORE INTO inventory (product_id, stock_count) VALUES
   ('pickle-chicken', 20),
   ('pickle-mutton', 20),
   ('pickle-prawns', 20);
+
+-- Influencer coupon codes — each code is tied to one influencer and adds
+-- complimentary items (e.g. 2 pcs Malai Khaja) instead of a discount.
+CREATE TABLE IF NOT EXISTS influencer_coupons (
+  code TEXT PRIMARY KEY,                   -- uppercase, no spaces
+  influencer_name TEXT NOT NULL,
+  bonus_item TEXT NOT NULL DEFAULT 'Malai Khaja',  -- item added free
+  bonus_qty INTEGER NOT NULL DEFAULT 2,
+  times_used INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,       -- 1 = active, 0 = disabled
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
 -- Atomic order-number counter (replaces the Postgres sequence).
 CREATE TABLE IF NOT EXISTS counters (

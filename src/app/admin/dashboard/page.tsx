@@ -10,6 +10,7 @@ import {
   Filter,
   ChefHat,
   RefreshCw,
+  Ticket,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import InventoryPanel from '@/components/admin/InventoryPanel';
@@ -127,6 +128,12 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/admin/coupons"
+            className="btn-secondary text-xs gap-1.5"
+          >
+            <Ticket size={14} /> Coupons
+          </Link>
           <Link
             href="/admin/analytics"
             className="btn-secondary text-xs gap-1.5"

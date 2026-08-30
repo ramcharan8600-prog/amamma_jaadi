@@ -25,6 +25,7 @@ export interface PaymentSessionRow {
   total_amount: number;
   tax: number | null;
   shipping: number | null;
+  coupon_code: string | null;
 }
 
 interface FulfillmentData {
@@ -74,6 +75,7 @@ export function mapSessionRow(raw: Record<string, unknown>): PaymentSessionRow {
     total_amount: Number(raw.total_amount ?? 0),
     tax: raw.tax == null ? 0 : Number(raw.tax),
     shipping: raw.shipping == null ? 0 : Number(raw.shipping),
+    coupon_code: (raw.coupon_code as string) ?? null,
   };
 }
 
@@ -156,8 +158,8 @@ export async function createOrderFromSession(
         `INSERT INTO orders
           (id, order_number, customer_name, phone_number, email, order_type,
            pickup_date, pickup_location, delivery_address,
-           total_price, tax, square_payment_id, status, payment_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')`
+           total_price, tax, square_payment_id, coupon_code, status, payment_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')`
       )
       .bind(
         orderId,
@@ -171,7 +173,8 @@ export async function createOrderFromSession(
         buildDeliveryAddress(fulfillment),
         session.total_amount,
         session.tax || 0,
-        squarePaymentId
+        squarePaymentId,
+        session.coupon_code
       )
       .run();
   } catch (e) {
@@ -217,6 +220,30 @@ export async function createOrderFromSession(
   // Never throws: the customer has already paid.
   await decrementStockForOrder(db, cartItems, orderNumber);
 
+  // ── Influencer coupon: bonus item + usage tracking ─────────────────
+  let couponBonusLabel: string | undefined;
+  if (session.coupon_code) {
+    try {
+      const coupon = await db
+        .prepare('SELECT bonus_item, bonus_qty FROM influencer_coupons WHERE code = ?')
+        .bind(session.coupon_code)
+        .first<{ bonus_item: string; bonus_qty: number }>();
+      if (coupon) {
+        couponBonusLabel = `${coupon.bonus_qty} complimentary ${coupon.bonus_item}`;
+        await db.batch([
+          db.prepare(
+            `INSERT INTO order_items (id, order_id, product_name, quantity, product_price, selected_tier, line_total)
+             VALUES (?, ?, ?, ?, 0, NULL, 0)`
+          ).bind(newId(), orderId, `${coupon.bonus_item} (Complimentary)`, coupon.bonus_qty),
+          db.prepare('UPDATE influencer_coupons SET times_used = times_used + 1 WHERE code = ?')
+            .bind(session.coupon_code),
+        ]);
+      }
+    } catch (e) {
+      console.error('[order-service] coupon processing failed:', e);
+    }
+  }
+
   // ── Link session → order ────────────────────────────────────────────
   await db
     .prepare("UPDATE payment_sessions SET payment_status = 'completed', order_id = ?, square_payment_id = ? WHERE id = ?")
@@ -231,11 +258,14 @@ export async function createOrderFromSession(
   const pickupLocationLabel = pickupLoc
     ? `${pickupLoc.name} — ${pickupLoc.address}, ${pickupLoc.city}, ${pickupLoc.state} ${pickupLoc.zip}`
     : undefined;
-  const emailItems = cartItems.map((i) => ({
+  const emailItems: Array<{ name: string; quantity: number; price: number }> = cartItems.map((i) => ({
     name: lineLabel(i),
     quantity: i.quantity,
     price: i.lineTotal,
   }));
+  if (couponBonusLabel) {
+    emailItems.push({ name: `${couponBonusLabel} (FREE)`, quantity: 1, price: 0 });
+  }
 
   // total_amount is tax- and shipping-inclusive; derive the pieces for the
   // email breakdown so Subtotal + Tax + Shipping == Total.

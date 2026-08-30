@@ -137,6 +137,19 @@ export async function POST(request: NextRequest) {
       return fail('Invalid order total', 400);
     }
 
+    // Validate influencer coupon if provided.
+    const rawCoupon = typeof body.couponCode === 'string'
+      ? body.couponCode.trim().replace(/\s+/g, '').toUpperCase()
+      : null;
+    let validCoupon: string | null = null;
+    if (rawCoupon) {
+      const coupon = await getDb()
+        .prepare('SELECT code, active FROM influencer_coupons WHERE code = ? AND active = 1')
+        .bind(rawCoupon)
+        .first<{ code: string; active: number }>();
+      if (coupon) validCoupon = coupon.code;
+    }
+
     const sessionId = newId();
     const idempotencyKey = `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -145,8 +158,8 @@ export async function POST(request: NextRequest) {
       .prepare(
         `INSERT INTO payment_sessions
           (id, customer_name, email, phone_number, cart_data, fulfillment_data,
-           total_amount, tax, shipping, payment_status, idempotency_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+           total_amount, tax, shipping, coupon_code, payment_status, idempotency_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
       )
       .bind(
         sessionId,
@@ -158,6 +171,7 @@ export async function POST(request: NextRequest) {
         total,
         tax,
         shipping,
+        validCoupon,
         idempotencyKey
       )
       .run();
