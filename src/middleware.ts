@@ -92,7 +92,7 @@ const CSP = [
 ].join('; ');
 
 /** Apply hardening headers to every response (redirects included). */
-function withSecurityHeaders(response: NextResponse): NextResponse {
+function withSecurityHeaders(response: NextResponse, request: NextRequest): NextResponse {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -104,6 +104,16 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
     response.headers.set('Content-Security-Policy', CSP);
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
+
+  // HTML pages must revalidate on every visit so a deploy never leaves browsers
+  // loading stale HTML that references JS chunks that no longer exist (white
+  // blank page). Static assets under /_next/static/ are content-hashed and
+  // already cached immutably by Next.js — this only targets page navigations.
+  const { pathname } = request.nextUrl;
+  if (!pathname.startsWith('/_next/') && !pathname.startsWith('/images/')) {
+    response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+  }
+
   return response;
 }
 
@@ -116,11 +126,11 @@ export async function middleware(request: NextRequest) {
     if (!session?.value || !(await verifyToken(session.value))) {
       const redirect = NextResponse.redirect(new URL('/admin/login', request.url));
       redirect.cookies.delete(SESSION_COOKIE);
-      return withSecurityHeaders(redirect);
+      return withSecurityHeaders(redirect, request);
     }
   }
 
-  return withSecurityHeaders(NextResponse.next());
+  return withSecurityHeaders(NextResponse.next(), request);
 }
 
 export const config = {
