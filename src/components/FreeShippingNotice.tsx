@@ -14,8 +14,8 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
       <Truck size={18} className="text-brand-gold shrink-0 mt-0.5" />
       <p className="font-body text-sm text-brand-charcoal/80">
         <strong>Free shipping</strong> within Texas on orders of ${FREE_SHIPPING_THRESHOLD} and above.
-        Out-of-state orders ship for $2.99 at ${FREE_SHIPPING_THRESHOLD}+. Below ${FREE_SHIPPING_THRESHOLD},
-        a delivery fee applies and is shown before you pay. Pickup is always free.
+        Out-of-state orders and orders below ${FREE_SHIPPING_THRESHOLD}, a delivery fee applies
+        and is shown before you pay. Pickup is always free.
       </p>
     </div>
   );
