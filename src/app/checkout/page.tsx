@@ -87,6 +87,8 @@ export default function CheckoutPage() {
   const [applePayReady, setApplePayReady] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState('');
+  // Shown while a 3-D Secure challenge is on screen — see handleCardPay().
+  const [verifying, setVerifying] = useState(false);
   const squareCardRef = useRef<SquareCard | null>(null);
   const applePayRef = useRef<SquareApplePay | null>(null);
 
@@ -403,12 +405,54 @@ export default function CheckoutPage() {
     };
   };
 
+  // A 3-D Secure challenge can legitimately take a while — the customer has to
+  // wait for their bank's SMS code and type it in. So we surface a reassuring
+  // hint early and only give up much later.
+  const VERIFY_HINT_MS = 20_000;
+  const TOKENIZE_TIMEOUT_MS = 120_000;
+
   const handleCardPay = async () => {
     if (!squareCardRef.current) return;
     setPaying(true);
     setPaymentError('');
+
+    const hintTimer = setTimeout(() => setVerifying(true), VERIFY_HINT_MS);
+
+    // If the browser refuses the issuer's challenge frame, tokenize() never
+    // settles — no error, no rejection, just a spinner that runs forever. Watch
+    // for the violation directly so that failure becomes visible immediately
+    // instead of waiting out the full timeout.
+    let frameBlocked = false;
+    const onViolation = (e: SecurityPolicyViolationEvent) => {
+      if (e.effectiveDirective === 'frame-src' || e.effectiveDirective === 'child-src') {
+        frameBlocked = true;
+      }
+    };
+    document.addEventListener('securitypolicyviolation', onViolation);
+
+    // Nothing is charged until submitPayment() runs, so every path that ends
+    // here can safely tell the customer no money moved.
+    const TIMED_OUT = Symbol('timeout');
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+
     try {
-      const result = await squareCardRef.current.tokenize(buildVerificationDetails());
+      const result = await Promise.race([
+        squareCardRef.current.tokenize(buildVerificationDetails()),
+        new Promise<typeof TIMED_OUT>((resolve) => {
+          timeoutTimer = setTimeout(() => resolve(TIMED_OUT), TOKENIZE_TIMEOUT_MS);
+        }),
+      ]);
+
+      if (result === TIMED_OUT) {
+        setPaymentError(
+          frameBlocked
+            ? "Your bank's verification page could not open in this browser. No charge was made — please try a different card or browser."
+            : "Card verification didn't finish in time. No charge was made — please try again."
+        );
+        setPaying(false);
+        return;
+      }
+
       if (result.status !== 'OK' || !result.token) {
         setPaymentError(result.errors?.[0]?.message || 'Please check your card details.');
         setPaying(false);
@@ -418,6 +462,11 @@ export default function CheckoutPage() {
     } catch {
       setPaymentError('Payment failed. Please try again.');
       setPaying(false);
+    } finally {
+      clearTimeout(hintTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      document.removeEventListener('securitypolicyviolation', onViolation);
+      setVerifying(false);
     }
   };
 
@@ -1055,12 +1104,22 @@ export default function CheckoutPage() {
               >
                 {paying ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" /> Processing payment…
+                    <Loader2 size={16} className="animate-spin" />{' '}
+                    {verifying ? 'Waiting for your bank…' : 'Processing payment…'}
                   </>
                 ) : (
                   `Pay ${formatCurrency(sessionInfo.total)}`
                 )}
               </button>
+
+              {/* A 3-D Secure challenge opens the bank's own window. Say so, or a
+                  long silent wait reads as a frozen page and the customer bails. */}
+              {verifying && (
+                <p className="font-body text-xs text-brand-charcoal/60 text-center">
+                  Your bank may ask you to confirm this payment. Please complete
+                  that step — don&apos;t close or refresh this page.
+                </p>
+              )}
             </>
           ) : (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center space-y-2">
