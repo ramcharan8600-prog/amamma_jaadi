@@ -76,40 +76,41 @@ async function verifyToken(token: string): Promise<boolean> {
  *     without blocking, temporarily send this value as the
  *     `Content-Security-Policy-Report-Only` header instead.
  */
-/** Square's own frames. Used on every route except checkout. */
-const FRAME_SRC_STRICT =
-  "frame-src https://web.squarecdn.com https://sandbox.web.squarecdn.com https://connect.squareup.com https://connect.squareupsandbox.com https://pci-connect.squareup.com https://pci-connect.squareupsandbox.com";
-
 /**
- * Checkout only — deliberately broad, and the reason is worth reading before
- * anyone tightens it back.
+ * `frame-src` is deliberately broad, site-wide. Read this before narrowing it.
  *
- * When a card issuer decides a payment needs a 3-D Secure challenge, Square
- * renders that challenge in an iframe served by *the bank's own domain*, chosen
- * per transaction. Square neither controls nor publishes that set of domains
- * (confirmed by Square support on their developer forum; Adyen documents the
- * identical constraint and also recommends a wildcard). So no allowlist can
- * ever be complete — the first customer who banks somewhere new breaks again.
+ * When a card issuer requires a 3-D Secure challenge, Square renders it in an
+ * iframe served by *the bank's own domain*, chosen per transaction. Square
+ * neither controls nor publishes that set (confirmed by Square support; Adyen
+ * documents the identical constraint and also recommends a wildcard), so no
+ * allowlist can ever be complete.
  *
- * A refused frame does not throw: `tokenize()` simply never settles, so the
- * customer watches a spinner forever. That is the "stuck at payment" report.
+ * This was first scoped to /checkout only — which does NOT work, and the
+ * failure is invisible in testing. CSP binds to the *document*, and the App
+ * Router's client-side navigation never creates a new one, so a customer who
+ * lands on the homepage and clicks through to checkout keeps the homepage's
+ * policy through the entire payment. Only a direct load of /checkout got the
+ * relaxed rule. Verified in production: an https iframe is allowed on a direct
+ * /checkout load and blocked on the same page reached by clicking.
  *
- * Only this one directive is loosened, and only here. `frame-ancestors 'none'`
- * still stops anyone embedding *us*, and script-src / connect-src / form-action
- * / object-src are unchanged on every route including this one — so nothing
- * gains the ability to run code or send data anywhere new.
+ * A refused frame does not throw — tokenize() simply never settles, so the
+ * customer watches a spinner forever and no payment reaches Square.
+ *
+ * What this does NOT give up: `frame-ancestors 'none'` still stops anyone
+ * embedding *us*, and script-src / connect-src / form-action / object-src are
+ * unchanged. Issuer 3DS frames are sandboxed, so embedding one adds no
+ * script-execution surface.
  */
-const FRAME_SRC_CHECKOUT = "frame-src 'self' https:";
+const FRAME_SRC = "frame-src 'self' https:";
 
 /** Same-origin collector for violation reports (see /api/csp-report). */
 const CSP_REPORT_PATH = '/api/csp-report';
 
 /**
- * Build the policy for one path. Every directive except `frame-src` is shared,
- * so the strict and checkout policies cannot drift apart as domains are added.
+ * Build the policy. Identical on every route — see FRAME_SRC above for why a
+ * per-route policy cannot work under client-side navigation.
  */
-function buildCsp(pathname: string): string {
-  const isCheckout = pathname === '/checkout' || pathname.startsWith('/checkout/');
+function buildCsp(): string {
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -120,7 +121,7 @@ function buildCsp(pathname: string): string {
     "font-src 'self' data: https://square-fonts-production-f.squarecdn.com https://d1g145x70srn7h.cloudfront.net https://cash-f.squarecdn.com",
     "style-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com",
     "script-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://js.squareup.com https://static.cloudflareinsights.com",
-    isCheckout ? FRAME_SRC_CHECKOUT : FRAME_SRC_STRICT,
+    FRAME_SRC,
     // o160250.ingest.sentry.io is Square's own SDK error reporting — documented
     // by Square and previously blocked, which silently hid SDK failures.
     "connect-src 'self' https://web.squarecdn.com https://sandbox.web.squarecdn.com https://pci-connect.squareup.com https://pci-connect.squareupsandbox.com https://connect.squareup.com https://connect.squareupsandbox.com https://static.cloudflareinsights.com https://cloudflareinsights.com https://o160250.ingest.sentry.io",
@@ -149,7 +150,7 @@ function withSecurityHeaders(response: NextResponse, request: NextRequest): Next
       'Reporting-Endpoints',
       `csp-endpoint="${CSP_REPORT_PATH}"`
     );
-    response.headers.set('Content-Security-Policy', buildCsp(pathname));
+    response.headers.set('Content-Security-Policy', buildCsp());
     response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
 
