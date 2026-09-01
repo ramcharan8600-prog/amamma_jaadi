@@ -157,8 +157,26 @@ function withSecurityHeaders(response: NextResponse, request: NextRequest): Next
   // loading stale HTML that references JS chunks that no longer exist (white
   // blank page). Static assets under /_next/static/ are content-hashed and
   // already cached immutably by Next.js — this only targets page navigations.
+  //
+  // `s-maxage` additionally lets Cloudflare's *shared* edge cache answer repeat
+  // views for a short window without invoking the Worker at all. That matters
+  // during a traffic spike: 50 homepage views in a minute become 1 invocation
+  // instead of 50, which is what pushes a busy moment past the CPU limit.
+  // `max-age=0` keeps browsers revalidating, so stale HTML still cannot come
+  // back; the only cost is up to 60s of previous content right after a deploy.
+  //
+  // Deliberately NOT edge-cached:
+  //   /api   — per-request data (stock counts, coupon checks); a shared copy
+  //            would hand one customer another's answer.
+  //   /admin — authenticated pages must never sit in a cache shared by everyone.
   if (!pathname.startsWith('/_next/') && !pathname.startsWith('/images/')) {
-    response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+    const edgeCacheable = !pathname.startsWith('/api/') && !pathname.startsWith('/admin');
+    response.headers.set(
+      'Cache-Control',
+      edgeCacheable
+        ? 'public, max-age=0, s-maxage=60, must-revalidate'
+        : 'public, max-age=0, must-revalidate'
+    );
   }
 
   return response;
