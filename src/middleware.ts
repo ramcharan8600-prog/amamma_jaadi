@@ -97,9 +97,9 @@ async function verifyToken(token: string): Promise<boolean> {
  * customer watches a spinner forever and no payment reaches Square.
  *
  * What this does NOT give up: `frame-ancestors 'none'` still stops anyone
- * embedding *us*, and script-src / connect-src / form-action / object-src are
- * unchanged. Issuer 3DS frames are sandboxed, so embedding one adds no
- * script-execution surface.
+ * embedding *us*, and script-src / connect-src / object-src are unchanged.
+ * Issuer 3DS frames are sandboxed, so embedding one adds no script-execution
+ * surface.
  */
 const FRAME_SRC = "frame-src 'self' https:";
 
@@ -110,13 +110,16 @@ const CSP_REPORT_PATH = '/api/csp-report';
  * Build the policy. Identical on every route — see FRAME_SRC above for why a
  * per-route policy cannot work under client-side navigation.
  */
-function buildCsp(): string {
+export function buildCsp(): string {
   return [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
-    "form-action 'self'",
+    // Square's 3DS challenge starts in an about:blank iframe and POSTs to the
+    // card issuer. The iframe inherits this document's CSP, so restricting
+    // form-action to self leaves the issuer challenge visibly blank.
+    "form-action 'self' https:",
     "img-src 'self' data: https:",
     "font-src 'self' data: https://square-fonts-production-f.squarecdn.com https://d1g145x70srn7h.cloudfront.net https://cash-f.squarecdn.com",
     "style-src 'self' 'unsafe-inline' https://web.squarecdn.com https://sandbox.web.squarecdn.com",
