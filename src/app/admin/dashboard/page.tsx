@@ -11,10 +11,11 @@ import {
   ChefHat,
   RefreshCw,
   Ticket,
+  Save,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import InventoryPanel from '@/components/admin/InventoryPanel';
-import type { OrderRecord } from '@/types';
+import type { OrderRecord, ShipmentStatus } from '@/types';
 
 interface ProductionItem {
   name: string;
@@ -30,6 +31,11 @@ export default function AdminDashboardPage() {
   const [filter, setFilter] = useState<FilterType>('today');
   const [loading, setLoading] = useState(true);
   const [authed, setAuthed] = useState(false);
+  const [shipmentDrafts, setShipmentDrafts] = useState<
+    Record<string, { shipmentStatus: ShipmentStatus; trackingId: string }>
+  >({});
+  const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
+  const [savedOrderId, setSavedOrderId] = useState<string | null>(null);
 
   // Check auth (middleware handles redirect, this is for UI state)
   useEffect(() => {
@@ -53,7 +59,15 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`/api/orders?filter=${filter}`);
       const data = await res.json();
-      setOrders(data.orders || []);
+      const nextOrders: OrderRecord[] = data.orders || [];
+      setOrders(nextOrders);
+      setShipmentDrafts(Object.fromEntries(nextOrders.map((order) => [
+        order.id,
+        {
+          shipmentStatus: order.shipment_status || 'yet_to_ship',
+          trackingId: order.tracking_id || '',
+        },
+      ])));
     } catch (e) {
       console.error('Failed to fetch orders:', e);
     }
@@ -69,13 +83,58 @@ export default function AdminDashboardPage() {
     router.push('/admin/login');
   };
 
-  // Production summary — counts paid orders by type for the current filter
+  const updateShipmentDraft = (
+    orderId: string,
+    patch: Partial<{ shipmentStatus: ShipmentStatus; trackingId: string }>
+  ) => {
+    setShipmentDrafts((current) => ({
+      ...current,
+      [orderId]: {
+        shipmentStatus: current[orderId]?.shipmentStatus || 'yet_to_ship',
+        trackingId: current[orderId]?.trackingId || '',
+        ...patch,
+      },
+    }));
+    setSavedOrderId(null);
+  };
+
+  const saveShipment = async (orderId: string) => {
+    const draft = shipmentDrafts[orderId];
+    if (!draft) return;
+
+    setSavingOrderId(orderId);
+    setSavedOrderId(null);
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, ...draft }),
+      });
+      if (!res.ok) throw new Error('Shipment update failed');
+
+      setOrders((current) => current.map((order) => order.id === orderId
+        ? {
+            ...order,
+            shipment_status: draft.shipmentStatus,
+            tracking_id: draft.trackingId || null,
+          }
+        : order));
+      setSavedOrderId(orderId);
+    } catch (e) {
+      console.error('Failed to update shipment:', e);
+      window.alert('Shipment details could not be saved. Please try again.');
+    } finally {
+      setSavingOrderId(null);
+    }
+  };
+
+  // Production summary — fully refunded orders are excluded; a partial refund
+  // can be a price adjustment while the order still needs fulfillment.
   const productionRequirements = useCallback((): ProductionItem[] => {
     const map = new Map<string, ProductionItem>();
 
     for (const order of orders) {
-      // Only paid orders contribute to production requirements
-      if (order.payment_status !== 'paid') continue;
+      if (!['paid', 'partially_refunded'].includes(order.payment_status)) continue;
 
       const label = order.order_type === 'pickup'
         ? `Pickup — ${order.pickup_location || 'TBD'}`
@@ -231,6 +290,8 @@ export default function AdminDashboardPage() {
                   'Total',
                   'Payment',
                   'Status',
+                  'Shipment Status',
+                  'Tracking ID',
                 ].map((h) => (
                   <th
                     key={h}
@@ -314,14 +375,64 @@ export default function AdminDashboardPage() {
                         className={`font-body text-xs px-2 py-0.5 rounded-full ${
                           order.payment_status === 'paid'
                             ? 'bg-green-50 text-green-700'
-                            : 'bg-amber-50 text-amber-700'
+                            : order.payment_status === 'refunded'
+                              ? 'bg-red-50 text-red-700'
+                              : 'bg-amber-50 text-amber-700'
                         }`}
                       >
-                        {order.payment_status}
+                        {order.payment_status.replaceAll('_', ' ')}
                       </span>
                     </td>
                     <td className="py-3 px-2 font-body text-xs text-brand-charcoal/50">
                       {order.status}
+                    </td>
+                    <td className="py-3 px-2 min-w-[145px]">
+                      {order.order_type === 'delivery' ? (
+                        <select
+                          value={shipmentDrafts[order.id]?.shipmentStatus || 'yet_to_ship'}
+                          onChange={(e) => updateShipmentDraft(order.id, {
+                            shipmentStatus: e.target.value as ShipmentStatus,
+                          })}
+                          className="input-field py-1.5 text-xs"
+                          aria-label={`Shipment status for ${order.order_number}`}
+                        >
+                          <option value="yet_to_ship">Yet to ship</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                        </select>
+                      ) : (
+                        <span className="font-body text-xs text-brand-charcoal/40">Pickup</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2 min-w-[190px]">
+                      {order.order_type === 'delivery' ? (
+                        <div className="space-y-1.5">
+                          <input
+                            type="text"
+                            value={shipmentDrafts[order.id]?.trackingId || ''}
+                            onChange={(e) => updateShipmentDraft(order.id, { trackingId: e.target.value })}
+                            placeholder="Tracking number"
+                            className="input-field py-1.5 text-xs"
+                            maxLength={120}
+                            aria-label={`Tracking number for ${order.order_number}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveShipment(order.id)}
+                            disabled={savingOrderId === order.id}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-maroon disabled:opacity-50"
+                          >
+                            <Save size={12} />
+                            {savingOrderId === order.id
+                              ? 'Saving…'
+                              : savedOrderId === order.id
+                                ? 'Saved'
+                                : 'Save'}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="font-body text-xs text-brand-charcoal/40">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

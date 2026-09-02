@@ -89,7 +89,8 @@ export interface DeliveryDetails {
 export type FulfillmentDetails = PickupDetails | DeliveryDetails;
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'partially_refunded' | 'refunded';
+export type ShipmentStatus = 'yet_to_ship' | 'shipped' | 'delivered';
 
 export interface Order {
   id: string;
@@ -135,6 +136,9 @@ export interface OrderRecord {
   tax?: number;
   status: string;
   payment_status: string;
+  refunded_amount: number;
+  shipment_status: ShipmentStatus;
+  tracking_id: string | null;
   created_at: string;
   /** Present when the query joins order_items (e.g. analytics). */
   order_items?: OrderItemRecord[] | null;

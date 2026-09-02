@@ -18,6 +18,7 @@ import {
 import { useCartStore } from '@/store/cart';
 import { PICKUP_LOCATIONS, getPickupLocationById, isProductTaxExempt } from '@/data/products';
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
+import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
 import { calculateOrderTotals, SALES_TAX_LABEL } from '@/lib/pricing';
 import FreeShippingNotice from '@/components/FreeShippingNotice';
 import type { FulfillmentType, PickupDetails, DeliveryDetails } from '@/types';
@@ -237,7 +238,7 @@ export default function CheckoutPage() {
       squareCardRef.current = null;
       if (card) card.destroy().catch(() => {});
     };
-  }, [step, sessionInfo]);
+  }, [step, sessionInfo, mark, flushTrail]);
 
   const subtotal = useMemo(() => (mounted ? getSubtotal() : 0), [mounted, getSubtotal]);
   // Same helper the server uses in create-session — displayed total always
@@ -587,16 +588,22 @@ export default function CheckoutPage() {
     }
   };
 
-  const canSubmitPickup =
-    pickupDate && pickupLocationId && pickupName.trim() && pickupPhone.trim() && pickupEmail.trim();
-  const canSubmitDelivery =
-    deliveryName.trim() &&
-    deliveryPhone.trim() &&
-    deliveryEmail.trim() &&
+  const canSubmitPickup = Boolean(
+    pickupDate &&
+    pickupLocationId &&
+    isValidCustomerName(pickupName) &&
+    isValidPhone(pickupPhone) &&
+    isValidEmail(pickupEmail)
+  );
+  const canSubmitDelivery = Boolean(
+    isValidCustomerName(deliveryName) &&
+    isValidPhone(deliveryPhone) &&
+    isValidEmail(deliveryEmail) &&
     deliveryAddressLine1.trim() &&
     deliveryCity.trim() &&
     deliveryState.trim() &&
-    deliveryZip.trim();
+    deliveryZip.trim()
+  );
 
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === step);
 
@@ -887,35 +894,41 @@ export default function CheckoutPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="label-text">Your Name</label>
+              <label className="label-text">Your Name <span aria-hidden="true">*</span></label>
               <input
                 type="text"
                 value={pickupName}
                 onChange={(e) => setPickupName(e.target.value)}
                 placeholder="Full name"
                 className="input-field"
+                required
+                autoComplete="name"
               />
             </div>
             <div>
-              <label className="label-text">Phone Number</label>
+              <label className="label-text">Phone Number <span aria-hidden="true">*</span></label>
               <input
                 type="tel"
                 value={pickupPhone}
                 onChange={(e) => setPickupPhone(e.target.value)}
                 placeholder="(xxx) xxx-xxxx"
                 className="input-field"
+                required
+                autoComplete="tel"
               />
             </div>
           </div>
 
           <div>
-            <label className="label-text">Email Address</label>
+            <label className="label-text">Email Address <span aria-hidden="true">*</span></label>
             <input
               type="email"
               value={pickupEmail}
               onChange={(e) => setPickupEmail(e.target.value)}
               placeholder="you@example.com"
               className="input-field"
+              required
+              autoComplete="email"
             />
             <p className="font-body text-xs text-brand-charcoal/50 mt-1">
               Order confirmation will be sent to this email.
@@ -971,35 +984,41 @@ export default function CheckoutPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="label-text">Your Name</label>
+              <label className="label-text">Your Name <span aria-hidden="true">*</span></label>
               <input
                 type="text"
                 value={deliveryName}
                 onChange={(e) => setDeliveryName(e.target.value)}
                 className="input-field"
                 placeholder="Full name"
+                required
+                autoComplete="name"
               />
             </div>
             <div>
-              <label className="label-text">Phone Number</label>
+              <label className="label-text">Phone Number <span aria-hidden="true">*</span></label>
               <input
                 type="tel"
                 value={deliveryPhone}
                 onChange={(e) => setDeliveryPhone(e.target.value)}
                 className="input-field"
                 placeholder="(xxx) xxx-xxxx"
+                required
+                autoComplete="tel"
               />
             </div>
           </div>
 
           <div>
-            <label className="label-text">Email</label>
+            <label className="label-text">Email <span aria-hidden="true">*</span></label>
             <input
               type="email"
               value={deliveryEmail}
               onChange={(e) => setDeliveryEmail(e.target.value)}
               className="input-field"
               placeholder="you@example.com"
+              required
+              autoComplete="email"
             />
           </div>
 

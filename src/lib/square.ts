@@ -185,6 +185,53 @@ export async function verifyPayment(paymentId: string): Promise<{
   };
 }
 
+/**
+ * Read Square's cumulative refund totals for a payment.
+ * `refunded_money` is authoritative across one or many partial refunds.
+ */
+export async function getPaymentRefundSummary(paymentId: string): Promise<{
+  totalAmount: number;
+  refundedAmount: number;
+  referenceId?: string;
+}> {
+  const config = getConfig();
+  if (!isSquareEnabled()) {
+    throw new Error('Square payments not configured');
+  }
+
+  const baseUrl = config.environment === 'production'
+    ? 'https://connect.squareup.com'
+    : 'https://connect.squareupsandbox.com';
+  const response = await fetch(`${baseUrl}/v2/payments/${encodeURIComponent(paymentId)}`, {
+    headers: {
+      'Authorization': `Bearer ${config.accessToken}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2024-01-18',
+    },
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.errors?.[0]?.detail || 'Payment refund verification failed');
+  }
+
+  const totalAmount = Number(
+    data.payment?.total_money?.amount ?? data.payment?.amount_money?.amount
+  );
+  const refundedAmount = Number(data.payment?.refunded_money?.amount ?? 0);
+  if (!Number.isSafeInteger(totalAmount) || totalAmount <= 0) {
+    throw new Error('Square returned an invalid payment total');
+  }
+  if (!Number.isSafeInteger(refundedAmount) || refundedAmount < 0) {
+    throw new Error('Square returned an invalid refunded total');
+  }
+
+  return {
+    totalAmount,
+    refundedAmount,
+    referenceId: data.payment?.reference_id || undefined,
+  };
+}
+
 // NOTE: sales tax is NOT calculated here. All order money math lives in
 // `src/lib/pricing.ts` (single source of truth, shared by the checkout UI and
 // create-session) so the displayed total and the charged total cannot drift.

@@ -37,13 +37,16 @@ export async function GET() {
       `SELECT
          o.coupon_code                          AS code,
          COUNT(*)                               AS order_count,
-         SUM(o.total_price)                     AS total_revenue,
+         SUM(MAX(0, o.total_price - o.refunded_amount)) AS total_revenue,
          SUM(CASE WHEN o.order_type = 'pickup'   THEN 1 ELSE 0 END) AS pickup_orders,
          SUM(CASE WHEN o.order_type = 'delivery' THEN 1 ELSE 0 END) AS delivery_orders,
-         SUM(CASE WHEN o.order_type = 'pickup'   THEN o.total_price ELSE 0 END) AS pickup_revenue,
-         SUM(CASE WHEN o.order_type = 'delivery' THEN o.total_price ELSE 0 END) AS delivery_revenue
+         SUM(CASE WHEN o.order_type = 'pickup'
+             THEN MAX(0, o.total_price - o.refunded_amount) ELSE 0 END) AS pickup_revenue,
+         SUM(CASE WHEN o.order_type = 'delivery'
+             THEN MAX(0, o.total_price - o.refunded_amount) ELSE 0 END) AS delivery_revenue
        FROM orders o
-       WHERE o.coupon_code IS NOT NULL AND o.payment_status = 'paid'
+       WHERE o.coupon_code IS NOT NULL
+         AND o.payment_status IN ('paid', 'partially_refunded')
        GROUP BY o.coupon_code`
     )
     .all<Record<string, unknown>>();

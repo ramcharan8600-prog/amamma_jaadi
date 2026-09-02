@@ -8,6 +8,12 @@ export const metadata: Metadata = {
   title: 'Sweets — Freshly Baked South Indian Sweets',
   description:
     'Order fresh Bobbatlu, Malai Khaja, Kova & Guntur Malpuri. Made daily with pure ghee, A2 milk & organic ingredients. Pickup or delivery in Dallas, TX.',
+  alternates: { canonical: 'https://amammajaadi.com/sweets' },
+  openGraph: {
+    url: 'https://amammajaadi.com/sweets',
+    title: 'Sweets — Freshly Baked South Indian Sweets',
+    description: 'Order fresh Bobbatlu, Malai Khaja, Kova & Guntur Malpuri in Dallas, TX.',
+  },
 };
 
 export default function SweetsPage() {

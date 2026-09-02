@@ -11,6 +11,12 @@ export const metadata: Metadata = {
   title: 'Our Story, Areas We Serve & FAQs',
   description:
     'The story behind Amamma Jaadi — authentic Andhra sweets in Dallas, TX. Serving Plano, Frisco, Irving, Denton, McKinney, Allen, Richardson, Carrollton & across DFW, with shipping statewide.',
+  alternates: { canonical: 'https://amammajaadi.com/about' },
+  openGraph: {
+    url: 'https://amammajaadi.com/about',
+    title: 'Our Story, Areas We Serve & FAQs',
+    description: 'Meet Amamma Jaadi and explore our service areas across Dallas-Fort Worth and Texas.',
+  },
 };
 
 export default function AboutPage() {

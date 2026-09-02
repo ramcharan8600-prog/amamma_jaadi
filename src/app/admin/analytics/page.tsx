@@ -26,6 +26,12 @@ function categoryForProduct(name: string): string {
   return PRODUCTS.find((p) => p.name === base)?.category || 'other';
 }
 
+function netOrderRevenue(order: OrderRecord): number {
+  const total = Number(order.total_price) || 0;
+  const refunded = Number(order.refunded_amount) || 0;
+  return Math.max(0, total - refunded);
+}
+
 export default function AnalyticsPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
@@ -96,15 +102,23 @@ export default function AnalyticsPage() {
         categoryRevenue: [] as { category: string; revenue: number }[],
       };
 
-    const paidOrders = orders.filter((o) => o.payment_status === 'paid');
+    // Partial refunds remain real orders, but revenue should reflect only the
+    // amount the business retained. Fully refunded orders are excluded.
+    const paidOrders = orders.filter((o) =>
+      ['paid', 'partially_refunded'].includes(o.payment_status)
+    );
 
     // Product sales — aggregated from each order's nested order_items rows
     const productMap = new Map<string, { name: string; revenue: number; qty: number }>();
     for (const o of paidOrders) {
       const items = Array.isArray(o.order_items) ? o.order_items : [];
+      const grossRevenue = Number(o.total_price) || 0;
+      const revenueRatio = grossRevenue > 0
+        ? netOrderRevenue(o) / grossRevenue
+        : 0;
       for (const item of items) {
         const key = item.product_name || 'Unknown';
-        const lineTotal = Number(item.line_total) || 0;
+        const lineTotal = (Number(item.line_total) || 0) * revenueRatio;
         const pieces = (Number(item.quantity) || 0) * (Number(item.selected_tier) || 1);
         const existing = productMap.get(key);
         if (existing) {
@@ -133,7 +147,7 @@ export default function AnalyticsPage() {
           const d = new Date(o.created_at);
           return d >= weekStart && d < weekEnd;
         })
-        .reduce((s, o) => s + (Number(o.total_price) || 0), 0);
+        .reduce((s, o) => s + netOrderRevenue(o), 0);
       weeklyRevenue.push({ label, value });
     }
 
@@ -149,7 +163,7 @@ export default function AnalyticsPage() {
           const d = new Date(o.created_at);
           return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
         })
-        .reduce((s, o) => s + (Number(o.total_price) || 0), 0);
+        .reduce((s, o) => s + netOrderRevenue(o), 0);
       monthlyRevenue.push({ label, value });
     }
 
@@ -173,7 +187,7 @@ export default function AnalyticsPage() {
     }));
 
     return {
-      totalRevenue: paidOrders.reduce((s, o) => s + (Number(o.total_price) || 0), 0),
+      totalRevenue: paidOrders.reduce((s, o) => s + netOrderRevenue(o), 0),
       totalOrders: paidOrders.length,
       productSales,
       weeklyRevenue,

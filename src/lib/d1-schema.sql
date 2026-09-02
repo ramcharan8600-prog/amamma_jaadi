@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS orders (
   square_payment_id TEXT UNIQUE,       -- webhook idempotency: one order per payment
   status TEXT NOT NULL DEFAULT 'confirmed',
   payment_status TEXT NOT NULL DEFAULT 'pending',
+  refunded_amount REAL NOT NULL DEFAULT 0,
+  shipment_status TEXT NOT NULL DEFAULT 'yet_to_ship'
+    CHECK (shipment_status IN ('yet_to_ship', 'shipped', 'delivered')),
+  tracking_id TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   coupon_code TEXT,                         -- influencer coupon used (NULL if none)
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))

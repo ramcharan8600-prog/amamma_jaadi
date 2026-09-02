@@ -32,6 +32,31 @@
       "database_id": "9b65d2d1-e6cc-4e0d-8520-62a3af2288b2"
     }
   ],
+  // Isolated Square Sandbox deployment. Bindings and vars are repeated because
+  // Wrangler environments do not inherit them from the default environment.
+  // The Sandbox access token is stored as a Worker secret and never committed.
+  "env": {
+    "sandbox": {
+      "name": "amammajaadi-sandbox",
+      "workers_dev": true,
+      "vars": {
+        "SQUARE_ENVIRONMENT": "sandbox",
+        "NEXT_PUBLIC_SQUARE_ENVIRONMENT": "sandbox",
+        "NEXT_PUBLIC_SQUARE_APP_ID": "sandbox-sq0idb-WKS7geC_1fepLwLEC51lsw",
+        "NEXT_PUBLIC_SQUARE_LOCATION_ID": "LHGDKWDQK2SA6",
+        "SQUARE_WEBHOOK_URL": "https://amammajaadi-sandbox.ramcharan8600.workers.dev/api/payments/webhook",
+        "OWNER_NOTIFICATION_EMAIL": "",
+        "FROM_EMAIL": "sandbox@amammajaadi.com"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "amammajaadi-sandbox",
+          "database_id": "070bb231-cca0-42e6-9df8-5f05449a424a"
+        }
+      ]
+    }
+  },
   "observability": {
     "enabled": true
   }

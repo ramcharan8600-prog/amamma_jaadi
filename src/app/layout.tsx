@@ -55,7 +55,6 @@ export const metadata: Metadata = {
     description: 'Freshly baked traditional sweets & pickles delivered in Dallas, TX.',
   },
   robots: { index: true, follow: true },
-  alternates: { canonical: 'https://amammajaadi.com' },
 };
 
 import { getLocalBusinessSchema } from '@/lib/seo';

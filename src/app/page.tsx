@@ -1,7 +1,12 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Leaf, Heart, Sparkles, Truck } from 'lucide-react';
 import { PRODUCTS } from '@/data/products';
+
+export const metadata: Metadata = {
+  alternates: { canonical: 'https://amammajaadi.com' },
+};
 
 const PROMISES = [
   { icon: Leaf, label: 'Pure Ghee & A2 Milk' },

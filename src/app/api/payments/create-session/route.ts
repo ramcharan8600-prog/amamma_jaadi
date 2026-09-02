@@ -6,6 +6,7 @@ import { calculateOrderTotals } from '@/lib/pricing';
 import { getStockMap } from '@/lib/inventory';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
+import { validateRequiredContact } from '@/lib/contact-validation';
 import { ok, fail } from '@/lib/api';
 
 /**
@@ -43,9 +44,11 @@ export async function POST(request: NextRequest) {
     if (body.items.length > 50) {
       return fail('Too many items in cart.', 400);
     }
-    if (!body.phone || typeof body.phone !== 'string' || body.phone.length < 7) {
-      return fail('Valid phone number required', 400);
-    }
+    const customerName = sanitize(body.customerName, 100);
+    const email = sanitize(body.email, 200).toLowerCase();
+    const phone = sanitize(body.phone, 20);
+    const contactError = validateRequiredContact({ name: customerName, email, phone });
+    if (contactError) return fail(contactError, 400);
 
     // Stock for tracked products (pickles). Products with no row are untracked
     // and always available. Quantities are summed across cart lines so the same
@@ -166,9 +169,9 @@ export async function POST(request: NextRequest) {
       )
       .bind(
         sessionId,
-        sanitize(body.customerName, 100) || 'Guest',
-        sanitize(body.email, 200) || null,
-        sanitize(body.phone, 20),
+        customerName,
+        email,
+        phone,
         JSON.stringify(body.items),
         fulfillment ? JSON.stringify(fulfillment) : null,
         total,

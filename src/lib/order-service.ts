@@ -115,7 +115,15 @@ async function returnExistingOrder(
   );
   // Best-effort: ensure the session points at the existing order.
   await db
-    .prepare("UPDATE payment_sessions SET payment_status = 'completed', order_id = ? WHERE id = ?")
+    .prepare(
+      `UPDATE payment_sessions
+       SET payment_status = CASE
+         WHEN payment_status IN ('partially_refunded', 'refunded') THEN payment_status
+         ELSE 'completed'
+       END,
+       order_id = ?
+       WHERE id = ?`
+    )
     .bind(existing.id, sessionId)
     .run();
 
@@ -246,7 +254,15 @@ export async function createOrderFromSession(
 
   // ── Link session → order ────────────────────────────────────────────
   await db
-    .prepare("UPDATE payment_sessions SET payment_status = 'completed', order_id = ?, square_payment_id = ? WHERE id = ?")
+    .prepare(
+      `UPDATE payment_sessions
+       SET payment_status = CASE
+         WHEN payment_status IN ('partially_refunded', 'refunded') THEN payment_status
+         ELSE 'completed'
+       END,
+       order_id = ?, square_payment_id = ?
+       WHERE id = ?`
+    )
     .bind(orderId, squarePaymentId, session.id)
     .run();
 

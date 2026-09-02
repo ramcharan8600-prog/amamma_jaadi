@@ -8,7 +8,7 @@ const { generateOrderNumber, newId, sendOrderConfirmation } = vi.hoisted(() => {
   return {
     generateOrderNumber: vi.fn(async () => `AJ-${++seq}`),
     newId: vi.fn(() => `id_${++idc}`),
-    sendOrderConfirmation: vi.fn(async (..._args: unknown[]) => ({ success: true })),
+    sendOrderConfirmation: vi.fn(async () => ({ success: true })),
   };
 });
 vi.mock('@/lib/db', () => ({
@@ -42,9 +42,11 @@ interface OrderRow {
  */
 function makeFakeDb(hiddenWinner: OrderRow | null = null) {
   const orders: OrderRow[] = [];
+  const executed: Array<{ sql: string; binds: unknown[] }> = [];
   let raceRevealed = false;
 
   function runRun(sql: string, binds: unknown[]) {
+    executed.push({ sql, binds });
     if (/INSERT INTO orders/i.test(sql)) {
       const id = String(binds[0]);
       const orderNumber = String(binds[1]);
@@ -95,7 +97,7 @@ function makeFakeDb(hiddenWinner: OrderRow | null = null) {
     return [];
   }
 
-  return { db: { prepare, batch } as unknown as D1Database, orders };
+  return { db: { prepare, batch } as unknown as D1Database, orders, executed };
 }
 
 function makeSession(overrides: Partial<PaymentSessionRow> = {}): PaymentSessionRow {
@@ -110,6 +112,7 @@ function makeSession(overrides: Partial<PaymentSessionRow> = {}): PaymentSession
     total_amount: 64,
     tax: 0,
     shipping: 0,
+    coupon_code: null,
     ...overrides,
   };
 }
@@ -129,7 +132,7 @@ describe('Square webhook idempotency — createOrderFromSession (D1)', () => {
   });
 
   it('does NOT create a second order or email on a duplicate delivery (layer 2)', async () => {
-    const { db, orders } = makeFakeDb();
+    const { db, orders, executed } = makeFakeDb();
     const session = makeSession();
 
     const first = await createOrderFromSession(db, session, 'PAY_AAA');
@@ -140,6 +143,10 @@ describe('Square webhook idempotency — createOrderFromSession (D1)', () => {
     expect(second.orderNumber).toBe(first.orderNumber);
     expect(orders).toHaveLength(1);
     expect(sendOrderConfirmation).toHaveBeenCalledTimes(1);
+    const sessionUpdates = executed.filter(({ sql }) => /UPDATE payment_sessions/i.test(sql));
+    expect(sessionUpdates.length).toBeGreaterThan(0);
+    expect(sessionUpdates.every(({ sql }) => sql.includes("payment_status IN ('partially_refunded', 'refunded')")))
+      .toBe(true);
   });
 
   it('short-circuits when the session is already linked (layer 1)', async () => {

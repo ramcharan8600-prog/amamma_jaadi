@@ -143,6 +143,12 @@ function withSecurityHeaders(response: NextResponse, request: NextRequest): Next
 
   const { pathname } = request.nextUrl;
 
+  // Preview/sandbox Workers URLs must not compete with the production domain
+  // in search results. This never applies to the custom amammajaadi.com host.
+  if (isPreviewHost(request.nextUrl.hostname)) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
+
   // CSP + HSTS only in production: local `next dev` serves over plain http and
   // uses inline eval for HMR, so enforcing these would only add dev-console noise.
   if (process.env.NODE_ENV === 'production') {
@@ -174,16 +180,22 @@ function withSecurityHeaders(response: NextResponse, request: NextRequest): Next
   //            would hand one customer another's answer.
   //   /admin — authenticated pages must never sit in a cache shared by everyone.
   if (!pathname.startsWith('/_next/') && !pathname.startsWith('/images/')) {
-    const edgeCacheable = !pathname.startsWith('/api/') && !pathname.startsWith('/admin');
-    response.headers.set(
-      'Cache-Control',
-      edgeCacheable
-        ? 'public, max-age=0, s-maxage=60, must-revalidate'
-        : 'public, max-age=0, must-revalidate'
-    );
+    response.headers.set('Cache-Control', cacheControlForPath(pathname));
   }
 
   return response;
+}
+
+/** Keep customer/admin data out of browser and shared intermediary caches. */
+export function cacheControlForPath(pathname: string): string {
+  const isPrivate = pathname.startsWith('/api/') || pathname.startsWith('/admin');
+  return isPrivate
+    ? 'private, no-store'
+    : 'public, max-age=0, s-maxage=60, must-revalidate';
+}
+
+export function isPreviewHost(hostname: string): boolean {
+  return hostname.endsWith('.workers.dev');
 }
 
 export async function middleware(request: NextRequest) {

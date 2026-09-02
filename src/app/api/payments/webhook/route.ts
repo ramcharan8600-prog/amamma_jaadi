@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
+import { processRefundEvent } from '@/lib/square-webhook';
 import { ok, fail } from '@/lib/api';
 
 /**
@@ -64,14 +65,27 @@ export async function POST(request: NextRequest) {
 
     const body = JSON.parse(rawBody);
     const eventType = body.type;
-    const payment = body.data?.object?.payment;
+    const db = getDb();
 
+    // Refund payloads do not contain a payment object, so they must be handled
+    // before the payment-event validation below.
+    const refundResult = await processRefundEvent(
+      db,
+      eventType,
+      body.data?.object?.refund
+    );
+    if (refundResult.handled) {
+      return ok({ received: true, refundUpdated: refundResult.updated });
+    }
+
+    const payment = body.data?.object?.payment;
     if (!payment?.id) {
-      return fail('No payment data', 400);
+      // Acknowledge event types this endpoint does not use so Square does not
+      // retry them or disable the subscription after repeated non-2xx replies.
+      return ok({ received: true, ignored: 'unsupported event' });
     }
 
     const squarePaymentId = payment.id;
-    const db = getDb();
     // Square echoes our session id back as reference_id.
     const referenceId: string | undefined = payment.reference_id;
 
@@ -117,18 +131,6 @@ export async function POST(request: NextRequest) {
         .run();
 
       console.log('Payment failed/declined:', squarePaymentId);
-      return ok({ received: true });
-    }
-
-    // ── REFUND ───────────────────────────────────────────────
-    if (eventType === 'refund.created') {
-      const refundPaymentId = body.data?.object?.refund?.payment_id;
-      if (refundPaymentId) {
-        await db
-          .prepare("UPDATE orders SET payment_status = 'refunded' WHERE square_payment_id = ?")
-          .bind(refundPaymentId)
-          .run();
-      }
       return ok({ received: true });
     }
 
