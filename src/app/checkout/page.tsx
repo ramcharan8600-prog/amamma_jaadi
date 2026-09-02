@@ -334,7 +334,12 @@ export default function CheckoutPage() {
     });
 
   // ── Payment submission (shared by card + Apple Pay) ─────────────────
-  const submitPayment = async (token: string) => {
+  /**
+   * `verificationToken` is only present when the issuer ran a 3-D Secure
+   * challenge. It must reach CreatePayment or Square declines the charge as
+   * unverified — the buyer passes the bank's check and still cannot pay.
+   */
+  const submitPayment = async (token: string, verificationToken?: string) => {
     if (!sessionInfo) return;
     setPaying(true);
     setPaymentError('');
@@ -343,7 +348,7 @@ export default function CheckoutPage() {
         fetch('/api/payments/create-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, sourceId: token }),
+          body: JSON.stringify({ sessionId, sourceId: token, verificationToken }),
         });
 
       let res = await charge(sessionInfo.sessionId);
@@ -458,7 +463,7 @@ export default function CheckoutPage() {
         setPaying(false);
         return;
       }
-      await submitPayment(result.token);
+      await submitPayment(result.token, result.verificationToken);
     } catch {
       setPaymentError('Payment failed. Please try again.');
       setPaying(false);
@@ -478,7 +483,7 @@ export default function CheckoutPage() {
         setPaymentError(result.errors?.[0]?.message || 'Apple Pay was cancelled.');
         return;
       }
-      await submitPayment(result.token);
+      await submitPayment(result.token, result.verificationToken);
     } catch {
       setPaymentError('Apple Pay failed. Please try a card instead.');
     }

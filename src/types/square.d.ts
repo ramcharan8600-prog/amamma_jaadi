@@ -5,6 +5,14 @@
 interface SquareTokenizeResult {
   status: string; // 'OK' on success
   token?: string;
+  /**
+   * Proof that the buyer cleared the issuer's 3-D Secure challenge. Square
+   * returns this alongside `token` whenever verificationDetails were supplied
+   * and the issuer stepped up. It MUST be forwarded to CreatePayment —
+   * without it Square declines the charge as unverified
+   * (CARD_DECLINED_VERIFICATION_REQUIRED), even though the buyer passed.
+   */
+  verificationToken?: string;
   errors?: Array<{ message: string }>;
 }
 
