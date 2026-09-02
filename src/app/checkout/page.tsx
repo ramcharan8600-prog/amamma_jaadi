@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
 import Link from 'next/link';
 import {
   Clock,
@@ -89,6 +89,67 @@ export default function CheckoutPage() {
   const [paymentError, setPaymentError] = useState('');
   // Shown while a 3-D Secure challenge is on screen — see handleCardPay().
   const [verifying, setVerifying] = useState(false);
+
+  // ── Checkout breadcrumb trail ───────────────────────────────────────
+  // Everything past "Continue to payment" runs in the browser, so when it
+  // breaks the server sees only a 'pending' row and no reason. We buffer the
+  // steps and send them ONCE — one request per checkout, not one per step.
+  const trailRef = useRef<Array<{ t: number; s: string; d?: string }>>([]);
+  const trailStart = useRef<number>(Date.now());
+  const sessionIdRef = useRef<string>('');
+  const sentRef = useRef(false);
+
+  const mark = useCallback((stage: string, detail?: string) => {
+    try {
+      if (trailRef.current.length < 40) {
+        trailRef.current.push({
+          t: Date.now() - trailStart.current,
+          s: stage,
+          ...(detail ? { d: String(detail).slice(0, 160) } : {}),
+        });
+      }
+    } catch {
+      /* Telemetry must never break checkout. */
+    }
+  }, []);
+
+  /**
+   * Flush the trail. `sendBeacon` is deliberate: a plain fetch is cancelled
+   * when the tab closes, which is exactly when a hung checkout gets reported.
+   * Fires at most once per checkout unless `force` is set for a real outcome.
+   */
+  const flushTrail = useCallback((outcome: string, reason?: string) => {
+    try {
+      if (sentRef.current) return;
+      if (!trailRef.current.length) return;
+      sentRef.current = true;
+      const payload = JSON.stringify({
+        outcome,
+        reason,
+        sessionId: sessionIdRef.current || undefined,
+        trail: trailRef.current,
+      });
+      const url = '/api/checkout-log';
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        navigator.sendBeacon(url, new Blob([payload], { type: 'application/json' }));
+      } else {
+        fetch(url, { method: 'POST', body: payload, keepalive: true }).catch(() => {});
+      }
+    } catch {
+      /* Never surface a telemetry failure to the customer. */
+    }
+  }, []);
+
+  // A customer who closes a hung payment page never triggers any other path —
+  // this is the only way that failure is ever recorded.
+  useEffect(() => {
+    if (step !== 'payment') return;
+    const onLeave = () => {
+      if (!sentRef.current) flushTrail('abandoned', 'left the payment step');
+    };
+    window.addEventListener('pagehide', onLeave);
+    return () => window.removeEventListener('pagehide', onLeave);
+  }, [step, flushTrail]);
   const squareCardRef = useRef<SquareCard | null>(null);
   const applePayRef = useRef<SquareApplePay | null>(null);
 
@@ -126,8 +187,10 @@ export default function CheckoutPage() {
 
     const init = async () => {
       try {
+        mark('payment_step', `env=${env}`);
         await loadSdk();
         if (cancelled || !window.Square) return;
+        mark('sdk_loaded');
         const payments = window.Square.payments(sessionInfo.appId!, sessionInfo.locationId!);
 
         const card = await payments.card();
@@ -136,6 +199,7 @@ export default function CheckoutPage() {
           return;
         }
         await card.attach('#square-card-container');
+        mark('card_form_ready');
         squareCardRef.current = card;
         setCardReady(true);
 
@@ -157,6 +221,8 @@ export default function CheckoutPage() {
         }
       } catch (e) {
         console.error('Square init failed:', e);
+        mark('sdk_init_failed', e instanceof Error ? e.message : String(e));
+        flushTrail('failed', 'payment form never loaded');
         setPaymentError('We could not load the secure payment form. Please refresh and try again.');
       }
     };
@@ -279,6 +345,9 @@ export default function CheckoutPage() {
         return { error: err.error || 'We could not start checkout. Please try again.' };
       }
       const data = await res.json();
+      // Recorded for telemetry so a browser-side failure can be tied back to
+      // its payment_sessions row.
+      sessionIdRef.current = data.sessionId || '';
       setSessionInfo({
         sessionId: data.sessionId,
         subtotal: Number(data.subtotal ?? 0),
@@ -343,6 +412,7 @@ export default function CheckoutPage() {
     if (!sessionInfo) return;
     setPaying(true);
     setPaymentError('');
+    mark('charging', verificationToken ? 'with verification token' : 'no verification token');
     try {
       const charge = (sessionId: string) =>
         fetch('/api/payments/create-payment', {
@@ -365,14 +435,20 @@ export default function CheckoutPage() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
+        mark('charge_declined', `${res.status}: ${data.error || 'no message'}`);
+        flushTrail('failed', `charge rejected (${res.status})`);
         setPaymentError(data.error || 'Your payment could not be processed. Please try again.');
         setPaying(false);
         return;
       }
+      mark('order_created', data.orderNumber || '');
+      flushTrail('completed');
       setOrderNumber(data.orderNumber || '');
       setOrderComplete(true);
       clearCart();
-    } catch {
+    } catch (e) {
+      mark('charge_threw', e instanceof Error ? e.message : String(e));
+      flushTrail('failed', 'network error while charging');
       setPaymentError('Payment failed. Please try again.');
     } finally {
       setPaying(false);
@@ -421,7 +497,11 @@ export default function CheckoutPage() {
     setPaying(true);
     setPaymentError('');
 
-    const hintTimer = setTimeout(() => setVerifying(true), VERIFY_HINT_MS);
+    mark('pay_clicked');
+    const hintTimer = setTimeout(() => {
+      setVerifying(true);
+      mark('slow_still_waiting');
+    }, VERIFY_HINT_MS);
 
     // If the browser refuses the issuer's challenge frame, tokenize() never
     // settles — no error, no rejection, just a spinner that runs forever. Watch
@@ -432,6 +512,10 @@ export default function CheckoutPage() {
       if (e.effectiveDirective === 'frame-src' || e.effectiveDirective === 'child-src') {
         frameBlocked = true;
       }
+      // Record EVERY directive, not just frame-src — if the challenge is broken
+      // by something we haven't anticipated (worker-src, default-src), this is
+      // the line that will say so.
+      mark('csp_violation', `${e.effectiveDirective} blocked ${e.blockedURI}`);
     };
     document.addEventListener('securitypolicyviolation', onViolation);
 
@@ -449,6 +533,8 @@ export default function CheckoutPage() {
       ]);
 
       if (result === TIMED_OUT) {
+        mark('tokenize_timeout', frameBlocked ? 'after a blocked frame' : 'no CSP block seen');
+        flushTrail('failed', frameBlocked ? 'bank frame blocked' : 'tokenize never returned');
         setPaymentError(
           frameBlocked
             ? "Your bank's verification page could not open in this browser. No charge was made — please try a different card or browser."
@@ -459,12 +545,19 @@ export default function CheckoutPage() {
       }
 
       if (result.status !== 'OK' || !result.token) {
+        mark('tokenize_rejected', `${result.status}: ${result.errors?.[0]?.message || 'no message'}`);
+        flushTrail('failed', 'card details rejected');
         setPaymentError(result.errors?.[0]?.message || 'Please check your card details.');
         setPaying(false);
         return;
       }
+      // Whether a verification token came back tells us if the issuer ran a
+      // challenge at all — the single most useful fact when a payment fails.
+      mark('tokenize_ok', result.verificationToken ? '3DS challenge passed' : 'no challenge');
       await submitPayment(result.token, result.verificationToken);
-    } catch {
+    } catch (e) {
+      mark('tokenize_threw', e instanceof Error ? e.message : String(e));
+      flushTrail('failed', 'tokenize threw');
       setPaymentError('Payment failed. Please try again.');
       setPaying(false);
     } finally {
@@ -478,13 +571,18 @@ export default function CheckoutPage() {
   const handleApplePay = async () => {
     if (!applePayRef.current) return;
     try {
+      mark('applepay_clicked');
       const result = await applePayRef.current.tokenize();
       if (result.status !== 'OK' || !result.token) {
+        mark('applepay_rejected', `${result.status}: ${result.errors?.[0]?.message || 'no message'}`);
         setPaymentError(result.errors?.[0]?.message || 'Apple Pay was cancelled.');
         return;
       }
+      mark('applepay_ok');
       await submitPayment(result.token, result.verificationToken);
-    } catch {
+    } catch (e) {
+      mark('applepay_threw', e instanceof Error ? e.message : String(e));
+      flushTrail('failed', 'Apple Pay threw');
       setPaymentError('Apple Pay failed. Please try a card instead.');
     }
   };
