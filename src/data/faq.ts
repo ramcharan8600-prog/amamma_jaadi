@@ -45,7 +45,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'UPS shipping within Texas is a flat $6.99. Shipping to Oklahoma, Arkansas, Louisiana, and New Mexico is $12.99 below $60 and $9.99 at $60 or more. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. All other contiguous states and Washington, DC require an $80 minimum merchandise subtotal and have a flat $15.99 shipping fee. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
+      'UPS shipping within Texas is a flat $6.99. Shipping to Oklahoma, Arkansas, Colorado, Louisiana, and New Mexico is $12.99 below $60 and $9.99 at $60 or more. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. All other contiguous states and Washington, DC require an $80 minimum merchandise subtotal and have a flat $15.99 shipping fee. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
   },
   {
     question: 'Where can I pick up my order?',

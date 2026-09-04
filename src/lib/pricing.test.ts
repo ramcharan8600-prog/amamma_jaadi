@@ -98,7 +98,7 @@ describe('pricing — Texas delivery (in-state)', () => {
 });
 
 describe('pricing — nearby-state delivery', () => {
-  for (const deliveryState of ['OK', 'AR', 'LA', 'NM']) {
+  for (const deliveryState of ['OK', 'AR', 'CO', 'LA', 'NM']) {
     it(`${deliveryState}: $12.99 below $60 and $9.99 at $60+`, () => {
       expect(calculateOrderTotals(59.99, { fulfillmentType: 'delivery', deliveryState }).shipping)
         .toBe(12.99);

@@ -39,8 +39,8 @@ export function isTexas(state: string | undefined | null): boolean {
   return (state ?? '').trim().toUpperCase() === 'TX';
 }
 
-/** States that share a border with Texas and use the nearby-state rate. */
-export const NEARBY_STATE_CODES = ['AR', 'LA', 'NM', 'OK'] as const;
+/** States in the nearby shipping region. */
+export const NEARBY_STATE_CODES = ['AR', 'CO', 'LA', 'NM', 'OK'] as const;
 
 /**
  * Supported delivery destinations. Alaska and Hawaii intentionally remain
@@ -147,7 +147,7 @@ export interface OrderTotals {
  * Break a subtotal into subtotal + tax + shipping + total.
  *
  * Texas: $6.99 flat.
- * Nearby states (AR/LA/NM/OK): $12.99 below $60, otherwise $9.99.
+ * Nearby states (AR/CO/LA/NM/OK): $12.99 below $60, otherwise $9.99.
  * Far states: $15.99 flat, with an $80 merchandise minimum enforced by checkout.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
