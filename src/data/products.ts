@@ -125,7 +125,7 @@ export const PRODUCTS: Product[] = [
     slug: 'sweet-memories-gift-box',
     name: 'Sweet Memories Gift Box (Texas Limited Edition)',
     description:
-      'A desi-style sweets gift box with 12 pieces, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. A single $30 box is available for Texas delivery; include it in an order of $60 or more for delivery outside Texas. Far-state orders still require an $80 minimum.',
+      'A desi-style sweets gift box with 12 pieces, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. A single $30 box is available for Texas delivery. It can be included with other items in large out-of-state orders.',
     category: 'gift-boxes',
     unitPrice: 30,
     image: '/images/products/gift box.jpg',
