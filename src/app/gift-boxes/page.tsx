@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { getProductsByCategory } from '@/data/products';
 import GiftBoxCard from '@/components/product/GiftBoxCard';
+import FreeShippingNotice from '@/components/FreeShippingNotice';
 import JsonLd from '@/components/JsonLd';
 import { getProductListSchema } from '@/lib/seo';
-import { Gift, Star, Calendar, Building2, Truck } from 'lucide-react';
+import { Gift, Star, Calendar, Building2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Events, Party Packs & Gift Boxes — South Indian Sweet Gifting',
@@ -69,15 +70,7 @@ export default function GiftBoxesPage() {
 
       {/* Delivery banner */}
       <section className="section-padding pb-8">
-        <div className="flex items-start gap-3 bg-brand-gold/10 border border-brand-gold/40 rounded-xl p-4 max-w-3xl mx-auto">
-          <Truck size={22} className="text-brand-gold shrink-0 mt-0.5" />
-          <p className="font-body text-sm text-brand-charcoal/80">
-            <span className="font-semibold text-brand-charcoal">Delivery available:</span>{' '}
-            we have tied up with trusted courier services to provide the best service.
-            Pickup is free at our partner locations; delivery charges apply per
-            destination and are confirmed with you at checkout.
-          </p>
-        </div>
+        <FreeShippingNotice className="max-w-3xl mx-auto" />
       </section>
 
       {/* Products */}

@@ -25,6 +25,8 @@ export interface Product {
    * box is packed correctly.
    */
   variantOptions?: string[];
+  /** When present, delivery is permitted only to these two-letter state codes. */
+  deliveryStateCodes?: string[];
   /** Optional lead-time / freshness notice shown on the product card. */
   prepNotice?: string;
   /**

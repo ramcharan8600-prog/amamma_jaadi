@@ -77,6 +77,13 @@ describe('lookups', () => {
     }
   });
 
+  it('limits the $30 Texas Limited Edition gift box to Texas delivery', () => {
+    const box = getProductById('gift-box-sweet-memories')!;
+    expect(box.unitPrice).toBe(30);
+    expect(box.name).toContain('Texas Limited Edition');
+    expect(box.deliveryStateCodes).toEqual(['TX']);
+  });
+
   it('gift box piece counts match the box size', () => {
     expect(getProductById('gift-box-sweet-memories')!.variantOptions).toEqual([
       '12 pcs Guntur Malpuri',

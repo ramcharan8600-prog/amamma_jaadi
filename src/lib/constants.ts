@@ -29,22 +29,18 @@ export const SITE_URL = 'https://amammajaadi.com';
 /** The shop operates in Dallas, TX (US Central). Used for all business-date math. */
 export const BUSINESS_TZ = 'America/Chicago';
 
-/** The $60 boundary used by Texas and nearby-state Standard shipping. */
+/** The $60 boundary used by nearby-state shipping. */
 export const STANDARD_SHIPPING_THRESHOLD = 60;
 
-/** The $80 boundary used by far-state Ground and Expedited shipping. */
-export const FAR_SHIPPING_THRESHOLD = 80;
+/** Minimum merchandise subtotal accepted for far-state delivery. */
+export const FAR_SHIPPING_MINIMUM = 80;
 
-/** Texas Standard shipping. */
-export const SHIPPING_TX_BELOW = 8.99;
-export const SHIPPING_TX_ABOVE = 5.99;
+/** Flat UPS shipping within Texas. */
+export const SHIPPING_TX = 6.99;
 
 /** Standard shipping to states bordering Texas. */
-export const SHIPPING_NEARBY_BELOW = 10.99;
-export const SHIPPING_NEARBY_ABOVE = 8.99;
+export const SHIPPING_NEARBY_BELOW = 12.99;
+export const SHIPPING_NEARBY_ABOVE = 9.99;
 
-/** Far-state shipping, selected by the customer at checkout. */
-export const SHIPPING_FAR_GROUND_BELOW = 11.99;
-export const SHIPPING_FAR_GROUND_ABOVE = 9.99;
-export const SHIPPING_FAR_EXPEDITED_BELOW = 22;
-export const SHIPPING_FAR_EXPEDITED_ABOVE = 14.99;
+/** Flat shipping for eligible far-state orders. */
+export const SHIPPING_FAR = 15.99;

@@ -4,8 +4,9 @@ import {
   roundMoney,
   isTexas,
   getShippingZone,
+  getDeliveryMinimumSubtotal,
+  getDeliveryMinimumShortfall,
   isSupportedDeliveryState,
-  resolveDeliveryShippingMethod,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
 } from './pricing';
@@ -72,48 +73,37 @@ describe('isTexas helper', () => {
 describe('pricing — Texas delivery (in-state)', () => {
   const TX = { deliveryState: 'TX' };
 
-  it('charges $8.99 on TX delivery under $60', () => {
+  it('charges a flat $6.99 on TX delivery under $60', () => {
     expect(
       calculateOrderTotals(30, { fulfillmentType: 'delivery', taxableSubtotal: 0, ...TX })
-    ).toEqual({ subtotal: 30, tax: 0, shipping: 8.99, total: 38.99 });
+    ).toEqual({ subtotal: 30, tax: 0, shipping: 6.99, total: 36.99 });
   });
 
-  it('charges $5.99 at exactly the $60 threshold for TX delivery', () => {
+  it('charges the same $6.99 at and above $60', () => {
     expect(
       calculateOrderTotals(60, { fulfillmentType: 'delivery', ...TX }).shipping
-    ).toBe(5.99);
-  });
-
-  it('charges $5.99 above $60 for TX delivery', () => {
-    expect(
-      calculateOrderTotals(75, { fulfillmentType: 'delivery', ...TX }).shipping
-    ).toBe(5.99);
-  });
-
-  it('charges $8.99 at $59.99 for TX delivery', () => {
-    expect(
-      calculateOrderTotals(59.99, { fulfillmentType: 'delivery', ...TX }).shipping
-    ).toBe(8.99);
+    ).toBe(6.99);
+    expect(calculateOrderTotals(75, { fulfillmentType: 'delivery', ...TX }).shipping)
+      .toBe(6.99);
   });
 
   it('a taxable cart uses the same flat TX rate', () => {
     const mixed = calculateOrderTotals(44, {
       fulfillmentType: 'delivery', taxableSubtotal: 14, ...TX,
     });
-    expect(mixed.shipping).toBe(8.99);
+    expect(mixed.shipping).toBe(6.99);
     expect(mixed.tax).toBe(1.16);
-    expect(mixed.total).toBe(roundMoney(44 + 1.16 + 8.99));
+    expect(mixed.total).toBe(roundMoney(44 + 1.16 + 6.99));
   });
 });
 
 describe('pricing — nearby-state delivery', () => {
   for (const deliveryState of ['OK', 'AR', 'LA', 'NM']) {
-    it(`${deliveryState}: $10.99 below $60 and $8.99 at $60+`, () => {
+    it(`${deliveryState}: $12.99 below $60 and $9.99 at $60+`, () => {
       expect(calculateOrderTotals(59.99, { fulfillmentType: 'delivery', deliveryState }).shipping)
-        .toBe(10.99);
+        .toBe(12.99);
       expect(calculateOrderTotals(60, { fulfillmentType: 'delivery', deliveryState }).shipping)
-        .toBe(8.99);
-      expect(resolveDeliveryShippingMethod(deliveryState, 'expedited')).toBe('standard');
+        .toBe(9.99);
     });
   }
 });
@@ -121,34 +111,21 @@ describe('pricing — nearby-state delivery', () => {
 describe('pricing — far-state delivery', () => {
   const NY = { deliveryState: 'NY' };
 
-  it('charges Ground $11.99 below $80 and $9.99 at $80+', () => {
-    expect(calculateOrderTotals(79.99, {
-      fulfillmentType: 'delivery', shippingMethod: 'ground', ...NY,
-    }).shipping).toBe(11.99);
-    expect(calculateOrderTotals(80, {
-      fulfillmentType: 'delivery', shippingMethod: 'ground', ...NY,
-    }).shipping).toBe(9.99);
-    expect(calculateOrderTotals(100, {
-      fulfillmentType: 'delivery', shippingMethod: 'ground', ...NY,
-    }).shipping).toBe(9.99);
+  it('charges a flat $15.99 shipping fee', () => {
+    expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', ...NY }).shipping)
+      .toBe(15.99);
+    expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', ...NY }).shipping)
+      .toBe(15.99);
   });
 
-  it('charges Expedited $22 below $80 and $14.99 at $80+', () => {
-    expect(calculateOrderTotals(79.99, {
-      fulfillmentType: 'delivery', shippingMethod: 'expedited', ...NY,
-    }).shipping).toBe(22);
-    expect(calculateOrderTotals(80, {
-      fulfillmentType: 'delivery', shippingMethod: 'expedited', ...NY,
-    }).shipping).toBe(14.99);
-    expect(calculateOrderTotals(100, {
-      fulfillmentType: 'delivery', shippingMethod: 'expedited', ...NY,
-    }).shipping).toBe(14.99);
-  });
-
-  it('defaults an absent or tampered method to Ground', () => {
-    expect(calculateOrderTotals(40, { fulfillmentType: 'delivery', ...NY }).shipping).toBe(11.99);
-    expect(resolveDeliveryShippingMethod('NY', 'standard')).toBe('ground');
-    expect(resolveDeliveryShippingMethod('NY', 'overnight')).toBe('ground');
+  it('requires an $80 merchandise subtotal', () => {
+    expect(getDeliveryMinimumSubtotal('NY')).toBe(80);
+    expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(40);
+    expect(getDeliveryMinimumShortfall(79.99, 'NY')).toBe(0.01);
+    expect(getDeliveryMinimumShortfall(80, 'NY')).toBe(0);
+    expect(getDeliveryMinimumShortfall(100, 'NY')).toBe(0);
+    expect(getDeliveryMinimumSubtotal('TX')).toBe(0);
+    expect(getDeliveryMinimumSubtotal('OK')).toBe(0);
   });
 
   it('classifies named examples as far states', () => {
@@ -186,7 +163,7 @@ describe('pricing — pickup and general', () => {
   it('does not tax the delivery fee', () => {
     const t = calculateOrderTotals(30, { fulfillmentType: 'delivery', taxableSubtotal: 30, deliveryState: 'TX' });
     expect(t.tax).toBe(roundMoney(30 * 0.0825));
-    expect(t.total).toBe(roundMoney(30 + t.tax + 8.99));
+    expect(t.total).toBe(roundMoney(30 + t.tax + 6.99));
   });
 
   it('subtotal + tax + shipping always equals total exactly (no float dust)', () => {

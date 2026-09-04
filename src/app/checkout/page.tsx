@@ -16,15 +16,20 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
-import { PICKUP_LOCATIONS, getPickupLocationById, isProductTaxExempt } from '@/data/products';
+import {
+  PICKUP_LOCATIONS,
+  getPickupLocationById,
+  getTotalPieces as calculateTotalPieces,
+  isProductTaxExempt,
+} from '@/data/products';
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
 import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
 import {
   calculateOrderTotals,
   DELIVERY_STATE_OPTIONS,
-  getShippingZone,
+  getDeliveryMinimumSubtotal,
+  getDeliveryMinimumShortfall,
   isSupportedDeliveryState,
-  resolveDeliveryShippingMethod,
   SALES_TAX_LABEL,
   shippingMethodLabel,
 } from '@/lib/pricing';
@@ -48,7 +53,7 @@ const STEP_LABELS: { key: Step | 'done'; label: string }[] = [
 
 export default function CheckoutPage() {
   const [mounted, setMounted] = useState(false);
-  const { items, getSubtotal, getTotalPieces, isLargeOrder, fulfillment, setFulfillment, clearCart, removeItem } =
+  const { items, fulfillment, setFulfillment, clearCart, removeItem } =
     useCartStore();
 
   const [step, setStep] = useState<Step>('cart');
@@ -71,8 +76,6 @@ export default function CheckoutPage() {
   const [deliveryState, setDeliveryState] = useState('');
   const [deliveryCountry] = useState('USA');
   const [deliveryZip, setDeliveryZip] = useState('');
-  const [deliveryShippingMethod, setDeliveryShippingMethod] =
-    useState<DeliveryShippingMethod>('ground');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -256,7 +259,10 @@ export default function CheckoutPage() {
     };
   }, [step, sessionInfo, mark, flushTrail]);
 
-  const subtotal = useMemo(() => (mounted ? getSubtotal() : 0), [mounted, getSubtotal]);
+  const subtotal = useMemo(
+    () => (mounted ? items.reduce((sum, item) => sum + item.lineTotal, 0) : 0),
+    [mounted, items]
+  );
   // Same helper the server uses in create-session — displayed total always
   // matches the amount charged.
   // Only non-exempt lines (pickles) are taxed — bakery items are exempt. Mirrors
@@ -268,10 +274,7 @@ export default function CheckoutPage() {
         : 0,
     [mounted, items]
   );
-  const resolvedShippingMethod = resolveDeliveryShippingMethod(
-    deliveryState,
-    deliveryShippingMethod
-  );
+  const resolvedShippingMethod: DeliveryShippingMethod = 'standard';
   const totals = useMemo(
     () => calculateOrderTotals(subtotal, {
       taxableSubtotal,
@@ -279,26 +282,26 @@ export default function CheckoutPage() {
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,
       shippingMethod:
         fulfillmentType === 'delivery'
-          ? resolveDeliveryShippingMethod(deliveryState, deliveryShippingMethod)
+          ? 'standard'
           : undefined,
     }),
-    [subtotal, taxableSubtotal, fulfillmentType, deliveryState, deliveryShippingMethod]
+    [subtotal, taxableSubtotal, fulfillmentType, deliveryState]
   );
-  const deliveryZone = getShippingZone(deliveryState);
-  const farGroundFee = calculateOrderTotals(subtotal, {
-    fulfillmentType: 'delivery',
-    taxableSubtotal,
-    deliveryState,
-    shippingMethod: 'ground',
-  }).shipping;
-  const farExpeditedFee = calculateOrderTotals(subtotal, {
-    fulfillmentType: 'delivery',
-    taxableSubtotal,
-    deliveryState,
-    shippingMethod: 'expedited',
-  }).shipping;
-  const totalPieces = useMemo(() => (mounted ? getTotalPieces() : 0), [mounted, getTotalPieces]);
-  const largeOrder = useMemo(() => (mounted ? isLargeOrder() : false), [mounted, isLargeOrder]);
+  const deliveryMinimumShortfall = isSupportedDeliveryState(deliveryState)
+    ? getDeliveryMinimumShortfall(subtotal, deliveryState)
+    : 0;
+  const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState);
+  const stateRestrictedItem = isSupportedDeliveryState(deliveryState)
+    ? items.find(({ product }) =>
+        product.deliveryStateCodes?.length &&
+        !product.deliveryStateCodes.includes(deliveryState)
+      )
+    : undefined;
+  const totalPieces = useMemo(
+    () => (mounted ? calculateTotalPieces(items) : 0),
+    [mounted, items]
+  );
+  const largeOrder = totalPieces > 150;
   const minPickupDate = useMemo(() => getMinPickupDate(totalPieces), [totalPieces]);
   const selectedLocation = useMemo(
     () => (pickupLocationId ? getPickupLocationById(pickupLocationId) : null),
@@ -637,7 +640,9 @@ export default function CheckoutPage() {
     deliveryAddressLine1.trim() &&
     deliveryCity.trim() &&
     isSupportedDeliveryState(deliveryState) &&
-    /^\d{5}(?:-\d{4})?$/.test(deliveryZip.trim())
+    /^\d{5}(?:-\d{4})?$/.test(deliveryZip.trim()) &&
+    deliveryMinimumShortfall === 0 &&
+    !stateRestrictedItem
   );
 
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === step);
@@ -1012,8 +1017,8 @@ export default function CheckoutPage() {
               Shipping times begin after your order is prepared.
             </p>
             <p className="font-body text-sm text-blue-700">
-              Far-state Ground shipping is estimated at 2–5 business days in transit; Expedited
-              shipping is estimated at 2 business days in transit.
+              We usually select an expedited air service for out-of-state orders. Most packages
+              arrive within 2–3 business days after dispatch.
             </p>
           </div>
 
@@ -1140,56 +1145,25 @@ export default function CheckoutPage() {
             </p>
           </div>
 
-          {isSupportedDeliveryState(deliveryState) && deliveryZone === 'far' && (
-            <fieldset className="space-y-3">
-              <legend className="label-text">Shipping speed <span aria-hidden="true">*</span></legend>
-              <label
-                className={`card p-4 flex items-start gap-3 cursor-pointer transition-colors ${
-                  deliveryShippingMethod === 'ground' ? 'border-brand-maroon bg-brand-cream/40' : ''
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="shipping-speed"
-                  value="ground"
-                  checked={deliveryShippingMethod === 'ground'}
-                  onChange={() => setDeliveryShippingMethod('ground')}
-                  className="mt-1 accent-brand-maroon"
-                />
-                <span className="flex-1">
-                  <span className="flex justify-between gap-3 font-body text-sm font-semibold text-brand-charcoal">
-                    <span>Ground</span>
-                    <span>{formatCurrency(farGroundFee)}</span>
-                  </span>
-                  <span className="block font-body text-xs text-brand-charcoal/55 mt-1">
-                    Estimated 2–5 business days in transit
-                  </span>
-                </span>
-              </label>
-              <label
-                className={`card p-4 flex items-start gap-3 cursor-pointer transition-colors ${
-                  deliveryShippingMethod === 'expedited' ? 'border-brand-maroon bg-brand-cream/40' : ''
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="shipping-speed"
-                  value="expedited"
-                  checked={deliveryShippingMethod === 'expedited'}
-                  onChange={() => setDeliveryShippingMethod('expedited')}
-                  className="mt-1 accent-brand-maroon"
-                />
-                <span className="flex-1">
-                  <span className="flex justify-between gap-3 font-body text-sm font-semibold text-brand-charcoal">
-                    <span>Expedited</span>
-                    <span>{formatCurrency(farExpeditedFee)}</span>
-                  </span>
-                  <span className="block font-body text-xs text-brand-charcoal/55 mt-1">
-                    Estimated 2 business days in transit
-                  </span>
-                </span>
-              </label>
-            </fieldset>
+          {deliveryMinimumShortfall > 0 && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3.5">
+              <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="font-body text-sm text-amber-800">
+                A minimum product subtotal of {formatCurrency(deliveryMinimumSubtotal)} is required
+                for delivery to this state. Add{' '}
+                <strong>{formatCurrency(deliveryMinimumShortfall)}</strong> more to continue.
+              </p>
+            </div>
+          )}
+
+          {stateRestrictedItem && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3.5">
+              <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+              <p className="font-body text-sm text-red-700">
+                <strong>{stateRestrictedItem.product.name}</strong> is available for delivery to
+                Texas addresses only. Please remove it from your cart or select a Texas address.
+              </p>
+            </div>
           )}
 
           {deliveryState.trim() && (

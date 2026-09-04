@@ -9,15 +9,11 @@
 
 import {
   STANDARD_SHIPPING_THRESHOLD,
-  FAR_SHIPPING_THRESHOLD,
-  SHIPPING_TX_BELOW,
-  SHIPPING_TX_ABOVE,
+  FAR_SHIPPING_MINIMUM,
+  SHIPPING_TX,
   SHIPPING_NEARBY_BELOW,
   SHIPPING_NEARBY_ABOVE,
-  SHIPPING_FAR_GROUND_BELOW,
-  SHIPPING_FAR_GROUND_ABOVE,
-  SHIPPING_FAR_EXPEDITED_BELOW,
-  SHIPPING_FAR_EXPEDITED_ABOVE,
+  SHIPPING_FAR,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod } from '@/types';
 
@@ -122,19 +118,22 @@ export function getShippingZone(state: string | undefined | null): ShippingZone 
   return 'far';
 }
 
-/** Force the only valid method for a zone; untrusted/absent far-state values become Ground. */
-export function resolveDeliveryShippingMethod(
-  state: string | undefined | null,
-  requested?: string | null
-): DeliveryShippingMethod {
-  if (getShippingZone(state) !== 'far') return 'standard';
-  return requested === 'expedited' ? 'expedited' : 'ground';
-}
-
 export function shippingMethodLabel(method: DeliveryShippingMethod | null | undefined): string {
   if (method === 'expedited') return 'Expedited — estimated 2 business days in transit';
   if (method === 'ground') return 'Ground — estimated 2–5 business days in transit';
-  return 'Standard shipping';
+  return 'Shipping';
+}
+
+/** Far-state orders must reach this merchandise subtotal before checkout. */
+export function getDeliveryMinimumSubtotal(state: string | undefined | null): number {
+  return getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
+}
+
+export function getDeliveryMinimumShortfall(
+  subtotal: number,
+  state: string | undefined | null
+): number {
+  return roundMoney(Math.max(0, getDeliveryMinimumSubtotal(state) - Math.max(0, subtotal)));
 }
 
 export interface OrderTotals {
@@ -147,10 +146,9 @@ export interface OrderTotals {
 /**
  * Break a subtotal into subtotal + tax + shipping + total.
  *
- * Texas: $8.99 below $60, otherwise $5.99.
- * Nearby states (AR/LA/NM/OK): $10.99 below $60, otherwise $8.99.
- * Far states let the buyer choose Ground ($11.99/$9.99) or Expedited
- * ($22/$14.99), with the lower rate starting at $80.
+ * Texas: $6.99 flat.
+ * Nearby states (AR/LA/NM/OK): $12.99 below $60, otherwise $9.99.
+ * Far states: $15.99 flat, with an $80 merchandise minimum enforced by checkout.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */
@@ -173,25 +171,13 @@ export function calculateOrderTotals(
   if (opts.fulfillmentType === 'delivery') {
     const zone = getShippingZone(opts.deliveryState);
     if (zone === 'texas') {
-      shipping = safeSubtotal >= STANDARD_SHIPPING_THRESHOLD
-        ? SHIPPING_TX_ABOVE
-        : SHIPPING_TX_BELOW;
+      shipping = SHIPPING_TX;
     } else if (zone === 'nearby') {
       shipping = safeSubtotal >= STANDARD_SHIPPING_THRESHOLD
         ? SHIPPING_NEARBY_ABOVE
         : SHIPPING_NEARBY_BELOW;
     } else {
-      const method = resolveDeliveryShippingMethod(opts.deliveryState, opts.shippingMethod);
-      const aboveThreshold = safeSubtotal >= FAR_SHIPPING_THRESHOLD;
-      if (method === 'expedited') {
-        shipping = aboveThreshold
-          ? SHIPPING_FAR_EXPEDITED_ABOVE
-          : SHIPPING_FAR_EXPEDITED_BELOW;
-      } else {
-        shipping = aboveThreshold
-          ? SHIPPING_FAR_GROUND_ABOVE
-          : SHIPPING_FAR_GROUND_BELOW;
-      }
+      shipping = SHIPPING_FAR;
     }
   }
 

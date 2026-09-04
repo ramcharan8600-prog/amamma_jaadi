@@ -123,14 +123,15 @@ export const PRODUCTS: Product[] = [
   {
     id: 'gift-box-sweet-memories',
     slug: 'sweet-memories-gift-box',
-    name: 'Sweet Memories Gift Box',
+    name: 'Sweet Memories Gift Box (Texas Limited Edition)',
     description:
-      'A desi-style sweets gift box with 6 Nellore Malai Khaja and 6 Guntur Malpuri, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. Free pickup at our partner locations, or delivery via our courier partners — charges apply per destination.',
+      'A desi-style sweets gift box with 12 pieces, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. Available for free pickup at our Texas partner locations and delivery to Texas addresses only.',
     category: 'gift-boxes',
     unitPrice: 30,
     image: '/images/products/gift box.jpg',
     isFixedQuantity: true,
     inStock: true,
+    deliveryStateCodes: ['TX'],
     variantOptions: [
       '12 pcs Guntur Malpuri',
       '12 pcs Nellore Malai Khaja',

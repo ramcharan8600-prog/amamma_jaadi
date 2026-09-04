@@ -4,9 +4,10 @@ import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
 import { PRODUCTS, calculateSweetPrice, isProductTaxExempt } from '@/data/products';
 import {
   calculateOrderTotals,
+  getDeliveryMinimumSubtotal,
+  getDeliveryMinimumShortfall,
   isSupportedDeliveryState,
   normalizeStateCode,
-  resolveDeliveryShippingMethod,
 } from '@/lib/pricing';
 import { getStockMap } from '@/lib/inventory';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
@@ -134,15 +135,38 @@ export async function POST(request: NextRequest) {
     let shippingMethod: 'standard' | 'ground' | 'expedited' | undefined;
 
     if (fulfillmentType === 'delivery') {
-      deliveryState = normalizeStateCode(rawFulfillment?.state);
-      if (deliveryState === 'AK' || deliveryState === 'HI') {
+      const normalizedDeliveryState = normalizeStateCode(rawFulfillment?.state);
+      deliveryState = normalizedDeliveryState;
+      if (normalizedDeliveryState === 'AK' || normalizedDeliveryState === 'HI') {
         return fail(
           'Delivery to Alaska or Hawaii requires a manual shipping quote. Please contact us.',
           400
         );
       }
-      if (!isSupportedDeliveryState(deliveryState)) {
+      if (!isSupportedDeliveryState(normalizedDeliveryState)) {
         return fail('Please select a valid delivery state.', 400);
+      }
+
+      const stateRestrictedProduct = PRODUCTS.find(
+        (product) =>
+          requestedByProduct.has(product.id) &&
+          product.deliveryStateCodes?.length &&
+          !product.deliveryStateCodes.includes(normalizedDeliveryState)
+      );
+      if (stateRestrictedProduct) {
+        return fail(
+          `${stateRestrictedProduct.name} is available for delivery to Texas addresses only. Please remove it or select a Texas address.`,
+          400
+        );
+      }
+
+      const minimumSubtotal = getDeliveryMinimumSubtotal(normalizedDeliveryState);
+      const minimumShortfall = getDeliveryMinimumShortfall(serverTotal, normalizedDeliveryState);
+      if (minimumShortfall > 0) {
+        return fail(
+          `A minimum product subtotal of $${minimumSubtotal.toFixed(2)} is required for delivery to this state. Add $${minimumShortfall.toFixed(2)} more to continue.`,
+          400
+        );
       }
 
       const addressLine1 = sanitize(rawFulfillment?.addressLine1, 200);
@@ -156,12 +180,7 @@ export async function POST(request: NextRequest) {
         return fail('Please enter a valid 5-digit ZIP code.', 400);
       }
 
-      shippingMethod = resolveDeliveryShippingMethod(
-        deliveryState,
-        typeof rawFulfillment?.shippingMethod === 'string'
-          ? rawFulfillment.shippingMethod
-          : undefined
-      );
+      shippingMethod = 'standard';
       fulfillment = {
         type: 'delivery',
         shippingMethod,
@@ -171,7 +190,7 @@ export async function POST(request: NextRequest) {
         addressLine1,
         addressLine2,
         city,
-        state: deliveryState,
+        state: normalizedDeliveryState,
         zip,
         country: 'USA',
       };

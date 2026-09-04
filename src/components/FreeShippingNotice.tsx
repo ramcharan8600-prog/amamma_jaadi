@@ -1,8 +1,7 @@
 import { Truck } from 'lucide-react';
 
 /**
- * Informational banner: shipping fee varies by destination, order value and,
- * for far states, the selected transit speed.
+ * Informational banner describing typical out-of-state transit times.
  * Presentation only (no client state), so it works in both server and client
  * components. The actual delivery fee is computed at checkout.
  */
@@ -13,9 +12,10 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
     >
       <Truck size={18} className="text-brand-gold shrink-0 mt-0.5" />
       <p className="font-body text-sm text-brand-charcoal/80">
-        <strong>Shipping is calculated before payment</strong> from the destination, order value,
-        and selected speed. Far-state orders can choose Ground or Expedited shipping. Pickup is
-        always free.
+        <strong>Fast nationwide shipping:</strong> We usually select an expedited air service for
+        out-of-state orders. Most packages arrive within 2–3 business days after dispatch. Delivery
+        time may vary by destination, carrier conditions, and weather. Tracking details will be
+        emailed when your order ships.
       </p>
     </div>
   );
