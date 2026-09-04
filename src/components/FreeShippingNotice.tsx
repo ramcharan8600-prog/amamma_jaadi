@@ -1,8 +1,8 @@
 import { Truck } from 'lucide-react';
-import { FREE_SHIPPING_THRESHOLD } from '@/lib/constants';
 
 /**
- * Informational banner: shipping fee varies by location and order value.
+ * Informational banner: shipping fee varies by destination, order value and,
+ * for far states, the selected transit speed.
  * Presentation only (no client state), so it works in both server and client
  * components. The actual delivery fee is computed at checkout.
  */
@@ -13,9 +13,9 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
     >
       <Truck size={18} className="text-brand-gold shrink-0 mt-0.5" />
       <p className="font-body text-sm text-brand-charcoal/80">
-        <strong>Free shipping</strong> within Texas on orders of ${FREE_SHIPPING_THRESHOLD} and above.
-        Out-of-state orders and orders below ${FREE_SHIPPING_THRESHOLD}, a delivery fee applies
-        and is shown before you pay. Pickup is always free.
+        <strong>Shipping is calculated before payment</strong> from the destination, order value,
+        and selected speed. Far-state orders can choose Ground or Expedited shipping. Pickup is
+        always free.
       </p>
     </div>
   );

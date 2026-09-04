@@ -2,7 +2,12 @@ import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
 import { PRODUCTS, calculateSweetPrice, isProductTaxExempt } from '@/data/products';
-import { calculateOrderTotals } from '@/lib/pricing';
+import {
+  calculateOrderTotals,
+  isSupportedDeliveryState,
+  normalizeStateCode,
+  resolveDeliveryShippingMethod,
+} from '@/lib/pricing';
 import { getStockMap } from '@/lib/inventory';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
@@ -67,7 +72,6 @@ export async function POST(request: NextRequest) {
     // Never trust the client-sent total — prevents price manipulation.
     let serverTotal = 0;
     let taxableTotal = 0;
-    let pickleJars = 0;
     for (const item of body.items) {
       const product = PRODUCTS.find((p) => p.id === item.productId);
       if (!product) {
@@ -119,24 +123,67 @@ export async function POST(request: NextRequest) {
       serverTotal += lineTotal;
       // Only non-exempt lines (pickles) are taxed — bakery items are exempt.
       if (!isProductTaxExempt(product)) taxableTotal += lineTotal;
-      // Jars drive the delivery fee scale.
-      if (product.category === 'pickles') pickleJars += qty;
     }
 
-    // Fulfillment is stored as the customer entered it (no address validation).
-    const fulfillment = body.fulfillment || null;
-    const fulfillmentType = fulfillment?.type === 'delivery' ? 'delivery' : 'pickup';
+    // Normalize delivery inputs before pricing or persistence. The browser is
+    // never trusted to choose its own zone/rate.
+    const rawFulfillment = body.fulfillment || null;
+    const fulfillmentType = rawFulfillment?.type === 'delivery' ? 'delivery' : 'pickup';
+    let fulfillment = rawFulfillment;
+    let deliveryState: string | undefined;
+    let shippingMethod: 'standard' | 'ground' | 'expedited' | undefined;
+
+    if (fulfillmentType === 'delivery') {
+      deliveryState = normalizeStateCode(rawFulfillment?.state);
+      if (deliveryState === 'AK' || deliveryState === 'HI') {
+        return fail(
+          'Delivery to Alaska or Hawaii requires a manual shipping quote. Please contact us.',
+          400
+        );
+      }
+      if (!isSupportedDeliveryState(deliveryState)) {
+        return fail('Please select a valid delivery state.', 400);
+      }
+
+      const addressLine1 = sanitize(rawFulfillment?.addressLine1, 200);
+      const addressLine2 = sanitize(rawFulfillment?.addressLine2, 200);
+      const city = sanitize(rawFulfillment?.city, 100);
+      const zip = sanitize(rawFulfillment?.zip, 10);
+      if (!addressLine1 || !city) {
+        return fail('Please enter a complete delivery address.', 400);
+      }
+      if (!/^\d{5}(?:-\d{4})?$/.test(zip)) {
+        return fail('Please enter a valid 5-digit ZIP code.', 400);
+      }
+
+      shippingMethod = resolveDeliveryShippingMethod(
+        deliveryState,
+        typeof rawFulfillment?.shippingMethod === 'string'
+          ? rawFulfillment.shippingMethod
+          : undefined
+      );
+      fulfillment = {
+        type: 'delivery',
+        shippingMethod,
+        customerName,
+        phone,
+        email,
+        addressLine1,
+        addressLine2,
+        city,
+        state: deliveryState,
+        zip,
+        country: 'USA',
+      };
+    }
 
     // Subtotal → + Texas sales tax → + delivery fee → charged total. Same helper
     // the checkout UI uses, so the amount shown always matches the amount charged.
-    const deliveryState = fulfillmentType === 'delivery' && fulfillment?.state
-      ? String(fulfillment.state).trim()
-      : undefined;
     const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, {
       fulfillmentType,
       taxableSubtotal: taxableTotal,
-      pickleJars,
       deliveryState,
+      shippingMethod,
     });
 
     if (total <= 0) {
@@ -191,6 +238,7 @@ export async function POST(request: NextRequest) {
       subtotal,
       tax,
       shipping,
+      shippingMethod: shippingMethod || null,
       totalAmount: total,
       idempotencyKey,
       squareEnabled: isSquareEnabled(),

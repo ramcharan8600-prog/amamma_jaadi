@@ -19,9 +19,22 @@ import { useCartStore } from '@/store/cart';
 import { PICKUP_LOCATIONS, getPickupLocationById, isProductTaxExempt } from '@/data/products';
 import { formatCurrency, getMinPickupDate } from '@/lib/utils';
 import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
-import { calculateOrderTotals, SALES_TAX_LABEL } from '@/lib/pricing';
+import {
+  calculateOrderTotals,
+  DELIVERY_STATE_OPTIONS,
+  getShippingZone,
+  isSupportedDeliveryState,
+  resolveDeliveryShippingMethod,
+  SALES_TAX_LABEL,
+  shippingMethodLabel,
+} from '@/lib/pricing';
 import FreeShippingNotice from '@/components/FreeShippingNotice';
-import type { FulfillmentType, PickupDetails, DeliveryDetails } from '@/types';
+import type {
+  FulfillmentType,
+  PickupDetails,
+  DeliveryDetails,
+  DeliveryShippingMethod,
+} from '@/types';
 
 type Step = 'cart' | 'method' | 'details' | 'payment';
 
@@ -58,6 +71,8 @@ export default function CheckoutPage() {
   const [deliveryState, setDeliveryState] = useState('');
   const [deliveryCountry] = useState('USA');
   const [deliveryZip, setDeliveryZip] = useState('');
+  const [deliveryShippingMethod, setDeliveryShippingMethod] =
+    useState<DeliveryShippingMethod>('ground');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -70,6 +85,7 @@ export default function CheckoutPage() {
     subtotal: number;
     tax: number;
     shipping: number;
+    shippingMethod: DeliveryShippingMethod;
     total: number;
     appId: string | null;
     locationId: string | null;
@@ -252,23 +268,35 @@ export default function CheckoutPage() {
         : 0,
     [mounted, items]
   );
-  // Pickle jars carry their own delivery fee scale — mirrors create-session.
-  const pickleJars = useMemo(
-    () =>
-      mounted
-        ? items.reduce((n, i) => (i.product.category === 'pickles' ? n + i.quantity : n), 0)
-        : 0,
-    [mounted, items]
+  const resolvedShippingMethod = resolveDeliveryShippingMethod(
+    deliveryState,
+    deliveryShippingMethod
   );
   const totals = useMemo(
     () => calculateOrderTotals(subtotal, {
       taxableSubtotal,
-      pickleJars,
       fulfillmentType: fulfillmentType ?? undefined,
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,
+      shippingMethod:
+        fulfillmentType === 'delivery'
+          ? resolveDeliveryShippingMethod(deliveryState, deliveryShippingMethod)
+          : undefined,
     }),
-    [subtotal, taxableSubtotal, pickleJars, fulfillmentType, deliveryState]
+    [subtotal, taxableSubtotal, fulfillmentType, deliveryState, deliveryShippingMethod]
   );
+  const deliveryZone = getShippingZone(deliveryState);
+  const farGroundFee = calculateOrderTotals(subtotal, {
+    fulfillmentType: 'delivery',
+    taxableSubtotal,
+    deliveryState,
+    shippingMethod: 'ground',
+  }).shipping;
+  const farExpeditedFee = calculateOrderTotals(subtotal, {
+    fulfillmentType: 'delivery',
+    taxableSubtotal,
+    deliveryState,
+    shippingMethod: 'expedited',
+  }).shipping;
   const totalPieces = useMemo(() => (mounted ? getTotalPieces() : 0), [mounted, getTotalPieces]);
   const largeOrder = useMemo(() => (mounted ? isLargeOrder() : false), [mounted, isLargeOrder]);
   const minPickupDate = useMemo(() => getMinPickupDate(totalPieces), [totalPieces]);
@@ -354,6 +382,12 @@ export default function CheckoutPage() {
         subtotal: Number(data.subtotal ?? 0),
         tax: Number(data.tax ?? 0),
         shipping: Number(data.shipping ?? 0),
+        shippingMethod:
+          data.shippingMethod === 'expedited'
+            ? 'expedited'
+            : data.shippingMethod === 'standard'
+              ? 'standard'
+              : 'ground',
         total: data.totalAmount,
         appId: data.squareEnabled ? data.squareAppId : null,
         locationId: data.squareEnabled ? data.squareLocationId : null,
@@ -392,6 +426,7 @@ export default function CheckoutPage() {
   const proceedDelivery = () =>
     createSessionAndPay({
       type: 'delivery',
+      shippingMethod: resolvedShippingMethod,
       customerName: deliveryName,
       phone: deliveryPhone,
       email: deliveryEmail,
@@ -601,8 +636,8 @@ export default function CheckoutPage() {
     isValidEmail(deliveryEmail) &&
     deliveryAddressLine1.trim() &&
     deliveryCity.trim() &&
-    deliveryState.trim() &&
-    deliveryZip.trim()
+    isSupportedDeliveryState(deliveryState) &&
+    /^\d{5}(?:-\d{4})?$/.test(deliveryZip.trim())
   );
 
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === step);
@@ -824,7 +859,7 @@ export default function CheckoutPage() {
               <Truck size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
               <h3 className="font-display text-xl font-semibold text-brand-charcoal">Delivery</h3>
               <p className="font-body text-sm text-brand-charcoal/60 mt-1">
-                We&apos;ll deliver to your doorstep within 24–48 hours.
+                Nationwide shipping with destination-based rates shown before payment.
               </p>
             </button>
           </div>
@@ -974,11 +1009,11 @@ export default function CheckoutPage() {
 
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-1">
             <p className="font-body text-sm text-blue-800 font-semibold">
-              Standard shipping times applicable.
+              Shipping times begin after your order is prepared.
             </p>
             <p className="font-body text-sm text-blue-700">
-              Orders are typically delivered within 24–48 hours from the date of order. Additional
-              shipping charges may apply depending on location.
+              Far-state Ground shipping is estimated at 2–5 business days in transit; Expedited
+              shipping is estimated at 2 business days in transit.
             </p>
           </div>
 
@@ -1058,13 +1093,18 @@ export default function CheckoutPage() {
             </div>
             <div>
               <label className="label-text">State</label>
-              <input
-                type="text"
+              <select
                 value={deliveryState}
                 onChange={(e) => setDeliveryState(e.target.value)}
                 className="input-field"
-                maxLength={2}
-              />
+                required
+                autoComplete="address-level1"
+              >
+                <option value="">Select state</option>
+                {DELIVERY_STATE_OPTIONS.map(({ code, name }) => (
+                  <option key={code} value={code}>{name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="label-text">ZIP</label>
@@ -1073,9 +1113,18 @@ export default function CheckoutPage() {
                 value={deliveryZip}
                 onChange={(e) => setDeliveryZip(e.target.value)}
                 className="input-field"
+                inputMode="numeric"
+                autoComplete="postal-code"
+                maxLength={10}
+                placeholder="12345"
+                required
               />
             </div>
           </div>
+
+          <p className="font-body text-xs text-brand-charcoal/50 -mt-3">
+            Alaska and Hawaii require a manual shipping quote. Please contact us before ordering.
+          </p>
 
           <div>
             <label className="label-text">Country</label>
@@ -1091,6 +1140,58 @@ export default function CheckoutPage() {
             </p>
           </div>
 
+          {isSupportedDeliveryState(deliveryState) && deliveryZone === 'far' && (
+            <fieldset className="space-y-3">
+              <legend className="label-text">Shipping speed <span aria-hidden="true">*</span></legend>
+              <label
+                className={`card p-4 flex items-start gap-3 cursor-pointer transition-colors ${
+                  deliveryShippingMethod === 'ground' ? 'border-brand-maroon bg-brand-cream/40' : ''
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="shipping-speed"
+                  value="ground"
+                  checked={deliveryShippingMethod === 'ground'}
+                  onChange={() => setDeliveryShippingMethod('ground')}
+                  className="mt-1 accent-brand-maroon"
+                />
+                <span className="flex-1">
+                  <span className="flex justify-between gap-3 font-body text-sm font-semibold text-brand-charcoal">
+                    <span>Ground</span>
+                    <span>{formatCurrency(farGroundFee)}</span>
+                  </span>
+                  <span className="block font-body text-xs text-brand-charcoal/55 mt-1">
+                    Estimated 2–5 business days in transit
+                  </span>
+                </span>
+              </label>
+              <label
+                className={`card p-4 flex items-start gap-3 cursor-pointer transition-colors ${
+                  deliveryShippingMethod === 'expedited' ? 'border-brand-maroon bg-brand-cream/40' : ''
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="shipping-speed"
+                  value="expedited"
+                  checked={deliveryShippingMethod === 'expedited'}
+                  onChange={() => setDeliveryShippingMethod('expedited')}
+                  className="mt-1 accent-brand-maroon"
+                />
+                <span className="flex-1">
+                  <span className="flex justify-between gap-3 font-body text-sm font-semibold text-brand-charcoal">
+                    <span>Expedited</span>
+                    <span>{formatCurrency(farExpeditedFee)}</span>
+                  </span>
+                  <span className="block font-body text-xs text-brand-charcoal/55 mt-1">
+                    Estimated 2 business days in transit
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+          )}
+
           {deliveryState.trim() && (
             <div className="card p-4 space-y-1.5">
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
@@ -1104,7 +1205,7 @@ export default function CheckoutPage() {
                 </div>
               )}
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                <span>Delivery</span>
+                <span>{shippingMethodLabel(resolvedShippingMethod)}</span>
                 <span>{totals.shipping > 0 ? formatCurrency(totals.shipping) : 'Free'}</span>
               </div>
               <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
@@ -1167,7 +1268,7 @@ export default function CheckoutPage() {
             )}
             {fulfillment?.type === 'delivery' && (
               <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
-                <span>Delivery</span>
+                <span>{shippingMethodLabel(sessionInfo.shippingMethod)}</span>
                 <span>{sessionInfo.shipping > 0 ? formatCurrency(sessionInfo.shipping) : 'Free'}</span>
               </div>
             )}

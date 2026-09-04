@@ -13,6 +13,7 @@ import { generateOrderNumber, newId, parseJson } from '@/lib/db';
 import { isEmailConfigured, sendOrderConfirmation, sendOwnerOrderAlert } from '@/lib/email-service';
 import { getPickupLocationById } from '@/data/products';
 import { decrementStockForOrder } from '@/lib/inventory';
+import type { DeliveryShippingMethod } from '@/types';
 
 export interface PaymentSessionRow {
   id: string;
@@ -30,6 +31,7 @@ export interface PaymentSessionRow {
 
 interface FulfillmentData {
   type?: 'pickup' | 'delivery';
+  shippingMethod?: DeliveryShippingMethod;
   date?: string;
   locationId?: string;
   addressLine1?: string;
@@ -165,9 +167,9 @@ export async function createOrderFromSession(
       .prepare(
         `INSERT INTO orders
           (id, order_number, customer_name, phone_number, email, order_type,
-           pickup_date, pickup_location, delivery_address,
+           pickup_date, pickup_location, delivery_address, shipping_method,
            total_price, tax, square_payment_id, coupon_code, status, payment_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')`
       )
       .bind(
         orderId,
@@ -179,6 +181,7 @@ export async function createOrderFromSession(
         fulfillment.date || null,
         fulfillment.locationId || null,
         buildDeliveryAddress(fulfillment),
+        fulfillment.type === 'delivery' ? fulfillment.shippingMethod || 'standard' : null,
         session.total_amount,
         session.tax || 0,
         squarePaymentId,
@@ -310,6 +313,8 @@ export async function createOrderFromSession(
           fulfillment.type === 'delivery'
             ? buildDeliveryAddress(fulfillment) ?? undefined
             : undefined,
+        shippingMethod:
+          fulfillment.type === 'delivery' ? fulfillment.shippingMethod || 'standard' : undefined,
       });
     } catch (e) {
       console.error('[order-service] owner alert email failed:', e);
@@ -336,6 +341,8 @@ export async function createOrderFromSession(
           fulfillment.type === 'delivery'
             ? buildDeliveryAddress(fulfillment) ?? undefined
             : undefined,
+        shippingMethod:
+          fulfillment.type === 'delivery' ? fulfillment.shippingMethod || 'standard' : undefined,
       });
     } catch (e) {
       console.error('[order-service] confirmation email failed:', e);

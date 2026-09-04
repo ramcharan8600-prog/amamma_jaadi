@@ -14,7 +14,8 @@
 
 import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/constants';
 import { formatPickupDate } from '@/lib/date';
-import { SALES_TAX_LABEL } from '@/lib/pricing';
+import { SALES_TAX_LABEL, shippingMethodLabel } from '@/lib/pricing';
+import type { DeliveryShippingMethod } from '@/types';
 
 // Read at REQUEST time — on Cloudflare/OpenNext runtime secrets aren't populated
 // at module load, so a module-scope read would be empty even when set.
@@ -139,6 +140,7 @@ function totalsFooterRows(params: {
   tax?: number;
   shipping?: number;
   fulfillmentType: 'pickup' | 'delivery';
+  shippingMethod?: DeliveryShippingMethod;
 }): string {
   if (params.subtotal == null) return '';
 
@@ -158,7 +160,7 @@ function totalsFooterRows(params: {
   if (params.fulfillmentType === 'delivery') {
     const fee = Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free';
     rows.push(
-      `<tr><td colspan="2" style="${cell}">Delivery</td>
+      `<tr><td colspan="2" style="${cell}">${escapeHtml(shippingMethodLabel(params.shippingMethod))}</td>
        <td style="text-align:right; ${cell}">${fee}</td></tr>`
     );
   }
@@ -183,6 +185,7 @@ export async function sendOrderConfirmation(params: {
   shipping?: number;
   items: Array<{ name: string; quantity: number; price: number }>;
   fulfillmentType: 'pickup' | 'delivery';
+  shippingMethod?: DeliveryShippingMethod;
   /** Pickup date (YYYY-MM-DD) — shown for pickup orders. */
   pickupDate?: string;
   /** Pickup location (name + address) — shown for pickup orders. */
@@ -207,6 +210,7 @@ export async function sendOrderConfirmation(params: {
     <div style="background: #FFF8F0; padding: 14px 16px; border-radius: 8px; margin: 16px 0;">
       <p style="margin: 0 0 6px; font-weight: bold; color: #7B1F1F;">Delivery</p>
       ${params.deliveryAddress ? `<p style="margin: 0 0 6px; color: #444; white-space: pre-line;">${escapeHtml(params.deliveryAddress)}</p>` : ''}
+      <p style="margin: 0 0 6px; color: #444;"><strong>Method:</strong> ${escapeHtml(shippingMethodLabel(params.shippingMethod))}</p>
       <p style="margin: 0; color: #666;">We&apos;ll share tracking details for your delivery shortly.</p>
     </div>`;
 
@@ -267,6 +271,7 @@ export async function sendOwnerOrderAlert(params: {
   customerEmail: string | null;
   items: Array<{ name: string; quantity: number; price: number }>;
   fulfillmentType: 'pickup' | 'delivery';
+  shippingMethod?: DeliveryShippingMethod;
   pickupDate?: string;
   pickupLocation?: string;
   deliveryAddress?: string;
@@ -281,7 +286,7 @@ export async function sendOwnerOrderAlert(params: {
   const fulfillmentHtml =
     params.fulfillmentType === 'pickup'
       ? `<p style="margin: 2px 0;"><strong>Pickup:</strong> ${escapeHtml(params.pickupDate ? formatPickupDate(params.pickupDate) : '')}${params.pickupLocation ? ` — ${escapeHtml(params.pickupLocation)}` : ''}</p>`
-      : `<p style="margin: 2px 0;"><strong>Delivery to:</strong></p><p style="margin: 2px 0; white-space: pre-line; color: #444;">${escapeHtml(params.deliveryAddress || '(no address)')}</p>`;
+      : `<p style="margin: 2px 0;"><strong>Delivery to:</strong></p><p style="margin: 2px 0; white-space: pre-line; color: #444;">${escapeHtml(params.deliveryAddress || '(no address)')}</p><p style="margin: 6px 0 2px;"><strong>Shipping method:</strong> ${escapeHtml(shippingMethodLabel(params.shippingMethod))}</p>`;
 
   const html = baseTemplate(`
     <h2 style="color: #7B1F1F;">New Order — ${params.orderNumber}</h2>
@@ -307,7 +312,7 @@ export async function sendOwnerOrderAlert(params: {
                <td style="text-align:right; padding:2px 0; color:#666;">$${Number(params.tax).toFixed(2)}</td></tr>
                ${
                  params.fulfillmentType === 'delivery'
-                   ? `<tr><td colspan="2" style="padding:2px 0 10px; color:#666;">Delivery</td>
+                   ? `<tr><td colspan="2" style="padding:2px 0 10px; color:#666;">${escapeHtml(shippingMethodLabel(params.shippingMethod))}</td>
                       <td style="text-align:right; padding:2px 0 10px; color:#666;">${Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free'}</td></tr>`
                    : ''
                }`

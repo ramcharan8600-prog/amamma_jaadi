@@ -45,7 +45,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'Within Texas, delivery is free on orders of $60 and above. Below $60, a $4.99 delivery fee applies. For out-of-state orders, delivery is $2.99 on orders of $60 and above, and $6.99 below $60. The exact fee is always shown before you pay. Pickup from our partner locations is always free.',
+      'Texas shipping is $8.99 below $60 and $5.99 at $60 or more. Shipping to Oklahoma, Arkansas, Louisiana, and New Mexico is $10.99 below $60 and $8.99 at $60 or more. All other contiguous states can choose Ground ($11.99 below $80; $9.99 at $80 or more) or Expedited ($22 below $80; $14.99 at $80 or more). Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
   },
   {
     question: 'Where can I pick up my order?',

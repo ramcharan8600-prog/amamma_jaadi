@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS orders (
   pickup_location TEXT,
   delivery_address TEXT,
   delivery_address_normalized TEXT,   -- JSON string
+  shipping_method TEXT
+    CHECK (shipping_method IN ('standard', 'ground', 'expedited')),
   total_price REAL NOT NULL,
   tax REAL DEFAULT 0,
   square_payment_id TEXT UNIQUE,       -- webhook idempotency: one order per payment

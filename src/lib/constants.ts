@@ -29,26 +29,22 @@ export const SITE_URL = 'https://amammajaadi.com';
 /** The shop operates in Dallas, TX (US Central). Used for all business-date math. */
 export const BUSINESS_TZ = 'America/Chicago';
 
-/**
- * Free-shipping threshold, INCLUSIVE: a delivery order of exactly this amount
- * ships free, and the fee applies only strictly BELOW it. Customer-facing copy
- * must say "$60 and above" — "over $60" would wrongly imply $60 is charged.
- */
-export const FREE_SHIPPING_THRESHOLD = 60;
+/** The $60 boundary used by Texas and nearby-state Standard shipping. */
+export const STANDARD_SHIPPING_THRESHOLD = 60;
 
-/** Delivery fees vary by destination (Texas vs out-of-state) and subtotal. */
-export const SHIPPING_TX_BELOW = 4.99;
-export const SHIPPING_TX_ABOVE = 0;
-export const SHIPPING_OOS_BELOW = 6.99;
-export const SHIPPING_OOS_ABOVE = 2.99;
+/** The $80 boundary used by far-state Ground and Expedited shipping. */
+export const FAR_SHIPPING_THRESHOLD = 80;
 
-/**
- * Delivery fee by number of pickle JARS — the TOTAL for the order, not per jar.
- * Index = jar count; 3 or more uses the last entry. Jars are heavy, so one or
- * two cost more to ship; by three the order is near the free-shipping
- * threshold and settles back to the base fee.
- *
- * Applies only below the free-shipping threshold for Texas orders, and never
- * drops the order BELOW the applicable base fee.
- */
-export const PICKLE_DELIVERY_FEES = [0, 8, 7, 4.99];
+/** Texas Standard shipping. */
+export const SHIPPING_TX_BELOW = 8.99;
+export const SHIPPING_TX_ABOVE = 5.99;
+
+/** Standard shipping to states bordering Texas. */
+export const SHIPPING_NEARBY_BELOW = 10.99;
+export const SHIPPING_NEARBY_ABOVE = 8.99;
+
+/** Far-state shipping, selected by the customer at checkout. */
+export const SHIPPING_FAR_GROUND_BELOW = 11.99;
+export const SHIPPING_FAR_GROUND_ABOVE = 9.99;
+export const SHIPPING_FAR_EXPEDITED_BELOW = 22;
+export const SHIPPING_FAR_EXPEDITED_ABOVE = 14.99;

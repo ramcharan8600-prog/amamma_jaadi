@@ -54,6 +54,7 @@ export interface CartItem {
 }
 
 export type FulfillmentType = 'pickup' | 'delivery';
+export type DeliveryShippingMethod = 'standard' | 'ground' | 'expedited';
 
 export interface PickupLocation {
   id: string;
@@ -75,6 +76,7 @@ export interface PickupDetails {
 
 export interface DeliveryDetails {
   type: 'delivery';
+  shippingMethod: DeliveryShippingMethod;
   customerName: string;
   phone: string;
   email: string;
@@ -132,6 +134,7 @@ export interface OrderRecord {
   pickup_date: string | null;
   pickup_location: string | null;
   delivery_address: string | null;
+  shipping_method: DeliveryShippingMethod | null;
   total_price: number;
   tax?: number;
   status: string;

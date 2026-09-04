@@ -14,6 +14,7 @@ import {
   Save,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { shippingMethodLabel } from '@/lib/pricing';
 import InventoryPanel from '@/components/admin/InventoryPanel';
 import type { OrderRecord, ShipmentStatus } from '@/types';
 
@@ -353,6 +354,11 @@ export default function AdminDashboardPage() {
                       >
                         {order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}
                       </span>
+                      {order.order_type === 'delivery' && order.shipping_method && (
+                        <span className="block font-body text-[11px] text-brand-charcoal/50 mt-1">
+                          {shippingMethodLabel(order.shipping_method)}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-2 font-body text-xs text-brand-charcoal/60">
                       {order.order_type === 'pickup' ? (
