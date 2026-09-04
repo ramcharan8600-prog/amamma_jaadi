@@ -147,24 +147,29 @@ export async function POST(request: NextRequest) {
         return fail('Please select a valid delivery state.', 400);
       }
 
-      const stateRestrictedProduct = PRODUCTS.find(
-        (product) =>
-          requestedByProduct.has(product.id) &&
-          product.deliveryStateCodes?.length &&
-          !product.deliveryStateCodes.includes(normalizedDeliveryState)
-      );
-      if (stateRestrictedProduct) {
-        return fail(
-          `${stateRestrictedProduct.name} is available for delivery to Texas addresses only. Please remove it or select a Texas address.`,
-          400
-        );
-      }
-
+      // Apply the destination-wide minimum first. It is higher than the gift-box
+      // minimum for far states, so the customer receives one clear requirement.
       const minimumSubtotal = getDeliveryMinimumSubtotal(normalizedDeliveryState);
       const minimumShortfall = getDeliveryMinimumShortfall(serverTotal, normalizedDeliveryState);
       if (minimumShortfall > 0) {
         return fail(
           `A minimum product subtotal of $${minimumSubtotal.toFixed(2)} is required for delivery to this state. Add $${minimumShortfall.toFixed(2)} more to continue.`,
+          400
+        );
+      }
+
+      const stateRestrictedProduct = PRODUCTS.find(
+        (product) =>
+          requestedByProduct.has(product.id) &&
+          product.deliveryStateCodes?.length &&
+          !product.deliveryStateCodes.includes(normalizedDeliveryState) &&
+          serverTotal < (product.deliveryOutsideStateMinimum ?? Number.POSITIVE_INFINITY)
+      );
+      if (stateRestrictedProduct) {
+        const requiredSubtotal = stateRestrictedProduct.deliveryOutsideStateMinimum ?? 0;
+        const shortfall = Math.max(0, requiredSubtotal - serverTotal);
+        return fail(
+          `${stateRestrictedProduct.name} can be delivered outside Texas when the product subtotal is $${requiredSubtotal.toFixed(2)} or more. Add $${shortfall.toFixed(2)} more, remove it, or select a Texas address.`,
           400
         );
       }

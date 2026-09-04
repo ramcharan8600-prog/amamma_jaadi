@@ -77,11 +77,12 @@ describe('lookups', () => {
     }
   });
 
-  it('limits the $30 Texas Limited Edition gift box to Texas delivery', () => {
+  it('limits the $30 Texas Limited Edition box by state and out-of-state subtotal', () => {
     const box = getProductById('gift-box-sweet-memories')!;
     expect(box.unitPrice).toBe(30);
     expect(box.name).toContain('Texas Limited Edition');
     expect(box.deliveryStateCodes).toEqual(['TX']);
+    expect(box.deliveryOutsideStateMinimum).toBe(60);
   });
 
   it('gift box piece counts match the box size', () => {

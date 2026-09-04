@@ -291,12 +291,15 @@ export default function CheckoutPage() {
     ? getDeliveryMinimumShortfall(subtotal, deliveryState)
     : 0;
   const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState);
-  const stateRestrictedItem = isSupportedDeliveryState(deliveryState)
+  const stateRestrictedItem = isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0
     ? items.find(({ product }) =>
         product.deliveryStateCodes?.length &&
-        !product.deliveryStateCodes.includes(deliveryState)
+        !product.deliveryStateCodes.includes(deliveryState) &&
+        subtotal < (product.deliveryOutsideStateMinimum ?? Number.POSITIVE_INFINITY)
       )
     : undefined;
+  const stateRestrictedMinimum = stateRestrictedItem?.product.deliveryOutsideStateMinimum ?? 0;
+  const stateRestrictedShortfall = Math.max(0, stateRestrictedMinimum - subtotal);
   const totalPieces = useMemo(
     () => (mounted ? calculateTotalPieces(items) : 0),
     [mounted, items]
@@ -1160,8 +1163,10 @@ export default function CheckoutPage() {
             <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3.5">
               <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
               <p className="font-body text-sm text-red-700">
-                <strong>{stateRestrictedItem.product.name}</strong> is available for delivery to
-                Texas addresses only. Please remove it from your cart or select a Texas address.
+                <strong>{stateRestrictedItem.product.name}</strong> can be delivered outside Texas
+                when the product subtotal is {formatCurrency(stateRestrictedMinimum)} or more. Add{' '}
+                <strong>{formatCurrency(stateRestrictedShortfall)}</strong> more, remove it from your
+                cart, or select a Texas address.
               </p>
             </div>
           )}

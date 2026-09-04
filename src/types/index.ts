@@ -27,6 +27,8 @@ export interface Product {
   variantOptions?: string[];
   /** When present, delivery is permitted only to these two-letter state codes. */
   deliveryStateCodes?: string[];
+  /** Merchandise minimum that unlocks delivery outside `deliveryStateCodes`. */
+  deliveryOutsideStateMinimum?: number;
   /** Optional lead-time / freshness notice shown on the product card. */
   prepNotice?: string;
   /**
