@@ -75,6 +75,29 @@ CREATE TABLE IF NOT EXISTS event_orders (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Durable transactional-email outbox. Only the UUID is placed on the Queue;
+-- customer addresses and rendered email content stay in D1.
+CREATE TABLE IF NOT EXISTS email_outbox (
+  id TEXT PRIMARY KEY,
+  dedupe_key TEXT UNIQUE NOT NULL,
+  to_json TEXT NOT NULL,
+  cc_json TEXT,
+  bcc_json TEXT,
+  subject TEXT NOT NULL,
+  html TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'sending', 'retry', 'sent', 'failed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  provider_message_id TEXT,
+  last_error TEXT,
+  next_attempt_at TEXT,
+  lease_until TEXT,
+  last_enqueued_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  sent_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Stock counts for tracked products (pickles). IMPORTANT: a product with NO row
 -- here is treated as UNTRACKED / always available, so adding this table can
 -- never make an existing product silently disappear from the storefront.
@@ -117,6 +140,9 @@ CREATE INDEX IF NOT EXISTS idx_orders_square_payment ON orders(square_payment_id
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_square ON payment_sessions(square_payment_id);
 CREATE INDEX IF NOT EXISTS idx_events_date ON event_orders(event_date);
+CREATE INDEX IF NOT EXISTS idx_email_outbox_delivery
+  ON email_outbox(status, next_attempt_at, last_enqueued_at);
+CREATE INDEX IF NOT EXISTS idx_email_outbox_created ON email_outbox(created_at);
 
 -- Keep orders.updated_at current on every row change (refunds, status updates).
 -- The WHEN guard skips rows where updated_at was already set by the statement;

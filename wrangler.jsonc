@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
+  "main": "custom-worker.ts",
   "name": "amammajaadi",
   "compatibility_date": "2026-06-18",
   "compatibility_flags": ["nodejs_compat"],
@@ -23,6 +23,7 @@
     "NEXT_PUBLIC_SQUARE_LOCATION_ID": "L91NP356QX30A",
     "SQUARE_WEBHOOK_URL": "https://amammajaadi.com/api/payments/webhook",
     "OWNER_NOTIFICATION_EMAIL": "ramcharan8600@gmail.com,amammajaadi@gmail.com",
+    "ORDER_CONFIRMATION_BCC_EMAIL": "amamma.jaadi@gmail.com",
     "FROM_EMAIL": "orders@amammajaadi.com"
   },
   "d1_databases": [
@@ -32,6 +33,25 @@
       "database_id": "9b65d2d1-e6cc-4e0d-8520-62a3af2288b2"
     }
   ],
+  "queues": {
+    "producers": [
+      { "binding": "EMAIL_QUEUE", "queue": "amammajaadi-email" }
+    ],
+    "consumers": [
+      {
+        "queue": "amammajaadi-email",
+        "max_batch_size": 5,
+        "max_batch_timeout": 5,
+        "max_retries": 48,
+        "retry_delay": 300,
+        "dead_letter_queue": "amammajaadi-email-dlq",
+        "max_concurrency": 1
+      }
+    ]
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
   // Isolated Square Sandbox deployment. Bindings and vars are repeated because
   // Wrangler environments do not inherit them from the default environment.
   // The Sandbox access token is stored as a Worker secret and never committed.
@@ -46,6 +66,7 @@
         "NEXT_PUBLIC_SQUARE_LOCATION_ID": "LHGDKWDQK2SA6",
         "SQUARE_WEBHOOK_URL": "https://amammajaadi-sandbox.ramcharan8600.workers.dev/api/payments/webhook",
         "OWNER_NOTIFICATION_EMAIL": "",
+        "ORDER_CONFIRMATION_BCC_EMAIL": "",
         "FROM_EMAIL": "sandbox@amammajaadi.com"
       },
       "d1_databases": [
@@ -54,7 +75,26 @@
           "database_name": "amammajaadi-sandbox",
           "database_id": "070bb231-cca0-42e6-9df8-5f05449a424a"
         }
-      ]
+      ],
+      "queues": {
+        "producers": [
+          { "binding": "EMAIL_QUEUE", "queue": "amammajaadi-sandbox-email" }
+        ],
+        "consumers": [
+          {
+            "queue": "amammajaadi-sandbox-email",
+            "max_batch_size": 5,
+            "max_batch_timeout": 5,
+            "max_retries": 48,
+            "retry_delay": 300,
+            "dead_letter_queue": "amammajaadi-sandbox-email-dlq",
+            "max_concurrency": 1
+          }
+        ]
+      },
+      "triggers": {
+        "crons": ["*/15 * * * *"]
+      }
     }
   },
   "observability": {

@@ -1,33 +1,23 @@
 /**
- * Email Service — Resend API
- *
- * Architecture for transactional emails.
- * Currently stubbed — activate by setting RESEND_API_KEY.
+ * Transactional email templates backed by the durable D1/Queue outbox.
  *
  * Supported email types:
  * 1. Order confirmation
  * 2. Pickup ready notification
  * 3. Delivery/shipping confirmation
  *
- * Setup: https://resend.com → Get API key → Set RESEND_API_KEY in .env.local
+ * Resend delivery happens asynchronously in the custom Worker Queue consumer.
  */
 
 import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/constants';
 import { formatPickupDate } from '@/lib/date';
 import { SALES_TAX_LABEL, shippingMethodLabel } from '@/lib/pricing';
+import { enqueueEmail, isEmailOutboxConfigured } from '@/lib/email-outbox';
 import type { DeliveryShippingMethod } from '@/types';
 
-// Read at REQUEST time — on Cloudflare/OpenNext runtime secrets aren't populated
-// at module load, so a module-scope read would be empty even when set.
-function getResendKey(): string {
-  return process.env.RESEND_API_KEY || '';
-}
-function getFromEmail(): string {
-  return process.env.FROM_EMAIL || 'orders@amammajaadi.com';
-}
 /**
  * Owner inboxes for new-order notifications (comma-separated env value).
- * BCC'd on customer confirmations; used directly when the customer gave no email.
+ * Used directly when the customer gave no email and for event inquiries.
  */
 function getOwnerEmails(): string[] {
   return (process.env.OWNER_NOTIFICATION_EMAIL || '')
@@ -36,8 +26,18 @@ function getOwnerEmails(): string[] {
     .filter(Boolean);
 }
 
+/** Only the public business inbox receives customer order-confirmation copies. */
+function getOrderConfirmationBcc(): string[] {
+  const excluded = new Set(['ramcharan8600@gmail.com', 'smallogi5@gmail.com']);
+  return (process.env.ORDER_CONFIRMATION_BCC_EMAIL || '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter((email) => email && !excluded.has(email));
+}
+
 export function isEmailConfigured(): boolean {
-  return !!getResendKey();
+  // Accept mail into D1 even while Resend itself is unavailable or over quota.
+  return isEmailOutboxConfigured();
 }
 
 /** Escape user-influenced values before interpolating into email HTML. */
@@ -58,44 +58,13 @@ interface EmailParams {
   cc?: string[];
   /** Hidden recipients — not visible to the primary recipient. */
   bcc?: string[];
+  /** Stable business key used to prevent duplicate sends. */
+  dedupeKey: string;
 }
 
-/** Send an email via Resend API */
+/** Persist first, then publish to the Cloudflare Queue for delivery/retries. */
 async function sendEmail(params: EmailParams): Promise<{ success: boolean; id?: string }> {
-  if (!isEmailConfigured()) {
-    console.log(`[EMAIL STUB] To: ${params.to} | Subject: ${params.subject}`);
-    return { success: false };
-  }
-
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${getResendKey()}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${BRAND_NAME} <${getFromEmail()}>`,
-        to: params.to,
-        subject: params.subject,
-        html: params.html,
-        ...(params.cc && params.cc.length > 0 ? { cc: params.cc } : {}),
-        ...(params.bcc && params.bcc.length > 0 ? { bcc: params.bcc } : {}),
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      console.error('Resend API error:', err);
-      return { success: false };
-    }
-
-    const data = await res.json();
-    return { success: true, id: data.id };
-  } catch (e) {
-    console.error('Email send error:', e);
-    return { success: false };
-  }
+  return enqueueEmail(params);
 }
 
 // ─── Email Templates ──────────────────────────────────────────
@@ -249,9 +218,10 @@ export async function sendOrderConfirmation(params: {
     to: params.email,
     subject: `Order Confirmed — ${params.orderNumber}`,
     html,
-    // Owners get a hidden copy of every confirmation — one send, no extra
-    // quota, invisible to the customer.
-    bcc: getOwnerEmails(),
+    // A BCC is a separate Resend quota unit. Only the public business inbox is
+    // retained; personal owner addresses are intentionally excluded.
+    bcc: getOrderConfirmationBcc(),
+    dedupeKey: `order-confirmation:${params.orderNumber}`,
   });
 }
 
@@ -330,6 +300,7 @@ export async function sendOwnerOrderAlert(params: {
     to: ownerEmails,
     subject: `🔔 New order ${params.orderNumber} — $${params.total.toFixed(2)} (${params.fulfillmentType})`,
     html,
+    dedupeKey: `owner-order-alert:${params.orderNumber}`,
   });
 }
 
@@ -342,6 +313,7 @@ export async function sendOwnerOrderAlert(params: {
  * a personal owner address, if any, is BCC'd so it isn't exposed to customers.
  */
 export async function sendEventInquiry(params: {
+  inquiryId: string;
   customerEmail: string;
   customerName: string;
   phone: string;
@@ -383,6 +355,7 @@ export async function sendEventInquiry(params: {
     bcc: bcc.length > 0 ? bcc : undefined,
     subject: `Event Inquiry Received — ${params.eventType}`,
     html,
+    dedupeKey: `event-inquiry:${params.inquiryId}`,
   });
 }
 
@@ -407,6 +380,7 @@ export async function sendPickupReady(params: {
     to: params.email,
     subject: `Ready for Pickup — #${params.orderNumber}`,
     html,
+    dedupeKey: `pickup-ready:${params.orderNumber}`,
   });
 }
 
@@ -429,5 +403,6 @@ export async function sendDeliveryConfirmation(params: {
     to: params.email,
     subject: `Order Shipped — #${params.orderNumber}`,
     html,
+    dedupeKey: `delivery-confirmation:${params.orderNumber}:${params.estimatedDelivery}`,
   });
 }

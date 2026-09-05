@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     if (isEmailConfigured()) {
       try {
         await sendEventInquiry({
+          inquiryId: id,
           customerEmail: email,
           customerName: name,
           phone,

@@ -291,9 +291,8 @@ export async function createOrderFromSession(
   const shipping = session.shipping || 0;
   const subtotal = Math.round((session.total_amount - (session.tax || 0) - shipping) * 100) / 100;
 
-  // Owners are BCC'd on the customer confirmation below. When the customer
-  // gave no email there is nothing to BCC, so alert the owners directly —
-  // every order must reach the owner inbox one way or the other.
+  // Customer confirmations use their separately configured business BCC.
+  // When the customer gave no email, alert the owners directly instead.
   if (isEmailConfigured() && !session.email) {
     try {
       await sendOwnerOrderAlert({
