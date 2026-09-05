@@ -2,10 +2,31 @@ import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
-import { businessDateOffset } from '@/lib/date';
+import { businessDateOffset, businessDateUtcRange } from '@/lib/date';
 import { ok, fail } from '@/lib/api';
 import { sanitize } from '@/lib/sanitize';
-import { isShipmentStatus, updateShipmentDetails } from '@/lib/shipment';
+import { PICKUP_LOCATIONS } from '@/data/products';
+import {
+  isShipmentStatus,
+  updateShipmentDetails,
+  updateShipmentDetailsBatch,
+  type ShipmentUpdate,
+} from '@/lib/shipment';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseShipmentUpdate(value: unknown): ShipmentUpdate | null {
+  if (!isRecord(value)) return null;
+
+  const orderId = sanitize(value.orderId, 100);
+  const shipmentStatus = sanitize(value.shipmentStatus, 30);
+  const trackingId = sanitize(value.trackingId, 120);
+  if (!orderId || !isShipmentStatus(shipmentStatus)) return null;
+
+  return { orderId, shipmentStatus, trackingId: trackingId || null };
+}
 
 async function isAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -30,6 +51,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter') || 'all';
+    // `pickupDate` remains accepted for compatibility with an open dashboard
+    // tab from the previous release; `date` covers both order types.
+    const dateFilter = sanitize(
+      searchParams.get('date') ?? searchParams.get('pickupDate'),
+      10
+    );
+    const shipmentStatusFilter = sanitize(searchParams.get('shipmentStatus'), 30);
+    const pickupLocation = sanitize(searchParams.get('pickupLocation'), 100);
     const db = getDb();
 
     // Paid and refunded orders remain visible so the dashboard reflects Square.
@@ -57,6 +86,44 @@ export async function GET(request: NextRequest) {
       case 'completed':
         where.push("status = 'completed'");
         break;
+    }
+
+    if (dateFilter) {
+      const deliveryDateRange = businessDateUtcRange(dateFilter);
+      if (!deliveryDateRange) return fail('Invalid date filter', 400);
+      where.push(`(
+        (order_type = 'pickup' AND pickup_date = ?)
+        OR
+        (order_type = 'delivery' AND created_at >= ? AND created_at < ?)
+      )`);
+      binds.push(dateFilter, deliveryDateRange.start, deliveryDateRange.end);
+    }
+
+    if (shipmentStatusFilter) {
+      if (shipmentStatusFilter === 'pickup') {
+        where.push("order_type = 'pickup'");
+      } else {
+        if (!isShipmentStatus(shipmentStatusFilter)) {
+          return fail('Invalid shipment status filter', 400);
+        }
+        where.push("order_type = 'delivery'");
+        where.push('shipment_status = ?');
+        binds.push(shipmentStatusFilter);
+        if (shipmentStatusFilter === 'yet_to_ship') {
+          // The outstanding-dispatch view is a work queue, not audit history.
+          // Fully refunded or cancelled orders must never be packed.
+          where.push("payment_status != 'refunded'");
+          where.push("status != 'cancelled'");
+        }
+      }
+    }
+
+    if (pickupLocation) {
+      const knownLocation = PICKUP_LOCATIONS.some((location) => location.id === pickupLocation);
+      if (!knownLocation) return fail('Invalid pickup location filter', 400);
+      where.push("order_type = 'pickup'");
+      where.push('pickup_location = ?');
+      binds.push(pickupLocation);
     }
 
     const ordersRes = await db
@@ -103,7 +170,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** PATCH /api/orders — Admin only: update delivery shipment details. */
+/** PATCH /api/orders — Admin only: update one or many delivery shipment rows. */
 export async function PATCH(request: NextRequest) {
   if (!(await isAuthenticated())) {
     return fail('Unauthorized', 401);
@@ -112,28 +179,42 @@ export async function PATCH(request: NextRequest) {
   try {
     if (!isDbConfigured()) return fail('Database not configured', 503);
 
-    const body = await request.json();
-    const orderId = sanitize(body.orderId, 100);
-    const shipmentStatus = sanitize(body.shipmentStatus, 30);
-    const trackingId = sanitize(body.trackingId, 120);
+    const body: unknown = await request.json();
+    if (!isRecord(body)) return fail('Invalid shipment update', 400);
 
-    if (!orderId) return fail('Order id is required', 400);
-    if (!isShipmentStatus(shipmentStatus)) {
-      return fail('Invalid shipment status', 400);
+    if (Array.isArray(body.updates)) {
+      if (body.updates.length === 0) return fail('At least one update is required', 400);
+      if (body.updates.length > 200) return fail('A maximum of 200 updates is allowed', 400);
+
+      const parsed: ShipmentUpdate[] = [];
+      for (const value of body.updates) {
+        const update = parseShipmentUpdate(value);
+        if (!update) return fail('One or more shipment updates are invalid', 400);
+        parsed.push(update);
+      }
+
+      // Last edit wins if a malformed/replayed client sends the same order twice.
+      const uniqueUpdates = Array.from(
+        new Map(parsed.map((update) => [update.orderId, update])).values()
+      );
+      const result = await updateShipmentDetailsBatch(getDb(), uniqueUpdates);
+      return ok({
+        success: result.notUpdatedOrderIds.length === 0,
+        ...result,
+      });
     }
 
-    const updated = await updateShipmentDetails(getDb(), {
-      orderId,
-      shipmentStatus,
-      trackingId: trackingId || null,
-    });
+    const update = parseShipmentUpdate(body);
+    if (!update) return fail('Invalid shipment update', 400);
+
+    const updated = await updateShipmentDetails(getDb(), update);
     if (!updated) return fail('Delivery order not found', 404);
 
     return ok({
       success: true,
-      orderId,
-      shipmentStatus,
-      trackingId: trackingId || null,
+      orderId: update.orderId,
+      shipmentStatus: update.shipmentStatus,
+      trackingId: update.trackingId,
     });
   } catch (e) {
     console.error('Shipment update error:', e);

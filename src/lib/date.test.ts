@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { formatPickupDate } from './date';
+import {
+  businessDateOffset,
+  businessDateUtcRange,
+  d1TimestampToBusinessDate,
+  formatPickupDate,
+  toBusinessDateString,
+} from './date';
 
 describe('formatPickupDate', () => {
   it('formats a stored YYYY-MM-DD as a readable date', () => {
@@ -17,7 +23,6 @@ describe('formatPickupDate', () => {
     expect(formatPickupDate('not-a-date')).toBe('not-a-date');
   });
 });
-import { toBusinessDateString, businessDateOffset } from '@/lib/date';
 
 describe('business-timezone date helpers', () => {
   it('formats a date as YYYY-MM-DD', () => {
@@ -46,5 +51,41 @@ describe('business-timezone date helpers', () => {
 
   it('returns a valid ISO-like date string', () => {
     expect(businessDateOffset(5)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('converts D1 UTC timestamps to the Central calendar date', () => {
+    expect(d1TimestampToBusinessDate('2026-09-06 02:30:00')).toBe('2026-09-05');
+    expect(d1TimestampToBusinessDate('2026-09-06T05:30:00Z')).toBe('2026-09-06');
+  });
+
+  it('returns an empty date for an invalid D1 timestamp', () => {
+    expect(d1TimestampToBusinessDate('not-a-timestamp')).toBe('');
+  });
+
+  it('creates summer and winter UTC boundaries for Central calendar dates', () => {
+    expect(businessDateUtcRange('2026-09-05')).toEqual({
+      start: '2026-09-05 05:00:00',
+      end: '2026-09-06 05:00:00',
+    });
+    expect(businessDateUtcRange('2026-01-05')).toEqual({
+      start: '2026-01-05 06:00:00',
+      end: '2026-01-06 06:00:00',
+    });
+  });
+
+  it('handles 23-hour and 25-hour daylight-saving days', () => {
+    expect(businessDateUtcRange('2026-03-08')).toEqual({
+      start: '2026-03-08 06:00:00',
+      end: '2026-03-09 05:00:00',
+    });
+    expect(businessDateUtcRange('2026-11-01')).toEqual({
+      start: '2026-11-01 05:00:00',
+      end: '2026-11-02 06:00:00',
+    });
+  });
+
+  it('rejects impossible calendar dates', () => {
+    expect(businessDateUtcRange('2026-02-30')).toBeNull();
+    expect(businessDateUtcRange('bad-date')).toBeNull();
   });
 });
