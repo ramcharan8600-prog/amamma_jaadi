@@ -30,7 +30,6 @@ import {
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
   isSupportedDeliveryState,
-  resolveDeliveryStateCode,
   SALES_TAX_LABEL,
   shippingMethodLabel,
 } from '@/lib/pricing';
@@ -74,14 +73,9 @@ export default function CheckoutPage() {
   const [deliveryAddressLine1, setDeliveryAddressLine1] = useState('');
   const [deliveryAddressLine2, setDeliveryAddressLine2] = useState('');
   const [deliveryCity, setDeliveryCity] = useState('');
-  const [deliveryStateInput, setDeliveryStateInput] = useState('');
-  const [deliveryStateTouched, setDeliveryStateTouched] = useState(false);
+  const [deliveryState, setDeliveryState] = useState('');
   const [deliveryCountry] = useState('USA');
   const [deliveryZip, setDeliveryZip] = useState('');
-  const deliveryStateInputRef = useRef<HTMLInputElement>(null);
-  // Pricing and persistence never use the free-form text directly. An exact
-  // supported name/code match is resolved to the canonical two-letter code.
-  const deliveryState = resolveDeliveryStateCode(deliveryStateInput) ?? '';
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -435,18 +429,8 @@ export default function CheckoutPage() {
       email: pickupEmail,
     });
 
-  const proceedDelivery = () => {
-    // Re-read the DOM value as a final autofill safeguard. Some password and
-    // address managers update an input just before React receives its event.
-    const rawState = deliveryStateInputRef.current?.value ?? deliveryStateInput;
-    const stateCode = resolveDeliveryStateCode(rawState);
-    setDeliveryStateInput(rawState);
-    setDeliveryStateTouched(true);
-    if (!stateCode) return;
-
-    const selected = DELIVERY_STATE_OPTIONS.find((option) => option.code === stateCode);
-    setDeliveryStateInput(selected?.name ?? stateCode);
-    return createSessionAndPay({
+  const proceedDelivery = () =>
+    createSessionAndPay({
       type: 'delivery',
       shippingMethod: resolvedShippingMethod,
       customerName: deliveryName,
@@ -455,11 +439,10 @@ export default function CheckoutPage() {
       addressLine1: deliveryAddressLine1,
       addressLine2: deliveryAddressLine2,
       city: deliveryCity,
-      state: stateCode,
+      state: deliveryState,
       zip: deliveryZip,
       country: 'USA',
     });
-  };
 
   // ── Payment submission (shared by card + Apple Pay) ─────────────────
   /**
@@ -664,8 +647,6 @@ export default function CheckoutPage() {
     deliveryMinimumShortfall === 0 &&
     !stateRestrictedItem
   );
-  const deliveryStateInvalid = deliveryStateTouched && !isSupportedDeliveryState(deliveryState);
-
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === step);
 
   return (
@@ -1119,56 +1100,20 @@ export default function CheckoutPage() {
             </div>
             <div>
               <label htmlFor="delivery-state" className="label-text">State</label>
-              <input
-                ref={deliveryStateInputRef}
+              <select
                 id="delivery-state"
                 name="shipping-state"
-                type="text"
-                list="delivery-state-options"
-                value={deliveryStateInput}
-                onChange={(e) => {
-                  setDeliveryStateInput(e.target.value);
-                }}
-                onBlur={(e) => {
-                  setDeliveryStateTouched(true);
-                  const code = resolveDeliveryStateCode(e.currentTarget.value);
-                  if (code) {
-                    const selected = DELIVERY_STATE_OPTIONS.find((option) => option.code === code);
-                    setDeliveryStateInput(selected?.name ?? code);
-                  } else {
-                    // Synchronize autofill-originated DOM changes even when a
-                    // browser extension did not dispatch React's change event.
-                    setDeliveryStateInput(e.currentTarget.value);
-                  }
-                }}
-                onInvalid={() => setDeliveryStateTouched(true)}
-                className={`input-field ${
-                  deliveryStateInvalid
-                    ? 'border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-200'
-                    : ''
-                }`}
-                placeholder="Type state name or code"
+                value={deliveryState}
+                onChange={(e) => setDeliveryState(e.currentTarget.value)}
+                className="input-field"
                 required
                 autoComplete="shipping address-level1"
-                autoCorrect="off"
-                spellCheck={false}
-                aria-invalid={deliveryStateInvalid}
-                aria-describedby={deliveryStateInvalid ? 'delivery-state-error' : 'delivery-state-help'}
-              />
-              <datalist id="delivery-state-options">
+              >
+                <option value="" disabled>Select state</option>
                 {DELIVERY_STATE_OPTIONS.map(({ code, name }) => (
-                  <option key={code} value={name}>{code}</option>
+                  <option key={code} value={code}>{name}</option>
                 ))}
-              </datalist>
-              {deliveryStateInvalid ? (
-                <p id="delivery-state-error" role="alert" className="font-body text-xs text-red-600 mt-1">
-                  Select a supported shipping state from the list (for example, Texas or TX).
-                </p>
-              ) : (
-                <p id="delivery-state-help" className="font-body text-xs text-brand-charcoal/50 mt-1">
-                  Start typing, then select a state from the list.
-                </p>
-              )}
+              </select>
             </div>
             <div>
               <label className="label-text">ZIP</label>

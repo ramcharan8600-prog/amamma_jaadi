@@ -107,25 +107,6 @@ export function normalizeStateCode(state: unknown): string {
   return typeof state === 'string' ? state.trim().toUpperCase() : '';
 }
 
-/**
- * Resolve either a two-letter abbreviation or a full state name to the
- * canonical code used for pricing and persistence. Partial names and typos are
- * intentionally rejected so an address can never silently use the wrong zone.
- */
-export function resolveDeliveryStateCode(
-  state: unknown
-): string | null {
-  const value = typeof state === 'string'
-    ? state.trim().toLocaleLowerCase('en-US')
-    : '';
-  if (!value) return null;
-
-  const match = DELIVERY_STATE_OPTIONS.find(
-    ({ code, name }) => code.toLowerCase() === value || name.toLowerCase() === value
-  );
-  return match?.code ?? null;
-}
-
 export function isSupportedDeliveryState(state: unknown): boolean {
   return DELIVERY_STATE_CODES.has(normalizeStateCode(state));
 }

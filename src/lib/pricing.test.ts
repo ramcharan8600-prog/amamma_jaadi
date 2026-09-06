@@ -8,7 +8,7 @@ import {
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
   isSupportedDeliveryState,
-  resolveDeliveryStateCode,
+  normalizeStateCode,
   shippingMethodLabel,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
@@ -142,31 +142,33 @@ describe('pricing — far-state delivery', () => {
 describe('delivery-state validation', () => {
   it('offers every contiguous state plus DC exactly once', () => {
     const codes = DELIVERY_STATE_OPTIONS.map(({ code }) => code);
-    expect(codes).toHaveLength(49);
+    expect(codes).toEqual([
+      'AL', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA',
+      'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA',
+      'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM',
+      'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD',
+      'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+    ]);
     expect(new Set(codes).size).toBe(49);
-    expect(codes).toEqual(expect.arrayContaining(['TX', 'AL', 'CA', 'NY', 'DC']));
+    expect(codes.every((code) => isSupportedDeliveryState(code))).toBe(true);
     for (const excluded of ['AK', 'HI', 'PR', 'VI', 'TE', 'TC']) {
       expect(codes).not.toContain(excluded);
     }
     expect(codes.every((code) => /^[A-Z]{2}$/.test(code))).toBe(true);
   });
 
-  it('resolves full state names and two-letter codes to canonical codes', () => {
-    expect(resolveDeliveryStateCode('Texas')).toBe('TX');
-    expect(resolveDeliveryStateCode(' texas ')).toBe('TX');
-    expect(resolveDeliveryStateCode('tx')).toBe('TX');
-    expect(resolveDeliveryStateCode('New York')).toBe('NY');
-    expect(resolveDeliveryStateCode('District of Columbia')).toBe('DC');
-    expect(resolveDeliveryStateCode('dc')).toBe('DC');
-  });
-
-  it('rejects partial names, state typos and empty values', () => {
+  it('rejects full names, state typos, empty values and malformed input', () => {
     for (const state of [
-      'T', 'Tex', 'TE', 'TC', 'Not a state', '', '   ', undefined, null, 42, {}, [],
+      'T', 'Tex', 'Texas', 'TE', 'TC', 'Not a state', '', '   ', undefined, null, 42, {}, [],
     ]) {
-      expect(resolveDeliveryStateCode(state)).toBeNull();
       expect(isSupportedDeliveryState(state)).toBe(false);
     }
+  });
+
+  it('normalizes valid code casing and safely handles non-text API input', () => {
+    expect(normalizeStateCode(' tx ')).toBe('TX');
+    expect(normalizeStateCode(42)).toBe('');
+    expect(normalizeStateCode({ state: 'TX' })).toBe('');
   });
 
   it('accepts all configured contiguous destinations and DC', () => {
