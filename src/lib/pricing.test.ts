@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculateOrderTotals,
+  DELIVERY_STATE_OPTIONS,
   roundMoney,
   isTexas,
   getShippingZone,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
   isSupportedDeliveryState,
+  resolveDeliveryStateCode,
   shippingMethodLabel,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
@@ -138,6 +140,35 @@ describe('pricing — far-state delivery', () => {
 });
 
 describe('delivery-state validation', () => {
+  it('offers every contiguous state plus DC exactly once', () => {
+    const codes = DELIVERY_STATE_OPTIONS.map(({ code }) => code);
+    expect(codes).toHaveLength(49);
+    expect(new Set(codes).size).toBe(49);
+    expect(codes).toEqual(expect.arrayContaining(['TX', 'AL', 'CA', 'NY', 'DC']));
+    for (const excluded of ['AK', 'HI', 'PR', 'VI', 'TE', 'TC']) {
+      expect(codes).not.toContain(excluded);
+    }
+    expect(codes.every((code) => /^[A-Z]{2}$/.test(code))).toBe(true);
+  });
+
+  it('resolves full state names and two-letter codes to canonical codes', () => {
+    expect(resolveDeliveryStateCode('Texas')).toBe('TX');
+    expect(resolveDeliveryStateCode(' texas ')).toBe('TX');
+    expect(resolveDeliveryStateCode('tx')).toBe('TX');
+    expect(resolveDeliveryStateCode('New York')).toBe('NY');
+    expect(resolveDeliveryStateCode('District of Columbia')).toBe('DC');
+    expect(resolveDeliveryStateCode('dc')).toBe('DC');
+  });
+
+  it('rejects partial names, state typos and empty values', () => {
+    for (const state of [
+      'T', 'Tex', 'TE', 'TC', 'Not a state', '', '   ', undefined, null, 42, {}, [],
+    ]) {
+      expect(resolveDeliveryStateCode(state)).toBeNull();
+      expect(isSupportedDeliveryState(state)).toBe(false);
+    }
+  });
+
   it('accepts all configured contiguous destinations and DC', () => {
     for (const state of ['TX', 'OK', 'CA', 'NY', 'DC']) {
       expect(isSupportedDeliveryState(state)).toBe(true);
