@@ -1020,8 +1020,8 @@ export default function CheckoutPage() {
               Shipping times begin after your order is prepared.
             </p>
             <p className="font-body text-sm text-blue-700">
-              We usually select an expedited air service for out-of-state orders. Most packages
-              arrive within 2–3 business days after dispatch.
+              We use UPS 2nd Day Air for out-of-state orders for faster delivery from Dallas to
+              your destination. Packages typically arrive within 2 business days after dispatch.
             </p>
           </div>
 

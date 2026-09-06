@@ -10,12 +10,12 @@ import { getFaqSchema } from '@/lib/seo';
 export const metadata: Metadata = {
   title: 'Our Story, Areas We Serve & FAQs',
   description:
-    'The story behind Amamma Jaadi — authentic Andhra sweets in Dallas, TX. Serving Plano, Frisco, Irving, Denton, McKinney, Allen, Richardson, Carrollton & across DFW, with shipping statewide.',
+    'The story behind Amamma Jaadi — authentic Andhra sweets in Dallas, TX, with DFW pickup and UPS shipping across the contiguous United States.',
   alternates: { canonical: 'https://amammajaadi.com/about' },
   openGraph: {
     url: 'https://amammajaadi.com/about',
     title: 'Our Story, Areas We Serve & FAQs',
-    description: 'Meet Amamma Jaadi and explore our service areas across Dallas-Fort Worth and Texas.',
+    description: 'Meet Amamma Jaadi and explore DFW pickup and contiguous-U.S. shipping options.',
   },
 };
 
@@ -171,9 +171,9 @@ export default function AboutPage() {
             ))}
           </div>
           <p className="font-body text-brand-charcoal/70 leading-relaxed">
-            We also ship further afield across Texas — including{' '}
-            {WIDER_TEXAS_CITIES.join(', ')} — through our courier partners.
-            Delivery charges apply per destination.
+            We also ship across Texas — including {WIDER_TEXAS_CITIES.join(', ')} — and throughout
+            the contiguous United States and Washington, DC. Out-of-state orders are dispatched
+            from Dallas using UPS 2nd Day Air. Delivery charges apply per destination.
           </p>
         </div>
       </section>

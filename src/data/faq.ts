@@ -1,4 +1,4 @@
-import { DFW_CITIES, WIDER_TEXAS_CITIES } from '@/data/service-areas';
+import { DFW_CITIES } from '@/data/service-areas';
 
 /**
  * Frequently asked questions — the SINGLE source for both the visible About
@@ -16,11 +16,9 @@ export interface FaqItem {
 export const FAQS: FaqItem[] = [
   {
     question: 'Which areas do you deliver desi sweets to?',
-    answer: `We deliver across the Dallas–Fort Worth metroplex, including ${DFW_CITIES.join(
+    answer: `Free pickup is available at our partner locations across DFW, including ${DFW_CITIES.join(
       ', '
-    )}. We also ship further afield in Texas to ${WIDER_TEXAS_CITIES.join(
-      ', '
-    )} through our courier partners. Free pickup is available at our partner locations across DFW.`,
+    )}. We ship throughout Texas, the contiguous United States, and Washington, DC. Out-of-state orders are dispatched from Dallas using UPS 2nd Day Air.`,
   },
   {
     question: 'What South Indian sweets do you make?',
@@ -45,7 +43,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'UPS shipping within Texas is a flat $6.99. Shipping to Oklahoma, Arkansas, Colorado, Louisiana, and New Mexico is $12.99 below $60 and $9.99 at $60 or more. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. All other contiguous states and Washington, DC require an $80 minimum merchandise subtotal and have a flat $15.99 shipping fee. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
+      'UPS shipping within Texas is a flat $6.99. Shipping to Alabama, Arkansas, Colorado, Louisiana, New Mexico, and Oklahoma is $11.99 below $60 and $8.99 at $60 or more. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. All other contiguous states and Washington, DC require an $80 minimum merchandise subtotal and have a flat $12.99 shipping fee. We use UPS 2nd Day Air for out-of-state orders for faster delivery from Dallas to your destination. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
   },
   {
     question: 'Where can I pick up my order?',

@@ -7,6 +7,7 @@ import {
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
   isSupportedDeliveryState,
+  shippingMethodLabel,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
 } from './pricing';
@@ -98,12 +99,12 @@ describe('pricing — Texas delivery (in-state)', () => {
 });
 
 describe('pricing — nearby-state delivery', () => {
-  for (const deliveryState of ['OK', 'AR', 'CO', 'LA', 'NM']) {
-    it(`${deliveryState}: $12.99 below $60 and $9.99 at $60+`, () => {
+  for (const deliveryState of ['AL', 'AR', 'CO', 'LA', 'NM', 'OK']) {
+    it(`${deliveryState}: $11.99 below $60 and $8.99 at $60+`, () => {
       expect(calculateOrderTotals(59.99, { fulfillmentType: 'delivery', deliveryState }).shipping)
-        .toBe(12.99);
+        .toBe(11.99);
       expect(calculateOrderTotals(60, { fulfillmentType: 'delivery', deliveryState }).shipping)
-        .toBe(9.99);
+        .toBe(8.99);
     });
   }
 });
@@ -111,11 +112,11 @@ describe('pricing — nearby-state delivery', () => {
 describe('pricing — far-state delivery', () => {
   const NY = { deliveryState: 'NY' };
 
-  it('charges a flat $15.99 shipping fee', () => {
+  it('charges a flat $12.99 shipping fee', () => {
     expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', ...NY }).shipping)
-      .toBe(15.99);
+      .toBe(12.99);
     expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', ...NY }).shipping)
-      .toBe(15.99);
+      .toBe(12.99);
   });
 
   it('requires an $80 merchandise subtotal', () => {
@@ -125,6 +126,7 @@ describe('pricing — far-state delivery', () => {
     expect(getDeliveryMinimumShortfall(80, 'NY')).toBe(0);
     expect(getDeliveryMinimumShortfall(100, 'NY')).toBe(0);
     expect(getDeliveryMinimumSubtotal('TX')).toBe(0);
+    expect(getDeliveryMinimumSubtotal('AL')).toBe(0);
     expect(getDeliveryMinimumSubtotal('OK')).toBe(0);
   });
 
@@ -150,6 +152,11 @@ describe('delivery-state validation', () => {
 });
 
 describe('pricing — pickup and general', () => {
+  it('identifies the standard shipping service consistently', () => {
+    expect(shippingMethodLabel('standard')).toBe('UPS 2nd Day Air');
+    expect(shippingMethodLabel(undefined)).toBe('UPS 2nd Day Air');
+  });
+
   it('does NOT charge shipping for pickup, even below $60', () => {
     expect(calculateOrderTotals(30, { fulfillmentType: 'pickup' }).shipping).toBe(0);
   });

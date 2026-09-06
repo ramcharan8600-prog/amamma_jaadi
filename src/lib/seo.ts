@@ -4,7 +4,7 @@ import { ALL_SERVICE_AREAS } from '@/data/service-areas';
 import { FAQS } from '@/data/faq';
 import { PICKUP_LOCATIONS } from '@/data/products';
 
-const DEFAULT_DESCRIPTION = 'Authentic South Indian sweets and pickles made fresh in Dallas, TX. Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & more. Pickup and delivery across DFW.';
+const DEFAULT_DESCRIPTION = 'Authentic South Indian sweets and pickles made fresh in Dallas, TX. Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & more, with DFW pickup and shipping across the contiguous United States.';
 
 export function createMetadata(params: {
   title: string;
@@ -26,6 +26,7 @@ export function createMetadata(params: {
       'Andhra sweets Dallas',
       'Fresh Bobbatlu Dallas',
       'Indian sweets delivery Texas',
+      'Indian sweets delivery USA',
       'Indian pickles Dallas',
       ...(params.keywords || []),
     ],

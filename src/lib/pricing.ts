@@ -40,7 +40,7 @@ export function isTexas(state: string | undefined | null): boolean {
 }
 
 /** States in the nearby shipping region. */
-export const NEARBY_STATE_CODES = ['AR', 'CO', 'LA', 'NM', 'OK'] as const;
+export const NEARBY_STATE_CODES = ['AL', 'AR', 'CO', 'LA', 'NM', 'OK'] as const;
 
 /**
  * Supported delivery destinations. Alaska and Hawaii intentionally remain
@@ -121,7 +121,7 @@ export function getShippingZone(state: string | undefined | null): ShippingZone 
 export function shippingMethodLabel(method: DeliveryShippingMethod | null | undefined): string {
   if (method === 'expedited') return 'Expedited — estimated 2 business days in transit';
   if (method === 'ground') return 'Ground — estimated 2–5 business days in transit';
-  return 'Shipping';
+  return 'UPS 2nd Day Air';
 }
 
 /** Far-state orders must reach this merchandise subtotal before checkout. */
@@ -147,8 +147,8 @@ export interface OrderTotals {
  * Break a subtotal into subtotal + tax + shipping + total.
  *
  * Texas: $6.99 flat.
- * Nearby states (AR/CO/LA/NM/OK): $12.99 below $60, otherwise $9.99.
- * Far states: $15.99 flat, with an $80 merchandise minimum enforced by checkout.
+ * Nearby states (AL/AR/CO/LA/NM/OK): $11.99 below $60, otherwise $8.99.
+ * Far states: $12.99 flat, with an $80 merchandise minimum enforced by checkout.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */

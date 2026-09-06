@@ -38,9 +38,9 @@ export const FAR_SHIPPING_MINIMUM = 80;
 /** Flat UPS shipping within Texas. */
 export const SHIPPING_TX = 6.99;
 
-/** Standard shipping to states bordering Texas. */
-export const SHIPPING_NEARBY_BELOW = 12.99;
-export const SHIPPING_NEARBY_ABOVE = 9.99;
+/** Shipping rates for the configured nearby-state region. */
+export const SHIPPING_NEARBY_BELOW = 11.99;
+export const SHIPPING_NEARBY_ABOVE = 8.99;
 
 /** Flat shipping for eligible far-state orders. */
-export const SHIPPING_FAR = 15.99;
+export const SHIPPING_FAR = 12.99;

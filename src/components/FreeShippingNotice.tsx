@@ -12,10 +12,10 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
     >
       <Truck size={18} className="text-brand-gold shrink-0 mt-0.5" />
       <p className="font-body text-sm text-brand-charcoal/80">
-        <strong>Fast nationwide shipping:</strong> We usually select an expedited air service for
-        out-of-state orders. Most packages arrive within 2–3 business days after dispatch. Delivery
-        time may vary by destination, carrier conditions, and weather. Tracking details will be
-        emailed when your order ships.
+        <strong>Fast nationwide shipping:</strong> We use UPS 2nd Day Air for out-of-state orders
+        for faster delivery from Dallas to your destination. Packages typically arrive within 2
+        business days after dispatch. Delivery time may vary by destination, carrier conditions,
+        and weather. Tracking details will be emailed when your order ships.
       </p>
     </div>
   );
