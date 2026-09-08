@@ -688,8 +688,11 @@ export default function CheckoutPage() {
       <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-4 mb-6 flex items-start gap-3">
         <Clock size={20} className="text-brand-gold shrink-0 mt-0.5" />
         <div className="font-body text-sm text-brand-charcoal/80">
-          <p className="font-semibold">Please place your orders before 1:30 PM for same-day pickup.</p>
-          <p>All sweets are freshly baked daily.</p>
+          <p>
+            We request you to place your <strong className="font-bold text-brand-charcoal">same day</strong>{' '}
+            pick up orders before 4:30 PM.
+          </p>
+          <p>This ensures the boxes are ready at respective pick up locations.</p>
         </div>
       </div>
 
@@ -856,9 +859,9 @@ export default function CheckoutPage() {
                 Free - order ready to pick up same day, or schedule for a later date.
                 <br />
                 Pick-up from our partner locations in{' '}
-                <strong className="font-semibold text-brand-charcoal">Frisco</strong>,{' '}
-                <strong className="font-semibold text-brand-charcoal">Irving</strong> or{' '}
-                <strong className="font-semibold text-brand-charcoal">Plano</strong>
+                <strong className="font-semibold text-[1.1em] leading-[inherit] text-brand-charcoal">Frisco</strong>,{' '}
+                <strong className="font-semibold text-[1.1em] leading-[inherit] text-brand-charcoal">Irving</strong> or{' '}
+                <strong className="font-semibold text-[1.1em] leading-[inherit] text-brand-charcoal">Plano</strong>
               </p>
             </button>
             <button
