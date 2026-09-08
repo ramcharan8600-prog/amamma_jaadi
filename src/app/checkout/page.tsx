@@ -853,7 +853,12 @@ export default function CheckoutPage() {
               <MapPin size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
               <h3 className="font-display text-xl font-semibold text-brand-charcoal">Pickup</h3>
               <p className="font-body text-sm text-brand-charcoal/60 mt-1">
-                Pick up from our partner locations across DFW.
+                Free - order ready to pick up same day, or schedule for a later date.
+                <br />
+                Pick-up from our partner locations in{' '}
+                <strong className="font-semibold text-brand-charcoal">Frisco</strong>,{' '}
+                <strong className="font-semibold text-brand-charcoal">Irving</strong> or{' '}
+                <strong className="font-semibold text-brand-charcoal">Plano</strong>
               </p>
             </button>
             <button
