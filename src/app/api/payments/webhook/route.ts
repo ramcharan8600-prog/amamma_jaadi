@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { processRefundEvent } from '@/lib/square-webhook';
+import { recordPaymentWebhookOutcome } from '@/lib/payment-attempts';
 import { ok, fail } from '@/lib/api';
 
 /**
@@ -109,6 +110,13 @@ export async function POST(request: NextRequest) {
         return ok({ received: true, ignored: 'no matching website session' });
       }
 
+      if (payment.amount_money?.currency !== 'USD' ||
+          payment.amount_money?.amount !== Math.round(Number(raw.total_amount) * 100)) {
+        console.error(JSON.stringify({ event: 'webhook_payment_amount_mismatch', paymentId: squarePaymentId }));
+        return fail('Payment amount mismatch', 400);
+      }
+      await recordPaymentWebhookOutcome(db, String(raw.id), squarePaymentId, 'completed');
+
       // createOrderFromSession is idempotent (3-layer dedup on the payment id)
       // — a duplicate webhook returns the existing order rather than creating
       // another. Always 200 so Square does not retry.
@@ -125,10 +133,11 @@ export async function POST(request: NextRequest) {
 
     // ── FAILED / DECLINED / CANCELED ─────────────────────────
     if (['FAILED', 'DECLINED', 'CANCELED'].includes(payment.status)) {
-      await db
-        .prepare("UPDATE payment_sessions SET payment_status = 'failed', square_payment_id = ? WHERE square_payment_id = ? OR id = ?")
-        .bind(squarePaymentId, squarePaymentId, referenceId ?? '')
-        .run();
+      const session = await db
+        .prepare('SELECT id FROM payment_sessions WHERE square_payment_id = ? OR id = ? LIMIT 1')
+        .bind(squarePaymentId, referenceId ?? '')
+        .first<{ id: string }>();
+      if (session) await recordPaymentWebhookOutcome(db, session.id, squarePaymentId, 'declined');
 
       console.log('Payment failed/declined:', squarePaymentId);
       return ok({ received: true });

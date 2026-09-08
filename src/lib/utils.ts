@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { businessDateOffset, toBusinessDateString } from '@/lib/date';
+import { getPickupDateBounds } from '@/lib/pickup-date';
 
 // Re-exported for backwards compatibility — canonical definitions live in @/lib/constants.
 export { WHATSAPP_NUMBER, PHONE_NUMBER, INSTAGRAM_HANDLE, BRAND_NAME } from '@/lib/constants';
@@ -40,10 +41,7 @@ export function isSameDayPickupAllowed(totalPieces: number): boolean {
 
 /** Returns minimum date allowed for pickup based on order size */
 export function getMinPickupDate(totalPieces: number): string {
-  if (totalPieces > 150) {
-    return getMinDate(1); // 1 day notice for large orders
-  }
-  return getTodayString();
+  return getPickupDateBounds(totalPieces).min;
 }
 
 /** Minimum event date is 1-2 days from now */

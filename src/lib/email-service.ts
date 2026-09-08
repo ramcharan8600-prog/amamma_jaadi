@@ -12,7 +12,7 @@
 import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/constants';
 import { formatPickupDate } from '@/lib/date';
 import { SALES_TAX_LABEL, shippingMethodLabel } from '@/lib/pricing';
-import { enqueueEmail, isEmailOutboxConfigured } from '@/lib/email-outbox';
+import { enqueueEmail, isEmailOutboxConfigured, type EmailOutboxPayload } from '@/lib/email-outbox';
 import type { DeliveryShippingMethod } from '@/types';
 
 /**
@@ -139,7 +139,7 @@ function totalsFooterRows(params: {
 }
 
 /** 1. Order Confirmation */
-export async function sendOrderConfirmation(params: {
+export interface OrderConfirmationParams {
   email: string;
   orderNumber: string;
   squarePaymentId: string;
@@ -161,7 +161,10 @@ export async function sendOrderConfirmation(params: {
   pickupLocation?: string;
   /** Delivery address — shown for delivery orders. */
   deliveryAddress?: string;
-}): Promise<{ success: boolean }> {
+}
+
+/** Render before the order transaction so its durable email intent commits with it. */
+export function buildOrderConfirmationEmail(params: OrderConfirmationParams): EmailOutboxPayload {
   const itemsHtml = params.items
     .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
     .join('');
@@ -214,7 +217,7 @@ export async function sendOrderConfirmation(params: {
     <p style="color: #bbb; font-size: 11px; margin-top: 24px;">Payment reference: ${params.squarePaymentId}</p>
   `);
 
-  return sendEmail({
+  return {
     to: params.email,
     subject: `Order Confirmed — ${params.orderNumber}`,
     html,
@@ -222,7 +225,11 @@ export async function sendOrderConfirmation(params: {
     // retained; personal owner addresses are intentionally excluded.
     bcc: getOrderConfirmationBcc(),
     dedupeKey: `order-confirmation:${params.orderNumber}`,
-  });
+  };
+}
+
+export async function sendOrderConfirmation(params: OrderConfirmationParams): Promise<{ success: boolean }> {
+  return sendEmail(buildOrderConfirmationEmail(params));
 }
 
 /**
@@ -230,7 +237,7 @@ export async function sendOrderConfirmation(params: {
  * email (so there is no confirmation to BCC the owners on). Sent directly to
  * OWNER_NOTIFICATION_EMAIL; skipped silently when that is not configured.
  */
-export async function sendOwnerOrderAlert(params: {
+export interface OwnerOrderAlertParams {
   orderNumber: string;
   total: number;
   subtotal?: number;
@@ -245,9 +252,11 @@ export async function sendOwnerOrderAlert(params: {
   pickupDate?: string;
   pickupLocation?: string;
   deliveryAddress?: string;
-}): Promise<{ success: boolean }> {
+}
+
+export function buildOwnerOrderAlertEmail(params: OwnerOrderAlertParams): EmailOutboxPayload | null {
   const ownerEmails = getOwnerEmails();
-  if (ownerEmails.length === 0) return { success: false };
+  if (ownerEmails.length === 0) return null;
 
   const itemsHtml = params.items
     .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
@@ -296,12 +305,17 @@ export async function sendOwnerOrderAlert(params: {
     </table>
   `);
 
-  return sendEmail({
+  return {
     to: ownerEmails,
     subject: `🔔 New order ${params.orderNumber} — $${params.total.toFixed(2)} (${params.fulfillmentType})`,
     html,
     dedupeKey: `owner-order-alert:${params.orderNumber}`,
-  });
+  };
+}
+
+export async function sendOwnerOrderAlert(params: OwnerOrderAlertParams): Promise<{ success: boolean }> {
+  const email = buildOwnerOrderAlertEmail(params);
+  return email ? sendEmail(email) : { success: false };
 }
 
 /**

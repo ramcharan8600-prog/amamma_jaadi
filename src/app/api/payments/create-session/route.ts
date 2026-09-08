@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
-import { PRODUCTS, calculateSweetPrice, isProductTaxExempt } from '@/data/products';
+import { PRODUCTS, getTotalPieces } from '@/data/products';
+import { validateCart } from '@/lib/cart-validation';
+import { getPickupDateError } from '@/lib/pickup-date';
 import {
   calculateOrderTotals,
   getDeliveryMinimumSubtotal,
@@ -40,16 +42,18 @@ export async function POST(request: NextRequest) {
       return fail('Payment system not configured. Contact us via WhatsApp.', 503);
     }
 
-    const body = await request.json();
-
-    // Validate required fields
-    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
-      return fail('Cart is empty', 400);
+    let input: unknown;
+    try {
+      input = await request.json();
+    } catch {
+      return fail('Invalid checkout request.', 400);
     }
-    // Cap the number of line items to bound work and prevent abuse.
-    if (body.items.length > 50) {
-      return fail('Too many items in cart.', 400);
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      return fail('Invalid checkout request.', 400);
     }
+    const body = input as Record<string, unknown>;
+    const cart = validateCart(body.items);
+    if (!cart.ok) return fail(cart.error, cart.status);
     const customerName = sanitize(body.customerName, 100);
     const email = sanitize(body.email, 200).toLowerCase();
     const phone = sanitize(body.phone, 20);
@@ -60,29 +64,8 @@ export async function POST(request: NextRequest) {
     // and always available. Quantities are summed across cart lines so the same
     // pickle added twice can't slip past the check.
     const stock = await getStockMap(getDb());
-    const requestedByProduct = new Map<string, number>();
-    for (const item of body.items) {
-      const id = String(item.productId);
-      requestedByProduct.set(
-        id,
-        (requestedByProduct.get(id) ?? 0) + Math.max(1, Math.floor(Number(item.quantity) || 1))
-      );
-    }
-
-    // Recompute total server-side from authoritative product prices.
-    // Never trust the client-sent total — prevents price manipulation.
-    let serverTotal = 0;
-    let taxableTotal = 0;
-    for (const item of body.items) {
-      const product = PRODUCTS.find((p) => p.id === item.productId);
-      if (!product) {
-        return fail(`Unknown product: ${item.productId}`, 400);
-      }
-      // Sold-out items can never be purchased, even if a stale cart (persisted
-      // in localStorage) still holds one from before it went out of stock.
-      if (!product.inStock) {
-        return fail(`${product.name} is currently out of stock.`, 409);
-      }
+    const { requestedByProduct, subtotal: serverTotal, taxableSubtotal: taxableTotal } = cart;
+    for (const { product } of cart.items) {
       // Stock check for tracked products (untracked products aren't in the map).
       if (Object.prototype.hasOwnProperty.call(stock, product.id)) {
         const available = stock[product.id];
@@ -97,42 +80,22 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-      // Gift boxes carry a contents choice. It doesn't change the price, but
-      // reject unknown values so a tampered cart can't reach the kitchen with
-      // instructions we never offered.
-      if (product.variantOptions?.length) {
-        if (!product.variantOptions.includes(String(item.selectedVariant))) {
-          return fail(`Please choose the contents for ${product.name}.`, 400);
-        }
-      }
-      const qty = Math.max(1, Math.floor(Number(item.quantity)));
-
-      let lineTotal: number;
-      if (product.category === 'sweets') {
-        // Sweets are priced by tier (pieces). The tier MUST be one of the
-        // product's allowed quantityOptions — never trust an arbitrary or
-        // missing tier, or the price could be manipulated downward.
-        const tier = Number(item.selectedTier);
-        const allowedTiers = product.quantityOptions || [];
-        if (!allowedTiers.includes(tier)) {
-          return fail(`Invalid quantity option for ${product.name}`, 400);
-        }
-        lineTotal = calculateSweetPrice(product.unitPrice, tier) * qty;
-      } else {
-        lineTotal = product.unitPrice * qty;
-      }
-      serverTotal += lineTotal;
-      // Only non-exempt lines (pickles) are taxed — bakery items are exempt.
-      if (!isProductTaxExempt(product)) taxableTotal += lineTotal;
     }
 
     // Normalize delivery inputs before pricing or persistence. The browser is
     // never trusted to choose its own zone/rate.
-    const rawFulfillment = body.fulfillment || null;
+    const rawFulfillment = body.fulfillment && typeof body.fulfillment === 'object' && !Array.isArray(body.fulfillment)
+      ? body.fulfillment as Record<string, unknown>
+      : null;
     const fulfillmentType = rawFulfillment?.type === 'delivery' ? 'delivery' : 'pickup';
     let fulfillment = rawFulfillment;
     let deliveryState: string | undefined;
     let shippingMethod: 'standard' | 'ground' | 'expedited' | undefined;
+
+    if (fulfillmentType === 'pickup') {
+      const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items));
+      if (dateError) return fail(dateError, 400);
+    }
 
     if (fulfillmentType === 'delivery') {
       const normalizedDeliveryState = normalizeStateCode(rawFulfillment?.state);
@@ -210,7 +173,13 @@ export async function POST(request: NextRequest) {
       shippingMethod,
     });
 
-    if (total <= 0) {
+    if (
+      !Number.isFinite(subtotal) || subtotal <= 0 ||
+      !Number.isFinite(tax) || tax < 0 ||
+      !Number.isFinite(shipping) || shipping < 0 ||
+      !Number.isFinite(total) || total <= 0 ||
+      !Number.isSafeInteger(Math.round(total * 100))
+    ) {
       return fail('Invalid order total', 400);
     }
 
@@ -243,7 +212,7 @@ export async function POST(request: NextRequest) {
         customerName,
         email,
         phone,
-        JSON.stringify(body.items),
+        JSON.stringify(cart.items),
         fulfillment ? JSON.stringify(fulfillment) : null,
         total,
         tax,

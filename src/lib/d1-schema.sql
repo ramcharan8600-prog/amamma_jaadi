@@ -60,6 +60,34 @@ CREATE TABLE IF NOT EXISTS payment_sessions (
   expires_at TEXT NOT NULL DEFAULT (datetime('now', '+30 minutes'))
 );
 
+-- Present only after the receipt/items/session/email intent commit together.
+-- The transaction attempt token guards stock/coupon changes against replay.
+CREATE TABLE IF NOT EXISTS order_finalizations (
+  order_id TEXT PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+  payment_session_id TEXT UNIQUE NOT NULL REFERENCES payment_sessions(id),
+  attempt_id TEXT UNIQUE NOT NULL,
+  legacy_repair INTEGER NOT NULL DEFAULT 0 CHECK (legacy_repair IN (0, 1)),
+  finalized_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Durable, immutable Square request used to reconcile ambiguous charge results.
+CREATE TABLE IF NOT EXISTS payment_attempts (
+  session_id TEXT PRIMARY KEY REFERENCES payment_sessions(id),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  request_json TEXT,
+  state TEXT NOT NULL CHECK (state IN ('processing', 'unknown', 'completed', 'declined')),
+  square_payment_id TEXT,
+  lease_token TEXT,
+  lease_until TEXT,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_error_code TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_payment_attempts_recovery
+  ON payment_attempts(state, lease_until, updated_at);
+
 CREATE TABLE IF NOT EXISTS event_orders (
   id TEXT PRIMARY KEY,
   customer_name TEXT NOT NULL,

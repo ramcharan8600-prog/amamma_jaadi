@@ -1,5 +1,5 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import type { D1Database, Queue } from '@cloudflare/workers-types';
+import type { D1Database, D1PreparedStatement, Queue } from '@cloudflare/workers-types';
 
 export interface EmailQueueMessage {
   outboxId: string;
@@ -8,6 +8,14 @@ export interface EmailQueueMessage {
 export interface EmailWorkerEnv {
   DB: D1Database;
   EMAIL_QUEUE: Queue<EmailQueueMessage>;
+}
+
+/** Supplied by the Queue invocation, never inferred from request/global state. */
+export interface EmailDeliverySettings {
+  apiKey?: string;
+  fromEmail?: string;
+  environment?: string;
+  sandboxRecipient?: string;
 }
 
 export interface EmailOutboxPayload {
@@ -52,13 +60,13 @@ function asArray(value: string | string[]): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
-function parseAddressList(value: string | null): string[] {
-  if (!value) return [];
+function parseAddressList(value: string | null): string[] | null {
+  if (value === null) return [];
   try {
     const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : [];
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -110,6 +118,59 @@ function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 
+/** Build an insert without executing it, for an order + email D1 transaction. */
+export function prepareEmailOutboxInsert(
+  db: D1Database,
+  params: EmailOutboxPayload,
+  options: { id?: string; finalizationAttemptId?: string } = {}
+): { id: string; statement: D1PreparedStatement } {
+  const id = options.id ?? crypto.randomUUID();
+  const guard = options.finalizationAttemptId
+    ? 'WHERE EXISTS (SELECT 1 FROM order_finalizations WHERE attempt_id = ?)'
+    : '';
+  const values = [
+    id,
+    params.dedupeKey,
+    JSON.stringify(asArray(params.to)),
+    params.cc?.length ? JSON.stringify(params.cc) : null,
+    params.bcc?.length ? JSON.stringify(params.bcc) : null,
+    params.subject,
+    params.html,
+    ...(options.finalizationAttemptId ? [options.finalizationAttemptId] : []),
+  ];
+  return {
+    id,
+    statement: db.prepare(
+      `INSERT INTO email_outbox
+        (id, dedupe_key, to_json, cc_json, bcc_json, subject, html, status)
+       SELECT ?, ?, ?, ?, ?, ?, ?, 'pending' ${guard}
+       ON CONFLICT(dedupe_key) DO NOTHING`
+    ).bind(...values),
+  };
+}
+
+/** Queue publication is optional after commit; cron recovers durable pending rows. */
+export async function publishPersistedEmail(
+  db: D1Database,
+  dedupeKey: string,
+  queue?: Queue<EmailQueueMessage>
+): Promise<boolean> {
+  try {
+    const row = await db.prepare('SELECT id, status FROM email_outbox WHERE dedupe_key = ? LIMIT 1')
+      .bind(dedupeKey)
+      .first<{ id: string; status: EmailOutboxRow['status'] }>();
+    if (!row || row.status === 'sent' || row.status === 'failed') return false;
+    const binding = queue ?? (getCloudflareContext().env as CloudflareEnv & Partial<EmailWorkerEnv>).EMAIL_QUEUE;
+    if (!binding) throw new Error('EMAIL_QUEUE binding is not configured');
+    await binding.send({ outboxId: row.id });
+    await markEmailOutboxEnqueued(db, row.id);
+    return true;
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'email_queue_publish_failed', error: errorText(error) }));
+    return false;
+  }
+}
+
 /**
  * Persist an email before publishing its small, non-sensitive outbox id to the
  * Queue. A failed Queue publish does not lose the email: the scheduled recovery
@@ -131,25 +192,8 @@ export async function enqueueEmail(
     return { success: false };
   }
 
-  const id = crypto.randomUUID();
-  const to = asArray(params.to);
-
   try {
-    await env.DB.prepare(
-      `INSERT OR IGNORE INTO email_outbox
-        (id, dedupe_key, to_json, cc_json, bcc_json, subject, html, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`
-    )
-      .bind(
-        id,
-        params.dedupeKey,
-        JSON.stringify(to),
-        params.cc?.length ? JSON.stringify(params.cc) : null,
-        params.bcc?.length ? JSON.stringify(params.bcc) : null,
-        params.subject,
-        params.html
-      )
-      .run();
+    await prepareEmailOutboxInsert(env.DB, params).statement.run();
 
     const row = await env.DB.prepare(
       'SELECT id, status FROM email_outbox WHERE dedupe_key = ? LIMIT 1'
@@ -250,7 +294,8 @@ export async function markEmailOutboxEnqueued(db: D1Database, outboxId: string):
 /** Process one D1-backed message. Called only by the custom Worker's Queue handler. */
 export async function processEmailOutboxMessage(
   db: D1Database,
-  message: EmailQueueMessage
+  message: EmailQueueMessage,
+  settings: EmailDeliverySettings
 ): Promise<EmailQueueOutcome> {
   const claimed = await claimOutboxRow(db, message.outboxId);
   if (!claimed) {
@@ -265,12 +310,30 @@ export async function processEmailOutboxMessage(
   const to = parseAddressList(claimed.to_json);
   const cc = parseAddressList(claimed.cc_json);
   const bcc = parseAddressList(claimed.bcc_json);
-  if (to.length === 0) {
+  // Only an explicitly production invocation can send unrestricted mail.
+  // A configured sandbox gate also wins over an accidental production value.
+  const restricted = settings.environment !== 'production' || Boolean(settings.sandboxRecipient);
+  const sandboxRecipient = settings.sandboxRecipient?.trim().toLowerCase() || '';
+  if (restricted) {
+    if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(sandboxRecipient)) {
+      await markRetry(db, claimed.id, MAX_RETRY_DELAY_SECONDS, 'SANDBOX_EMAIL_DELIVERY_NOT_CONFIGURED');
+      return { action: 'retry', delaySeconds: MAX_RETRY_DELAY_SECONDS };
+    }
+    if (!to || to.length !== 1 || to[0].trim().toLowerCase() !== sandboxRecipient ||
+        !cc || !bcc || cc.length > 0 || bcc.length > 0) {
+      // Retain the original row for inspection. Never redirect a backlog or
+      // quietly strip recipients, which could disguise an unsafe test setup.
+      await markFailed(db, claimed.id, 'SANDBOX_EMAIL_RECIPIENT_BLOCKED');
+      console.log(JSON.stringify({ event: 'sandbox_email_recipient_blocked', outboxId: claimed.id }));
+      return { action: 'ack', status: 'failed' };
+    }
+  }
+  if (!to || !cc || !bcc || to.length === 0) {
     await markFailed(db, claimed.id, 'Outbox email has no valid recipient list');
     return { action: 'ack', status: 'failed' };
   }
 
-  const apiKey = process.env.RESEND_API_KEY || '';
+  const apiKey = settings.apiKey || '';
   if (!apiKey) {
     const delaySeconds = MAX_RETRY_DELAY_SECONDS;
     await markRetry(db, claimed.id, delaySeconds, 'RESEND_API_KEY is not configured');
@@ -287,9 +350,9 @@ export async function processEmailOutboxMessage(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `Amamma Jaadi <${process.env.FROM_EMAIL || DEFAULT_FROM_EMAIL}>`,
-        to,
-        subject: claimed.subject,
+        from: `Amamma Jaadi <${settings.fromEmail || (restricted ? 'sandbox@amammajaadi.com' : DEFAULT_FROM_EMAIL)}>`,
+        to: restricted ? [sandboxRecipient] : to,
+        subject: restricted ? `[SANDBOX] ${claimed.subject}` : claimed.subject,
         html: claimed.html,
         ...(cc.length ? { cc } : {}),
         ...(bcc.length ? { bcc } : {}),

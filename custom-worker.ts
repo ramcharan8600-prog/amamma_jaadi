@@ -17,13 +17,24 @@ import type {
   MessageBatch,
   ScheduledController,
 } from '@cloudflare/workers-types';
+import { recoverPendingPaymentAttempts } from './src/lib/payment-attempts';
+import { executeSquarePaymentRequest } from './src/lib/square';
+import { createOrderFromSession } from './src/lib/order-service';
+
+type WorkerEnv = EmailWorkerEnv & Pick<WorkerBindings,
+  'SQUARE_ENVIRONMENT' | 'NEXT_PUBLIC_SQUARE_LOCATION_ID' | 'NEXT_PUBLIC_SQUARE_APP_ID'
+> & Partial<Pick<WorkerBindings, 'FROM_EMAIL' | 'SANDBOX_EMAIL_RECIPIENT'>> & {
+  // Secret bindings are provisioned independently of the non-secret config.
+  SQUARE_ACCESS_TOKEN: string;
+  RESEND_API_KEY?: string;
+};
 
 export default {
   fetch: handler.fetch,
 
   async queue(
     batch: MessageBatch<EmailQueueMessage>,
-    env: EmailWorkerEnv
+    env: WorkerEnv
   ): Promise<void> {
     for (const message of batch.messages) {
       if (!isEmailQueueMessage(message.body)) {
@@ -33,7 +44,12 @@ export default {
       }
 
       try {
-        const outcome = await processEmailOutboxMessage(env.DB, message.body);
+        const outcome = await processEmailOutboxMessage(env.DB, message.body, {
+          apiKey: env.RESEND_API_KEY,
+          fromEmail: env.FROM_EMAIL,
+          environment: env.SQUARE_ENVIRONMENT,
+          sandboxRecipient: env.SANDBOX_EMAIL_RECIPIENT,
+        });
         if (outcome.action === 'ack') {
           message.ack();
           continue;
@@ -70,7 +86,7 @@ export default {
 
   async scheduled(
     _controller: ScheduledController,
-    env: EmailWorkerEnv,
+    env: WorkerEnv,
     ctx: ExecutionContext
   ): Promise<void> {
     ctx.waitUntil(
@@ -87,5 +103,24 @@ export default {
           );
         })
     );
+    // Only previously persisted attempts are eligible. Unknown charges reuse
+    // their original request/key; confirmed payments repair order persistence.
+    ctx.waitUntil(
+      recoverPendingPaymentAttempts(env.DB, {
+        execute: (request) => executeSquarePaymentRequest(request, {
+          SQUARE_ACCESS_TOKEN: env.SQUARE_ACCESS_TOKEN,
+          SQUARE_ENVIRONMENT: env.SQUARE_ENVIRONMENT,
+          NEXT_PUBLIC_SQUARE_LOCATION_ID: env.NEXT_PUBLIC_SQUARE_LOCATION_ID,
+          NEXT_PUBLIC_SQUARE_APP_ID: env.NEXT_PUBLIC_SQUARE_APP_ID,
+        }),
+        finalize: (db, session, paymentId) => createOrderFromSession(
+          db, session, paymentId, { emailQueue: env.EMAIL_QUEUE }
+        ),
+      }).then((resolved) => {
+        console.log(JSON.stringify({ event: 'payment_recovery_complete', resolved }));
+      }).catch(() => {
+        console.error(JSON.stringify({ event: 'payment_recovery_failed' }));
+      })
+    );
   },
-} satisfies ExportedHandler<EmailWorkerEnv, EmailQueueMessage>;
+} satisfies ExportedHandler<WorkerEnv, EmailQueueMessage>;

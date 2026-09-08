@@ -51,8 +51,8 @@ function getEnv(): Record<string, string | undefined> {
   return { ...(process.env as Record<string, string | undefined>), ...cf };
 }
 
-function getConfig(): SquareConfig {
-  const env = getEnv();
+function getConfig(runtimeEnv?: Record<string, unknown>): SquareConfig {
+  const env = { ...getEnv(), ...runtimeEnv } as Record<string, string | undefined>;
   return {
     accessToken: env.SQUARE_ACCESS_TOKEN || '',
     environment: (env.SQUARE_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox',
@@ -92,7 +92,7 @@ export function getSquarePublicConfig(): {
  * Create a payment using a tokenized card nonce.
  * Called from /api/payments/create-payment
  */
-export async function createPayment(params: {
+export interface SquarePaymentParams {
   sourceId: string; // payment token from frontend SDK
   amount: number; // in cents
   currency?: string;
@@ -101,24 +101,62 @@ export async function createPayment(params: {
   customerEmail?: string;
   verificationToken?: string; // SCA / 3DS buyer verification (from frontend SDK)
   note?: string;
-}): Promise<{ paymentId: string; status: string }> {
+}
+
+/** Persist this exact request before sending it. Never rebuild an uncertain retry. */
+export interface SquarePaymentRequest {
+  environment: 'sandbox' | 'production';
+  apiVersion: string;
+  body: {
+    source_id: string;
+    idempotency_key: string;
+    amount_money: { amount: number; currency: string };
+    location_id: string;
+    reference_id: string;
+    note: string;
+    buyer_email_address?: string;
+    verification_token?: string;
+    autocomplete: true;
+  };
+}
+
+export interface SquarePaymentResult {
+  paymentId: string;
+  status: string;
+}
+
+/** Only an explicit issuer/payment-method rejection authorizes a new attempt. */
+export class SquarePaymentError extends Error {
+  constructor(
+    public readonly code: string,
+    public readonly confirmedDecline = false,
+    public readonly paymentId?: string
+  ) {
+    // Keep provider response bodies, card tokens, and customer data out of logs.
+    super(code);
+    this.name = 'SquarePaymentError';
+  }
+}
+
+const CONFIRMED_DECLINE_CODES = new Set([
+  'ADDRESS_VERIFICATION_FAILURE', 'ALLOWABLE_PIN_TRIES_EXCEEDED', 'BAD_EXPIRATION',
+  'CARDHOLDER_INSUFFICIENT_PERMISSIONS', 'CARD_DECLINED', 'CARD_DECLINED_VERIFICATION_REQUIRED',
+  'CARD_EXPIRED', 'CARD_NOT_SUPPORTED', 'CHIP_INSERTION_REQUIRED', 'CVV_FAILURE',
+  'EXPIRATION_FAILURE', 'GENERIC_DECLINE', 'INSUFFICIENT_FUNDS', 'INVALID_ACCOUNT',
+  'INVALID_CARD', 'INVALID_CARD_DATA', 'INVALID_EXPIRATION', 'INVALID_PIN',
+  'INVALID_POSTAL_CODE', 'MANUALLY_ENTERED_PAYMENT_NOT_SUPPORTED', 'PAN_FAILURE',
+  'PAYMENT_LIMIT_EXCEEDED', 'TRANSACTION_LIMIT', 'VOICE_FAILURE',
+]);
+
+export function buildSquarePaymentRequest(params: SquarePaymentParams): SquarePaymentRequest {
   const config = getConfig();
   if (!isSquareEnabled()) {
-    throw new Error('Square payments not configured');
+    throw new SquarePaymentError('PAYMENTS_NOT_CONFIGURED');
   }
-
-  const baseUrl = config.environment === 'production'
-    ? 'https://connect.squareup.com'
-    : 'https://connect.squareupsandbox.com';
-
-  const response = await fetch(`${baseUrl}/v2/payments`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${config.accessToken}`,
-      'Content-Type': 'application/json',
-      'Square-Version': '2024-01-18',
-    },
-    body: JSON.stringify({
+  return {
+    environment: config.environment,
+    apiVersion: '2024-01-18',
+    body: {
       source_id: params.sourceId,
       idempotency_key: params.idempotencyKey,
       amount_money: {
@@ -131,19 +169,79 @@ export async function createPayment(params: {
       buyer_email_address: params.customerEmail,
       verification_token: params.verificationToken,
       autocomplete: true,
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.errors?.[0]?.detail || 'Payment failed');
-  }
-
-  return {
-    paymentId: data.payment.id,
-    status: data.payment.status,
+    },
   };
+}
+
+export async function executeSquarePaymentRequest(
+  request: SquarePaymentRequest,
+  runtimeEnv?: Record<string, unknown>
+): Promise<SquarePaymentResult> {
+  const config = getConfig(runtimeEnv);
+  if (!config.accessToken || config.environment !== request.environment ||
+      config.locationId !== request.body.location_id) {
+    throw new SquarePaymentError('PAYMENT_CONFIGURATION_CHANGED');
+  }
+  const baseUrl = request.environment === 'production'
+    ? 'https://connect.squareup.com'
+    : 'https://connect.squareupsandbox.com';
+  let response: Response;
+  let data: {
+    errors?: Array<{ code?: string; category?: string }>;
+    payment?: { id?: string; status?: string; reference_id?: string;
+      amount_money?: { amount?: number; currency?: string }; location_id?: string };
+  };
+  try {
+    response = await fetch(`${baseUrl}/v2/payments`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+        'Content-Type': 'application/json',
+        'Square-Version': request.apiVersion,
+      },
+      body: JSON.stringify(request.body),
+      signal: AbortSignal.timeout(20_000),
+    });
+    data = await response.json();
+  } catch {
+    // A timeout can happen after Square charged the card. Never call it declined.
+    throw new SquarePaymentError('PAYMENT_RESPONSE_UNKNOWN');
+  }
+  const payment = data.payment;
+  const code = data.errors?.[0]?.code || 'PAYMENT_RESPONSE_UNKNOWN';
+  if (!response.ok) {
+    // Do not let an error code override evidence of an accepted/in-flight
+    // payment, or a response belonging to a different checkout. When Square
+    // returns no payment object, its explicit payment-method error still applies.
+    if (payment && (
+      ['COMPLETED', 'APPROVED', 'PENDING'].includes(payment.status ?? '') ||
+      (payment.reference_id !== undefined && payment.reference_id !== request.body.reference_id) ||
+      (payment.location_id !== undefined && payment.location_id !== request.body.location_id) ||
+      (payment.amount_money?.amount !== undefined && payment.amount_money.amount !== request.body.amount_money.amount) ||
+      (payment.amount_money?.currency !== undefined && payment.amount_money.currency !== request.body.amount_money.currency)
+    )) {
+      throw new SquarePaymentError('PAYMENT_RESPONSE_MISMATCH');
+    }
+    const explicitFailure = response.status >= 400 && response.status < 500 && (
+      payment?.status === 'FAILED' || payment?.status === 'CANCELED' ||
+      (data.errors?.[0]?.category === 'PAYMENT_METHOD_ERROR' && CONFIRMED_DECLINE_CODES.has(code))
+    );
+    throw new SquarePaymentError(code, explicitFailure, payment?.id);
+  }
+  if (!payment?.id || !payment.status || payment.reference_id !== request.body.reference_id ||
+      payment.location_id !== request.body.location_id ||
+      payment.amount_money?.amount !== request.body.amount_money.amount ||
+      payment.amount_money.currency !== request.body.amount_money.currency) {
+    throw new SquarePaymentError('PAYMENT_RESPONSE_MISMATCH');
+  }
+  if (payment.status === 'FAILED' || payment.status === 'CANCELED') {
+    throw new SquarePaymentError(code, true, payment.id);
+  }
+  return { paymentId: payment.id, status: payment.status };
+}
+
+export async function createPayment(params: SquarePaymentParams): Promise<SquarePaymentResult> {
+  return executeSquarePaymentRequest(buildSquarePaymentRequest(params));
 }
 
 /**

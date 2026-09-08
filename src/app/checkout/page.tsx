@@ -22,7 +22,8 @@ import {
   getTotalPieces as calculateTotalPieces,
   isProductTaxExempt,
 } from '@/data/products';
-import { formatCurrency, getMinPickupDate } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
+import { getPickupDateBounds, getPickupDateError } from '@/lib/pickup-date';
 import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
 import {
   calculateOrderTotals,
@@ -33,7 +34,11 @@ import {
   SALES_TAX_LABEL,
   shippingMethodLabel,
 } from '@/lib/pricing';
-import FreeShippingNotice from '@/components/FreeShippingNotice';
+import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
+import {
+  claimPendingPayment, classifyPaymentOutcome, forgetPendingPayment, PENDING_PAYMENT_KEY,
+  readPendingPayment, requestPaymentStatus, type PendingPayment,
+} from '@/lib/payment-recovery';
 import type {
   FulfillmentType,
   PickupDetails,
@@ -61,6 +66,8 @@ export default function CheckoutPage() {
 
   // Pickup state
   const [pickupDate, setPickupDate] = useState('');
+  const [pickupDateTouched, setPickupDateTouched] = useState(false);
+  const [pickupNow, setPickupNow] = useState(() => new Date());
   const [pickupLocationId, setPickupLocationId] = useState('');
   const [pickupName, setPickupName] = useState('');
   const [pickupPhone, setPickupPhone] = useState('');
@@ -107,6 +114,11 @@ export default function CheckoutPage() {
   const [applePayReady, setApplePayReady] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState('');
+  const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
+  const [paymentRequestActive, setPaymentRequestActive] = useState(false);
+  const [recoveryStorageError, setRecoveryStorageError] = useState('');
+  const paymentActionRef = useRef(false);
+  const checkoutActive = useRef(false);
   // Shown while a 3-D Secure challenge is on screen — see handleCardPay().
   const [verifying, setVerifying] = useState(false);
 
@@ -173,11 +185,65 @@ export default function CheckoutPage() {
   const squareCardRef = useRef<SquareCard | null>(null);
   const applePayRef = useRef<SquareApplePay | null>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    checkoutActive.current = true;
+    const restore = () => {
+      try {
+        const saved = readPendingPayment(window.localStorage);
+        // Another tab clearing its reference is not a server result for this
+        // tab. Keep checking our existing attempt until it resolves explicitly.
+        setPendingPayment(previous => saved ?? previous);
+        setRecoveryStorageError('');
+      } catch {
+        setRecoveryStorageError('We could not read your saved payment reference. Please contact us before paying again, or use a browser with website storage enabled if you have not attempted payment.');
+      }
+    };
+    restore();
+    setMounted(true);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === PENDING_PAYMENT_KEY) restore();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => { checkoutActive.current = false; window.removeEventListener('storage', onStorage); };
+  }, []);
+
+  const completePayment = useCallback((sessionId: string, number: string) => {
+    if (!checkoutActive.current) return;
+    try {
+      const latest = readPendingPayment(window.localStorage);
+      if (latest && latest.sessionId !== sessionId) { setPendingPayment(latest); return; }
+    } catch { return; }
+    try { forgetPendingPayment(window.localStorage, sessionId); } catch { /* Retain reference for safe re-check on reload. */ }
+    setPendingPayment(null);
+    setOrderNumber(number);
+    setOrderComplete(true);
+    mark('order_created', number);
+    flushTrail('completed');
+    clearCart();
+  }, [clearCart, mark, flushTrail]);
+
+  const releasePayment = useCallback((sessionId: string, message: string) => {
+    if (!checkoutActive.current) return;
+    try {
+      const latest = readPendingPayment(window.localStorage);
+      if (latest && latest.sessionId !== sessionId) { setPendingPayment(latest); return; }
+      forgetPendingPayment(window.localStorage, sessionId);
+    } catch {
+      setRecoveryStorageError('The payment result is known, but this browser could not clear its saved reference. Please contact us before starting another payment.');
+      return;
+    }
+    setPendingPayment(null);
+    setSessionInfo(null);
+    setPaying(false);
+    setStep(fulfillment ? 'details' : 'cart');
+    setSubmitError(message);
+    setPaymentError(message);
+    mark('payment_terminal', message);
+  }, [fulfillment, mark]);
 
   // Load the Square Web Payments SDK + mount card/Apple Pay on the payment step.
   useEffect(() => {
-    if (step !== 'payment' || !sessionInfo?.appId || !sessionInfo?.locationId) return;
+    if (pendingPayment || orderComplete || step !== 'payment' || !sessionInfo?.appId || !sessionInfo?.locationId) return;
     let cancelled = false;
 
     // Which SDK to load comes from the session (runtime Cloudflare env), not a
@@ -257,7 +323,7 @@ export default function CheckoutPage() {
       squareCardRef.current = null;
       if (card) card.destroy().catch(() => {});
     };
-  }, [step, sessionInfo, mark, flushTrail]);
+  }, [step, sessionInfo, mark, flushTrail, pendingPayment, orderComplete]);
 
   const subtotal = useMemo(
     () => (mounted ? items.reduce((sum, item) => sum + item.lineTotal, 0) : 0),
@@ -305,7 +371,21 @@ export default function CheckoutPage() {
     [mounted, items]
   );
   const largeOrder = totalPieces > 150;
-  const minPickupDate = useMemo(() => getMinPickupDate(totalPieces), [totalPieces]);
+  const pickupBounds = getPickupDateBounds(totalPieces, pickupNow);
+  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow);
+  const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
+  // Refresh an open date picker after midnight and when returning to the tab.
+  useEffect(() => {
+    if (step !== 'details' || fulfillmentType !== 'pickup') return;
+    const refresh = () => setPickupNow(new Date());
+    refresh();
+    const timer = setInterval(refresh, 60_000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [step, fulfillmentType]);
   const selectedLocation = useMemo(
     () => (pickupLocationId ? getPickupLocationById(pickupLocationId) : null),
     [pickupLocationId]
@@ -317,6 +397,19 @@ export default function CheckoutPage() {
         <p className="font-body text-brand-charcoal/60">Loading...</p>
       </div>
     );
+  }
+
+  if (recoveryStorageError && !orderComplete) {
+    return <div className="section-padding py-20 max-w-xl mx-auto space-y-4">
+      <h1 className="font-display text-2xl">Payment safety check</h1>
+      <p role="alert">{recoveryStorageError}</p>
+      <a className="underline" href="https://wa.me/15105745578">Contact Amamma Jaadi</a>
+    </div>;
+  }
+
+  if (pendingPayment && !orderComplete) {
+    return <PaymentRecoveryPanel payment={pendingPayment} submitting={paymentRequestActive}
+      onCompleted={completePayment} onReleased={releasePayment} />;
   }
 
   if (items.length === 0 && !orderComplete) {
@@ -347,7 +440,7 @@ export default function CheckoutPage() {
               <span className="font-display font-bold text-brand-maroon">{orderNumber}</span>.{' '}
             </>
           ) : null}
-          A confirmation email has been sent to your inbox.
+          Your confirmation email has been queued for delivery to your inbox.
         </p>
         <Link href="/" className="btn-primary inline-flex gap-2">
           Continue Shopping
@@ -356,11 +449,16 @@ export default function CheckoutPage() {
     );
   }
 
-  // ── Session creation (shared by the checkout flow and 409 recovery) ──
+  // ── Session creation (never used to recover an uncertain payment) ──
   const requestSession = async (
     details: PickupDetails | DeliveryDetails
   ): Promise<{ sessionId: string } | { error: string }> => {
     try {
+      const pending = readPendingPayment(window.localStorage);
+      if (pending) {
+        setPendingPayment(pending);
+        return { error: 'Please confirm your existing payment before starting another checkout.' };
+      }
       const res = await fetch('/api/payments/create-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -419,8 +517,16 @@ export default function CheckoutPage() {
     setSubmitting(false);
   };
 
-  const proceedPickup = () =>
-    createSessionAndPay({
+  const proceedPickup = () => {
+    const now = new Date();
+    setPickupNow(now);
+    setPickupDateTouched(true);
+    const dateError = getPickupDateError(pickupDate, totalPieces, now);
+    if (dateError) {
+      setSubmitError(dateError);
+      return;
+    }
+    return createSessionAndPay({
       type: 'pickup',
       date: pickupDate,
       locationId: pickupLocationId,
@@ -428,6 +534,7 @@ export default function CheckoutPage() {
       phone: pickupPhone,
       email: pickupEmail,
     });
+  };
 
   const proceedDelivery = () =>
     createSessionAndPay({
@@ -445,54 +552,34 @@ export default function CheckoutPage() {
     });
 
   // ── Payment submission (shared by card + Apple Pay) ─────────────────
-  /**
-   * `verificationToken` is only present when the issuer ran a 3-D Secure
-   * challenge. It must reach CreatePayment or Square declines the charge as
-   * unverified — the buyer passes the bank's check and still cannot pay.
-   */
+  // Modern Square tokens include buyer authentication; retain a separate
+  // verification token only for SDK flows that supply one.
   const submitPayment = async (token: string, verificationToken?: string) => {
-    if (!sessionInfo) return;
+    if (!sessionInfo || !checkoutActive.current) return;
     setPaying(true);
     setPaymentError('');
-    mark('charging', verificationToken ? 'with verification token' : 'no verification token');
+    const sessionId = sessionInfo.sessionId;
     try {
-      const charge = (sessionId: string) =>
-        fetch('/api/payments/create-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, sourceId: token, verificationToken }),
-        });
-
-      let res = await charge(sessionInfo.sessionId);
-
-      // A 409 means the session was invalidated (e.g. by an earlier declined
-      // attempt). Mint a fresh session from the saved fulfillment details and
-      // retry once — the token is unused at this point, so it is still valid.
-      if (res.status === 409 && fulfillment) {
-        const recovered = await requestSession(fulfillment);
-        if ('sessionId' in recovered) {
-          res = await charge(recovered.sessionId);
-        }
-      }
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        mark('charge_declined', `${res.status}: ${data.error || 'no message'}`);
-        flushTrail('failed', `charge rejected (${res.status})`);
-        setPaymentError(data.error || 'Your payment could not be processed. Please try again.');
-        setPaying(false);
-        return;
-      }
-      mark('order_created', data.orderNumber || '');
-      flushTrail('completed');
-      setOrderNumber(data.orderNumber || '');
-      setOrderComplete(true);
-      clearCart();
-    } catch (e) {
-      mark('charge_threw', e instanceof Error ? e.message : String(e));
-      flushTrail('failed', 'network error while charging');
-      setPaymentError('Payment failed. Please try again.');
+      const saved = await claimPendingPayment(window.localStorage, sessionId, navigator.locks);
+      if (!checkoutActive.current) return;
+      setPendingPayment(saved);
+    } catch {
+      setPaymentError('Your browser could not safely save this payment reference, or an earlier payment is unresolved. No new charge was submitted. Please reload checkout to check its status.');
+      setPaying(false);
+      return;
+    }
+    setPaymentRequestActive(true);
+    mark('charging', 'saved original payment reference');
+    try {
+      const res = await requestPaymentStatus('/api/payments/create-payment', { sessionId, sourceId: token, verificationToken });
+      const outcome = classifyPaymentOutcome(res.status, res.body);
+      if (outcome.kind === 'completed') completePayment(sessionId, outcome.orderNumber);
+      else if (outcome.kind === 'released') releasePayment(sessionId, outcome.message);
+      else mark('payment_unconfirmed', `HTTP ${res.status}; original reference retained`);
+    } catch {
+      mark('payment_unconfirmed', 'connection lost; original reference retained');
     } finally {
+      setPaymentRequestActive(false);
       setPaying(false);
     }
   };
@@ -535,7 +622,8 @@ export default function CheckoutPage() {
   const TOKENIZE_TIMEOUT_MS = 120_000;
 
   const handleCardPay = async () => {
-    if (!squareCardRef.current) return;
+    if (!squareCardRef.current || paymentActionRef.current || pendingPayment) return;
+    paymentActionRef.current = true;
     setPaying(true);
     setPaymentError('');
 
@@ -593,9 +681,7 @@ export default function CheckoutPage() {
         setPaying(false);
         return;
       }
-      // Whether a verification token came back tells us if the issuer ran a
-      // challenge at all — the single most useful fact when a payment fails.
-      mark('tokenize_ok', result.verificationToken ? '3DS challenge passed' : 'no challenge');
+      mark('tokenize_ok', 'authentication handled by Square');
       await submitPayment(result.token, result.verificationToken);
     } catch (e) {
       mark('tokenize_threw', e instanceof Error ? e.message : String(e));
@@ -603,6 +689,7 @@ export default function CheckoutPage() {
       setPaymentError('Payment failed. Please try again.');
       setPaying(false);
     } finally {
+      paymentActionRef.current = false;
       clearTimeout(hintTimer);
       if (timeoutTimer) clearTimeout(timeoutTimer);
       document.removeEventListener('securitypolicyviolation', onViolation);
@@ -611,7 +698,9 @@ export default function CheckoutPage() {
   };
 
   const handleApplePay = async () => {
-    if (!applePayRef.current) return;
+    if (!applePayRef.current || paymentActionRef.current || pendingPayment) return;
+    paymentActionRef.current = true;
+    setPaying(true);
     try {
       mark('applepay_clicked');
       const result = await applePayRef.current.tokenize();
@@ -626,11 +715,14 @@ export default function CheckoutPage() {
       mark('applepay_threw', e instanceof Error ? e.message : String(e));
       flushTrail('failed', 'Apple Pay threw');
       setPaymentError('Apple Pay failed. Please try a card instead.');
+    } finally {
+      paymentActionRef.current = false;
+      setPaying(false);
     }
   };
 
   const canSubmitPickup = Boolean(
-    pickupDate &&
+    !pickupDateError &&
     pickupLocationId &&
     isValidCustomerName(pickupName) &&
     isValidPhone(pickupPhone) &&
@@ -684,8 +776,8 @@ export default function CheckoutPage() {
         })}
       </div>
 
-      {/* Same-day notice */}
-      <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-4 mb-6 flex items-start gap-3">
+      {/* Same-day notice stays on method/payment, not cart or details. */}
+      {(step === 'method' || step === 'payment') && <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-4 mb-6 flex items-start gap-3">
         <Clock size={20} className="text-brand-gold shrink-0 mt-0.5" />
         <div className="font-body text-sm text-brand-charcoal/80">
           <p>
@@ -694,7 +786,7 @@ export default function CheckoutPage() {
           </p>
           <p>This ensures the boxes are ready at respective pick up locations.</p>
         </div>
-      </div>
+      </div>}
 
       {largeOrder && step !== 'payment' && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
@@ -763,8 +855,6 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
-
-          <FreeShippingNotice />
 
           <div className="card p-4 space-y-2">
             <label className="label-text mb-0">Promo code</label>
@@ -896,17 +986,28 @@ export default function CheckoutPage() {
           </div>
 
           <div>
-            <label className="label-text">Pickup Date</label>
+            <label htmlFor="pickup-date" className="label-text">Pickup Date</label>
             <input
+              id="pickup-date"
               type="date"
-              min={minPickupDate}
+              required
+              min={pickupBounds.min}
+              max={pickupBounds.max}
               value={pickupDate}
-              onChange={(e) => setPickupDate(e.target.value)}
+              onChange={(e) => {
+                setPickupDate(e.target.value);
+                setPickupDateTouched(true);
+                setPickupNow(new Date());
+                setSubmitError('');
+              }}
+              onBlur={() => setPickupDateTouched(true)}
               onClick={(e) => e.currentTarget.showPicker?.()}
-              className="input-field cursor-pointer"
+              aria-invalid={showPickupDateError}
+              aria-describedby={showPickupDateError ? 'pickup-date-error' : undefined}
+              className={`input-field cursor-pointer ${showPickupDateError ? '!border-red-500' : ''}`}
             />
-            {largeOrder && pickupDate && pickupDate < minPickupDate && (
-              <p className="text-red-500 text-xs mt-1">Large orders require at least 1 day notice.</p>
+            {showPickupDateError && (
+              <p id="pickup-date-error" role="alert" className="text-red-500 text-xs mt-1">{pickupDateError}</p>
             )}
           </div>
 
@@ -1234,6 +1335,7 @@ export default function CheckoutPage() {
               setPaymentError('');
               setStep('details');
             }}
+            disabled={paying}
             className="font-body text-sm text-brand-charcoal/50 hover:text-brand-maroon flex items-center gap-1"
           >
             <ArrowLeft size={14} /> Back

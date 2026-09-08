@@ -67,7 +67,9 @@
         "SQUARE_WEBHOOK_URL": "https://amammajaadi-sandbox.ramcharan8600.workers.dev/api/payments/webhook",
         "OWNER_NOTIFICATION_EMAIL": "",
         "ORDER_CONFIRMATION_BCC_EMAIL": "",
-        "FROM_EMAIL": "sandbox@amammajaadi.com"
+        "FROM_EMAIL": "sandbox@amammajaadi.com",
+        // Fail-closed delivery gate; never reroute old test/customer messages.
+        "SANDBOX_EMAIL_RECIPIENT": "ramcharan8600@gmail.com"
       },
       "d1_databases": [
         {
