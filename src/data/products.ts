@@ -22,7 +22,7 @@ export const PRODUCTS: Product[] = [
     description:
       'Tender chicken pieces marinated in a fiery blend of traditional Andhra spices, slow-cooked to perfection in cold-pressed sesame oil. A bold, tangy pickle that pairs beautifully with steamed rice.',
     category: 'pickles',
-    unitPrice: 14,
+    unitPrice: 18,
     image: '/images/products/Chicken Pickle.jpg',
     sizeLabel: '12oz / 354ml Glass Jar',
     isFixedQuantity: true,
@@ -36,7 +36,7 @@ export const PRODUCTS: Product[] = [
     description:
       'Succulent mutton pieces infused with roasted mustard, fenugreek, and red chilli in a rich sesame oil base. An heirloom recipe passed down through generations.',
     category: 'pickles',
-    unitPrice: 16,
+    unitPrice: 21,
     image: '/images/products/Mutton Pickle.jpg',
     sizeLabel: '12oz / 354ml Glass Jar',
     isFixedQuantity: true,
@@ -50,7 +50,7 @@ export const PRODUCTS: Product[] = [
     description:
       'Fresh prawns tossed in a vibrant masala of curry leaves, garlic, and coastal spices, preserved in premium sesame oil. A taste of the Andhra coastline in every bite.',
     category: 'pickles',
-    unitPrice: 16,
+    unitPrice: 21,
     image: '/images/products/Prawns pickle.jpg',
     sizeLabel: '12oz / 354ml Glass Jar',
     isFixedQuantity: true,

@@ -20,9 +20,9 @@ function setup(overrides: Partial<PaymentSessionRow> = {}) {
   const session: PaymentSessionRow = {
     id: 'session-test', order_id: null, customer_name: 'Test Customer', phone_number: '5551234567',
     email: 'buyer@example.invalid',
-    cart_data: [{ productId: 'pickle-chicken', product: { name: '<b>forged name</b>' }, quantity: 2, lineTotal: 28 }],
+    cart_data: [{ productId: 'pickle-chicken', product: { name: '<b>forged name</b>' }, quantity: 2, lineTotal: 36 }],
     fulfillment_data: { type: 'pickup', date: '2026-09-10', locationId: 'plano-biryanify' },
-    total_amount: 28, tax: 0, shipping: 0, coupon_code: 'TESTBONUS', ...overrides,
+    total_amount: 36, tax: 0, shipping: 0, coupon_code: 'TESTBONUS', ...overrides,
   };
   database.sqlite.prepare(
     `INSERT INTO payment_sessions (id, customer_name, phone_number, email, cart_data, fulfillment_data,
@@ -139,7 +139,7 @@ describe('atomic order finalization using real SQLite transactions', () => {
     vi.spyOn(db, 'batch').mockImplementationOnce(async (statements) => {
       sqlite.exec(`INSERT INTO orders (id,order_number,customer_name,phone_number,email,order_type,
         total_price,square_payment_id,payment_status)
-        VALUES ('legacy-race','AJ-LEGACY-RACE','Test','555','buyer@example.invalid','pickup',28,'PAY-TEST','paid')`);
+        VALUES ('legacy-race','AJ-LEGACY-RACE','Test','555','buyer@example.invalid','pickup',36,'PAY-TEST','paid')`);
       return originalBatch(statements);
     });
     await expect(createOrderFromSession(db, session, 'PAY-TEST')).rejects.toThrow('did not resolve');
@@ -187,7 +187,7 @@ describe('atomic order finalization using real SQLite transactions', () => {
     const { db, sqlite, session } = setup();
     sqlite.exec(`INSERT INTO orders (id,order_number,customer_name,phone_number,email,order_type,total_price,
       square_payment_id,payment_status,status,refunded_amount,shipment_status,tracking_id)
-      VALUES ('legacy','AJ-LEGACY','Test','555','buyer@example.invalid','delivery',28,'PAY-TEST',
+      VALUES ('legacy','AJ-LEGACY','Test','555','buyer@example.invalid','delivery',36,'PAY-TEST',
       'partially_refunded','confirmed',5,'shipped','EXISTING-TRACKING');
       UPDATE inventory SET stock_count=18 WHERE product_id='pickle-chicken';
       UPDATE influencer_coupons SET times_used=1;
@@ -224,7 +224,10 @@ describe('atomic order finalization using real SQLite transactions', () => {
   });
 
   it('baselines complete pre-outbox receipts without sending historical customer email', async () => {
-    const { db, sqlite, session } = setup();
+    const { db, sqlite, session } = setup({
+      cart_data: [{ productId: 'pickle-chicken', quantity: 2, lineTotal: 28 }],
+      total_amount: 28,
+    });
     sqlite.exec(`INSERT INTO orders (id,order_number,customer_name,phone_number,email,order_type,total_price,
       square_payment_id,payment_status,created_at)
       VALUES ('legacy','AJ-LEGACY','Test','555','buyer@example.invalid','pickup',28,'PAY-TEST','paid','2026-01-01 00:00:00');

@@ -13,6 +13,12 @@ import {
 } from '@/data/products';
 
 describe('product catalog integrity', () => {
+  it('uses the approved pickle jar prices', () => {
+    expect(getProductById('pickle-chicken')?.unitPrice).toBe(18);
+    expect(getProductById('pickle-mutton')?.unitPrice).toBe(21);
+    expect(getProductById('pickle-prawns')?.unitPrice).toBe(21);
+  });
+
   it('every product has a unique id', () => {
     const ids = PRODUCTS.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);

@@ -204,12 +204,12 @@ describe('create-session retains approved shipping and gift-box rules', () => {
       { productId: 'pickle-chicken', quantity: 1, product: { name: 'Free jar' }, lineTotal: 0 },
     ], delivery('AL')));
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 84, tax: 1.16, shipping: 8.99, totalAmount: 94.15 });
+    expect(await response.json()).toMatchObject({ subtotal: 88, tax: 1.49, shipping: 8.99, totalAmount: 98.48 });
     const saved = JSON.parse(mocks.inserts[0][4] as string);
     expect(saved[0]).toEqual({ ...sweet, product: getProductById(sweet.productId), lineTotal: 40 });
     expect(saved[1]).toEqual({ ...gift, product: getProductById(gift.productId), lineTotal: 30 });
-    expect(saved[2].lineTotal).toBe(14);
-    expect(mocks.inserts[0][6]).toBe(94.15);
+    expect(saved[2].lineTotal).toBe(18);
+    expect(mocks.inserts[0][6]).toBe(98.48);
   });
 
   it('keeps accepted gift contents and valid coupons unchanged', async () => {
