@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ExecutionContext, MessageBatch, Queue, ScheduledController } from '@cloudflare/workers-types';
+import type { ExecutionContext, MessageBatch, Queue, ScheduledController, SendEmail } from '@cloudflare/workers-types';
 import type { EmailQueueMessage, processEmailOutboxMessage, recoverPendingEmailOutbox } from '@/lib/email-outbox';
 import type { recoverPendingPaymentAttempts } from '@/lib/payment-attempts';
 import type { executeSquarePaymentRequest, SquarePaymentRequest } from '@/lib/square';
@@ -34,9 +34,14 @@ function fixture() {
     sendBatch: vi.fn<Queue<EmailQueueMessage>['sendBatch']>(),
     metrics: vi.fn<Queue<EmailQueueMessage>['metrics']>(),
   };
+  const emailBinding: SendEmail = {
+    send: vi.fn(async () => ({ messageId: 'cloudflare-test-message-id' })),
+  };
   const env: Parameters<typeof worker.scheduled>[1] = {
     DB: database.db,
     EMAIL_QUEUE: emailQueue,
+    EMAIL: emailBinding,
+    EMAIL_PROVIDER: 'cloudflare',
     SQUARE_ENVIRONMENT: 'sandbox',
     SQUARE_ACCESS_TOKEN: 'fake-sandbox-token',
     NEXT_PUBLIC_SQUARE_APP_ID: 'sandbox-test-application',
@@ -124,7 +129,7 @@ describe('scheduled Worker recovery wiring', () => {
     vi.stubEnv('FROM_EMAIL', 'orders@amammajaadi.com');
     vi.stubEnv('SANDBOX_EMAIL_RECIPIENT', 'different@example.com');
     const env = { ...f.env, RESEND_API_KEY: 'fake-sandbox-key', FROM_EMAIL: 'sandbox@amammajaadi.com',
-      SANDBOX_EMAIL_RECIPIENT: 'ramcharan8600@gmail.com' };
+      SANDBOX_EMAIL_RECIPIENT: 'ramcharan8600@gmail.com', SANDBOX_EMAIL_TEST_RECIPIENT: 'sairamcharan20@gmail.com' };
     const message = { id: 'test-queue-id', timestamp: new Date(), attempts: 1,
       body: { outboxId: '0e070594-546c-4a3a-9b02-b6596d3e8c53' }, ack: vi.fn(), retry: vi.fn() };
     const batch: MessageBatch<EmailQueueMessage> = {
@@ -135,8 +140,10 @@ describe('scheduled Worker recovery wiring', () => {
     mocks.processEmail.mockResolvedValue({ action: 'ack', status: 'sent' });
     await worker.queue(batch, env);
     expect(mocks.processEmail).toHaveBeenCalledExactlyOnceWith(f.db, message.body, {
-      apiKey: 'fake-sandbox-key', fromEmail: 'sandbox@amammajaadi.com', environment: 'sandbox',
+      provider: 'cloudflare', apiKey: 'fake-sandbox-key', emailBinding: f.env.EMAIL,
+      fromEmail: 'sandbox@amammajaadi.com', environment: 'sandbox',
       sandboxRecipient: 'ramcharan8600@gmail.com',
+      sandboxTestRecipient: 'sairamcharan20@gmail.com',
     });
     expect(message.ack).toHaveBeenCalledOnce();
     expect(message.retry).not.toHaveBeenCalled();

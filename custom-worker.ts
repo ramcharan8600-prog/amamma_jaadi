@@ -22,8 +22,8 @@ import { executeSquarePaymentRequest } from './src/lib/square';
 import { createOrderFromSession } from './src/lib/order-service';
 
 type WorkerEnv = EmailWorkerEnv & Pick<WorkerBindings,
-  'SQUARE_ENVIRONMENT' | 'NEXT_PUBLIC_SQUARE_LOCATION_ID' | 'NEXT_PUBLIC_SQUARE_APP_ID'
-> & Partial<Pick<WorkerBindings, 'FROM_EMAIL' | 'SANDBOX_EMAIL_RECIPIENT'>> & {
+  'SQUARE_ENVIRONMENT' | 'NEXT_PUBLIC_SQUARE_LOCATION_ID' | 'NEXT_PUBLIC_SQUARE_APP_ID' | 'EMAIL_PROVIDER'
+> & Partial<Pick<WorkerBindings, 'FROM_EMAIL' | 'SANDBOX_EMAIL_RECIPIENT' | 'SANDBOX_EMAIL_TEST_RECIPIENT' | 'EMAIL'>> & {
   // Secret bindings are provisioned independently of the non-secret config.
   SQUARE_ACCESS_TOKEN: string;
   RESEND_API_KEY?: string;
@@ -45,10 +45,13 @@ export default {
 
       try {
         const outcome = await processEmailOutboxMessage(env.DB, message.body, {
+          provider: env.EMAIL_PROVIDER === 'cloudflare' ? 'cloudflare' : 'resend',
           apiKey: env.RESEND_API_KEY,
+          emailBinding: env.EMAIL,
           fromEmail: env.FROM_EMAIL,
           environment: env.SQUARE_ENVIRONMENT,
           sandboxRecipient: env.SANDBOX_EMAIL_RECIPIENT,
+          sandboxTestRecipient: env.SANDBOX_EMAIL_TEST_RECIPIENT,
         });
         if (outcome.action === 'ack') {
           message.ack();

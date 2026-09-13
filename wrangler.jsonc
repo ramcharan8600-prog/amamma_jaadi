@@ -23,9 +23,16 @@
     "NEXT_PUBLIC_SQUARE_LOCATION_ID": "L91NP356QX30A",
     "SQUARE_WEBHOOK_URL": "https://amammajaadi.com/api/payments/webhook",
     "OWNER_NOTIFICATION_EMAIL": "ramcharan8600@gmail.com,amammajaadi@gmail.com",
-    "ORDER_CONFIRMATION_BCC_EMAIL": "amamma.jaadi@gmail.com",
-    "FROM_EMAIL": "orders@amammajaadi.com"
+    "FROM_EMAIL": "orders@amammajaadi.com",
+    // Other email types retain Resend. Order confirmations always use EMAIL.
+    "EMAIL_PROVIDER": "resend"
   },
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": ["orders@amammajaadi.com"]
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
@@ -66,11 +73,23 @@
         "NEXT_PUBLIC_SQUARE_LOCATION_ID": "LHGDKWDQK2SA6",
         "SQUARE_WEBHOOK_URL": "https://amammajaadi-sandbox.ramcharan8600.workers.dev/api/payments/webhook",
         "OWNER_NOTIFICATION_EMAIL": "",
-        "ORDER_CONFIRMATION_BCC_EMAIL": "",
         "FROM_EMAIL": "sandbox@amammajaadi.com",
+        "EMAIL_PROVIDER": "cloudflare",
         // Fail-closed delivery gate; never reroute old test/customer messages.
-        "SANDBOX_EMAIL_RECIPIENT": "ramcharan8600@gmail.com"
+        "SANDBOX_EMAIL_RECIPIENT": "ramcharan8600@gmail.com",
+        "SANDBOX_EMAIL_TEST_RECIPIENT": "sairamcharan20@gmail.com"
       },
+      "send_email": [
+        {
+          "name": "EMAIL",
+          "allowed_sender_addresses": ["sandbox@amammajaadi.com"],
+          "allowed_destination_addresses": [
+            "ramcharan8600@gmail.com",
+            "amamma.jaadi@gmail.com",
+            "sairamcharan20@gmail.com"
+          ]
+        }
+      ],
       "d1_databases": [
         {
           "binding": "DB",

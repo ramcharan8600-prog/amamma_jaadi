@@ -1,5 +1,6 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare';
-import type { D1Database, D1PreparedStatement, Queue } from '@cloudflare/workers-types';
+import type { D1Database, D1PreparedStatement, Queue, SendEmail } from '@cloudflare/workers-types';
+import { ORDER_CONFIRMATION_BCC } from './email-recipients';
 
 export interface EmailQueueMessage {
   outboxId: string;
@@ -12,10 +13,15 @@ export interface EmailWorkerEnv {
 
 /** Supplied by the Queue invocation, never inferred from request/global state. */
 export interface EmailDeliverySettings {
+  /** Provider for other email types; order confirmations always use Cloudflare. */
+  provider?: 'resend' | 'cloudflare';
   apiKey?: string;
+  emailBinding?: SendEmail;
   fromEmail?: string;
   environment?: string;
   sandboxRecipient?: string;
+  /** One additional, explicitly approved test customer; never a wildcard. */
+  sandboxTestRecipient?: string;
 }
 
 export interface EmailOutboxPayload {
@@ -29,6 +35,7 @@ export interface EmailOutboxPayload {
 
 interface EmailOutboxRow {
   id: string;
+  dedupe_key: string;
   status: 'pending' | 'sending' | 'retry' | 'sent' | 'failed';
   to_json: string;
   cc_json: string | null;
@@ -116,6 +123,44 @@ export function calculateEmailRetryDelay(
 
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
+const CLOUDFLARE_PERMANENT_ERROR_CODES = new Set([
+  'E_VALIDATION_ERROR',
+  'E_FIELD_MISSING',
+  'E_TOO_MANY_RECIPIENTS',
+  'E_TOO_MANY_ATTACHMENTS',
+  'E_SENDER_NOT_VERIFIED',
+  'E_RECIPIENT_NOT_ALLOWED',
+  'E_RECIPIENT_SUPPRESSED',
+  'E_SENDER_DOMAIN_NOT_AVAILABLE',
+  'E_CONTENT_TOO_LARGE',
+  'E_HEADER_NOT_ALLOWED',
+  'E_HEADER_USE_API_FIELD',
+  'E_HEADER_VALUE_INVALID',
+  'E_HEADER_VALUE_TOO_LONG',
+  'E_HEADER_NAME_INVALID',
+  'E_HEADERS_TOO_LARGE',
+  'E_HEADERS_TOO_MANY',
+]);
+
+function cloudflareErrorCode(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object' || !('code' in value)) return undefined;
+  const code = (value as { code?: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+async function markSent(db: D1Database, outboxId: string, providerMessageId: string | null): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE email_outbox
+       SET status = 'sent', provider_message_id = ?, sent_at = datetime('now'),
+           lease_until = NULL, next_attempt_at = NULL, last_error = NULL,
+           updated_at = datetime('now')
+       WHERE id = ?`
+    )
+    .bind(providerMessageId, outboxId)
+    .run();
 }
 
 /** Build an insert without executing it, for an order + email D1 transaction. */
@@ -246,7 +291,7 @@ async function claimOutboxRow(db: D1Database, outboxId: string): Promise<EmailOu
          (status IN ('pending', 'retry') AND (next_attempt_at IS NULL OR next_attempt_at <= datetime('now')))
          OR (status = 'sending' AND (lease_until IS NULL OR lease_until <= datetime('now')))
        )
-       RETURNING id, status, to_json, cc_json, bcc_json, subject, html, attempts, next_attempt_at`
+       RETURNING id, dedupe_key, status, to_json, cc_json, bcc_json, subject, html, attempts, next_attempt_at`
     )
     .bind(outboxId)
     .first<EmailOutboxRow>();
@@ -312,15 +357,23 @@ export async function processEmailOutboxMessage(
   const bcc = parseAddressList(claimed.bcc_json);
   // Only an explicitly production invocation can send unrestricted mail.
   // A configured sandbox gate also wins over an accidental production value.
-  const restricted = settings.environment !== 'production' || Boolean(settings.sandboxRecipient);
+  const restricted = settings.environment !== 'production' ||
+    Boolean(settings.sandboxRecipient || settings.sandboxTestRecipient);
   const sandboxRecipient = settings.sandboxRecipient?.trim().toLowerCase() || '';
+  const sandboxTestRecipient = settings.sandboxTestRecipient?.trim().toLowerCase() || '';
+  const allowedSandboxRecipients = new Set([sandboxRecipient, sandboxTestRecipient].filter(Boolean));
   if (restricted) {
-    if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(sandboxRecipient)) {
+    const emailPattern = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
+    if (!emailPattern.test(sandboxRecipient) ||
+        (sandboxTestRecipient && !emailPattern.test(sandboxTestRecipient))) {
       await markRetry(db, claimed.id, MAX_RETRY_DELAY_SECONDS, 'SANDBOX_EMAIL_DELIVERY_NOT_CONFIGURED');
       return { action: 'retry', delaySeconds: MAX_RETRY_DELAY_SECONDS };
     }
-    if (!to || to.length !== 1 || to[0].trim().toLowerCase() !== sandboxRecipient ||
-        !cc || !bcc || cc.length > 0 || bcc.length > 0) {
+    const normalizedBcc = bcc?.map((email) => email.trim().toLowerCase());
+    if (!to || to.length !== 1 || !allowedSandboxRecipients.has(to[0].trim().toLowerCase()) ||
+        !cc || !normalizedBcc || cc.length > 0 ||
+        normalizedBcc.some((email) => !ORDER_CONFIRMATION_BCC.some((approved) => approved === email)) ||
+        new Set(normalizedBcc).size !== normalizedBcc.length) {
       // Retain the original row for inspection. Never redirect a backlog or
       // quietly strip recipients, which could disguise an unsafe test setup.
       await markFailed(db, claimed.id, 'SANDBOX_EMAIL_RECIPIENT_BLOCKED');
@@ -331,6 +384,80 @@ export async function processEmailOutboxMessage(
   if (!to || !cc || !bcc || to.length === 0) {
     await markFailed(db, claimed.id, 'Outbox email has no valid recipient list');
     return { action: 'ack', status: 'failed' };
+  }
+
+  // Persisted confirmation keys route exclusively to Cloudflare, including
+  // retries. Missing bindings or provider errors must never fall back to Resend.
+  const provider = claimed.dedupe_key.startsWith('order-confirmation:')
+    ? 'cloudflare'
+    : (settings.provider ?? 'resend');
+  const recipients = restricted ? to.map((email) => email.trim().toLowerCase()) : to;
+  const hiddenRecipients = restricted ? bcc.map((email) => email.trim().toLowerCase()) : bcc;
+  const subject = restricted ? `[SANDBOX] ${claimed.subject}` : claimed.subject;
+  const fromEmail = settings.fromEmail || (restricted ? 'sandbox@amammajaadi.com' : DEFAULT_FROM_EMAIL);
+
+  if (provider === 'cloudflare') {
+    if (!settings.emailBinding) {
+      const delaySeconds = MAX_RETRY_DELAY_SECONDS;
+      await markRetry(db, claimed.id, delaySeconds, 'Cloudflare EMAIL binding is not configured');
+      return { action: 'retry', delaySeconds };
+    }
+
+    try {
+      const result = await settings.emailBinding.send({
+        from: { email: fromEmail, name: 'Amamma Jaadi' },
+        to: recipients,
+        subject,
+        html: claimed.html,
+        replyTo: fromEmail,
+        ...(cc.length ? { cc } : {}),
+        ...(hiddenRecipients.length ? { bcc: hiddenRecipients } : {}),
+      });
+      await markSent(db, claimed.id, result.messageId || null);
+      console.log(
+        JSON.stringify({
+          event: 'email_delivery_sent',
+          provider: 'cloudflare',
+          outboxId: claimed.id,
+          attempts: claimed.attempts,
+        })
+      );
+      return { action: 'ack', status: 'sent' };
+    } catch (error) {
+      const code = cloudflareErrorCode(error);
+      const detail = `Cloudflare${code ? ` ${code}` : ''}: ${errorText(error)}`.slice(0, 2_000);
+      if (code && CLOUDFLARE_PERMANENT_ERROR_CODES.has(code)) {
+        await markFailed(db, claimed.id, detail);
+        console.error(
+          JSON.stringify({
+            event: 'email_delivery_failed',
+            provider: 'cloudflare',
+            outboxId: claimed.id,
+            attempts: claimed.attempts,
+            providerCode: code,
+          })
+        );
+        return { action: 'ack', status: 'failed' };
+      }
+
+      const delaySeconds = code === 'E_DAILY_LIMIT_EXCEEDED'
+        ? MAX_RETRY_DELAY_SECONDS
+        : code === 'E_RATE_LIMIT_EXCEEDED'
+          ? 60
+          : calculateEmailRetryDelay(claimed.attempts);
+      await markRetry(db, claimed.id, delaySeconds, detail);
+      console.error(
+        JSON.stringify({
+          event: 'email_delivery_retry',
+          provider: 'cloudflare',
+          outboxId: claimed.id,
+          attempts: claimed.attempts,
+          providerCode: code,
+          delaySeconds,
+        })
+      );
+      return { action: 'retry', delaySeconds };
+    }
   }
 
   const apiKey = settings.apiKey || '';
@@ -350,12 +477,12 @@ export async function processEmailOutboxMessage(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `Amamma Jaadi <${settings.fromEmail || (restricted ? 'sandbox@amammajaadi.com' : DEFAULT_FROM_EMAIL)}>`,
-        to: restricted ? [sandboxRecipient] : to,
-        subject: restricted ? `[SANDBOX] ${claimed.subject}` : claimed.subject,
+        from: `Amamma Jaadi <${fromEmail}>`,
+        to: recipients,
+        subject,
         html: claimed.html,
         ...(cc.length ? { cc } : {}),
-        ...(bcc.length ? { bcc } : {}),
+        ...(hiddenRecipients.length ? { bcc: hiddenRecipients } : {}),
       }),
     });
     // Resend errors are small JSON documents; cap what is retained in D1/logs.
@@ -378,18 +505,9 @@ export async function processEmailOutboxMessage(
     } catch {
       // A successful response without JSON is still a successful send.
     }
-    await db
-      .prepare(
-        `UPDATE email_outbox
-         SET status = 'sent', provider_message_id = ?, sent_at = datetime('now'),
-             lease_until = NULL, next_attempt_at = NULL, last_error = NULL,
-             updated_at = datetime('now')
-         WHERE id = ?`
-      )
-      .bind(providerMessageId, claimed.id)
-      .run();
+    await markSent(db, claimed.id, providerMessageId);
     console.log(
-      JSON.stringify({ event: 'email_delivery_sent', outboxId: claimed.id, attempts: claimed.attempts })
+      JSON.stringify({ event: 'email_delivery_sent', provider: 'resend', outboxId: claimed.id, attempts: claimed.attempts })
     );
     return { action: 'ack', status: 'sent' };
   }

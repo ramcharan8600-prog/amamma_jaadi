@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SendEmail } from '@cloudflare/workers-types';
 import {
   prepareEmailOutboxInsert,
   processEmailOutboxMessage,
@@ -9,6 +10,8 @@ import {
 import { createTestD1 } from '@/lib/test-utils/d1';
 
 const RECIPIENT = 'ramcharan8600@gmail.com';
+const TEST_CUSTOMER = 'sairamcharan20@gmail.com';
+const APPROVED_BCC = ['amamma.jaadi@gmail.com', RECIPIENT];
 const sandbox: EmailDeliverySettings = {
   apiKey: 'fake-sandbox-sending-key',
   fromEmail: 'sandbox@amammajaadi.com',
@@ -128,11 +131,39 @@ describe('sandbox-only email recipient isolation', () => {
     expect(row(email.id)?.html).toBe(email.payload.html);
   });
 
-  it.each(['cc', 'bcc'] as const)('blocks any nonempty %s, even the approved mailbox', async (field) => {
-    const email = await addEmail({ [field]: [RECIPIENT] });
+  it('blocks any nonempty CC, even the approved mailbox', async () => {
+    const email = await addEmail({ cc: [RECIPIENT] });
     await expect(processEmailOutboxMessage(f.db, email.message, sandbox)).resolves.toEqual({ action: 'ack', status: 'failed' });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(row(email.id)?.last_error).toContain('SANDBOX_EMAIL_RECIPIENT_BLOCKED');
+  });
+
+  it.each([
+    ['customer@example.com'], ['smallogi5@gmail.com'], [RECIPIENT, 'customer@example.com'],
+    [RECIPIENT, RECIPIENT], ['ramcharan8600+bcc-test@gmail.com'],
+    [`${RECIPIENT}\r\nCc: customer@example.com`],
+  ])('blocks unapproved or duplicated BCC %j', async (...addresses) => {
+    const email = await addEmail({ bcc: addresses });
+    await expect(processEmailOutboxMessage(f.db, email.message, sandbox)).resolves.toEqual({ action: 'ack', status: 'failed' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sends both approved hidden copies through Resend as well', async () => {
+    const email = await addEmail({ bcc: APPROVED_BCC });
+    await processEmailOutboxMessage(f.db, email.message, sandbox);
+    expect(providerPayload().bcc).toEqual(APPROVED_BCC);
+  });
+
+  it('requires explicit approval for the additional test customer', async () => {
+    const email = await addEmail({ to: TEST_CUSTOMER, bcc: APPROVED_BCC });
+    await expect(processEmailOutboxMessage(f.db, email.message, sandbox)).resolves.toEqual({ action: 'ack', status: 'failed' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['*', 'invalid', 'one@example.com,two@example.com'])('fails closed for invalid extra test recipient %s', async (sandboxTestRecipient) => {
+    const email = await addEmail();
+    await expect(processEmailOutboxMessage(f.db, email.message, { ...sandbox, sandboxTestRecipient })).resolves.toEqual({ action: 'retry', delaySeconds: 3_600 });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it.each(['to_json', 'cc_json', 'bcc_json'] as const)('fails closed for malformed %s rather than dropping it', async (field) => {
@@ -214,6 +245,185 @@ describe('explicit delivery configuration, with no global credential fallback', 
       subject: email.payload.subject, html: email.payload.html,
     });
     expect(fetchMock.mock.calls[0][1]?.headers).toEqual(expect.objectContaining({ Authorization: 'Bearer fake-explicit-production-key' }));
+  });
+});
+
+describe('Cloudflare Email Service delivery', () => {
+  function cloudflareBinding() {
+    const send = vi.fn(async () => ({
+      messageId: 'cloudflare-sandbox-message-id',
+    }));
+    const binding: SendEmail = { send };
+    return { binding, send };
+  }
+
+  it.each([undefined, 'resend', 'cloudflare'] as const)('routes production confirmations exclusively to Cloudflare despite provider=%s', async (provider) => {
+    const email = await addEmail({ to: TEST_CUSTOMER, bcc: APPROVED_BCC, dedupeKey: 'order-confirmation:AJ-CUTOVER' });
+    const cloudflare = cloudflareBinding();
+    await expect(processEmailOutboxMessage(f.db, email.message, {
+      environment: 'production', provider, emailBinding: cloudflare.binding,
+      fromEmail: 'orders@amammajaadi.com', apiKey: 'unused-resend-key',
+    })).resolves.toEqual({ action: 'ack', status: 'sent' });
+    expect(cloudflare.send).toHaveBeenCalledExactlyOnceWith({
+      from: { name: 'Amamma Jaadi', email: 'orders@amammajaadi.com' },
+      to: [TEST_CUSTOMER], bcc: APPROVED_BCC, subject: email.payload.subject,
+      html: email.payload.html, replyTo: 'orders@amammajaadi.com',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps a confirmation queued if Cloudflare is missing; a Resend key is not a fallback', async () => {
+    const email = await addEmail({ dedupeKey: 'order-confirmation:AJ-NO-FALLBACK' });
+    await expect(processEmailOutboxMessage(f.db, email.message, {
+      environment: 'production', provider: 'resend', apiKey: 'unused-resend-key',
+    })).resolves.toEqual({ action: 'retry', delaySeconds: 3_600 });
+    expect(row(email.id)?.last_error).toContain('Cloudflare EMAIL binding');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['E_DAILY_LIMIT_EXCEEDED', 'E_INTERNAL_SERVER_ERROR', 'E_SENDER_NOT_VERIFIED'])('never falls back to Resend for confirmation error %s', async (code) => {
+    const email = await addEmail({ dedupeKey: 'order-confirmation:AJ-CF-ERROR', bcc: APPROVED_BCC });
+    const cloudflare = cloudflareBinding();
+    cloudflare.send.mockRejectedValueOnce(Object.assign(new Error('Cloudflare rejected'), { code }));
+    await processEmailOutboxMessage(f.db, email.message, {
+      environment: 'production', provider: 'resend', apiKey: 'unused-resend-key', emailBinding: cloudflare.binding,
+    });
+    expect(cloudflare.send).toHaveBeenCalledOnce();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(row(email.id)?.bcc_json).toBe(JSON.stringify(APPROVED_BCC));
+  });
+
+  it('delivers an old pending confirmation through Cloudflare without resending completed rows', async () => {
+    const email = await addEmail({ dedupeKey: 'order-confirmation:AJ-PENDING', bcc: APPROVED_BCC });
+    f.sqlite.prepare("UPDATE email_outbox SET status='retry', attempts=1, last_error='Resend 429: daily_quota_exceeded' WHERE id=?").run(email.id);
+    const cloudflare = cloudflareBinding();
+    const settings: EmailDeliverySettings = {
+      environment: 'production', provider: 'resend', apiKey: 'unused-resend-key', emailBinding: cloudflare.binding,
+    };
+    await expect(processEmailOutboxMessage(f.db, email.message, settings)).resolves.toEqual({ action: 'ack', status: 'sent' });
+    await expect(processEmailOutboxMessage(f.db, email.message, settings)).resolves.toEqual({ action: 'ack', status: 'already_handled' });
+    expect(cloudflare.send).toHaveBeenCalledOnce();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(row(email.id)).toMatchObject({ status: 'sent', attempts: 2, last_error: null });
+  });
+
+  it('preserves Resend for separately requested tracking messages', async () => {
+    const email = await addEmail({ dedupeKey: 'delivery-confirmation:AJ-TRACKING', to: TEST_CUSTOMER });
+    const cloudflare = cloudflareBinding();
+    await expect(processEmailOutboxMessage(f.db, email.message, {
+      environment: 'production', provider: 'resend', apiKey: 'tracking-resend-key',
+      emailBinding: cloudflare.binding, fromEmail: 'orders@amammajaadi.com',
+    })).resolves.toEqual({ action: 'ack', status: 'sent' });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(cloudflare.send).not.toHaveBeenCalled();
+    expect(providerPayload().to).toEqual([TEST_CUSTOMER]);
+  });
+
+  it('sends the existing HTML template through the native binding without calling Resend', async () => {
+    const email = await addEmail({ html: '<html><body><h1>Existing Amamma Jaadi template</h1></body></html>' });
+    const cloudflare = cloudflareBinding();
+    await expect(processEmailOutboxMessage(f.db, email.message, {
+      ...sandbox,
+      provider: 'cloudflare',
+      apiKey: undefined,
+      emailBinding: cloudflare.binding,
+    })).resolves.toEqual({ action: 'ack', status: 'sent' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(cloudflare.send).toHaveBeenCalledExactlyOnceWith({
+      from: { email: 'sandbox@amammajaadi.com', name: 'Amamma Jaadi' },
+      to: [RECIPIENT],
+      subject: '[SANDBOX] Order Confirmation - AJ-TEST',
+      html: email.payload.html,
+      replyTo: 'sandbox@amammajaadi.com',
+    });
+    expect(row(email.id)).toMatchObject({
+      status: 'sent',
+      attempts: 1,
+      provider_message_id: 'cloudflare-sandbox-message-id',
+      last_error: null,
+    });
+  });
+
+  it('retains the email when the Cloudflare binding is missing', async () => {
+    const email = await addEmail();
+    await expect(processEmailOutboxMessage(f.db, email.message, {
+      ...sandbox,
+      provider: 'cloudflare',
+      apiKey: undefined,
+    })).resolves.toEqual({ action: 'retry', delaySeconds: 3_600 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(row(email.id)).toMatchObject({
+      status: 'retry',
+      last_error: expect.stringContaining('EMAIL binding'),
+    });
+  });
+
+  it('sends to the approved test customer with both BCCs and retains them across a quota retry', async () => {
+    const email = await addEmail({ to: TEST_CUSTOMER, bcc: APPROVED_BCC });
+    const cloudflare = cloudflareBinding();
+    const settings: EmailDeliverySettings = {
+      ...sandbox, provider: 'cloudflare', emailBinding: cloudflare.binding,
+      sandboxTestRecipient: TEST_CUSTOMER,
+    };
+    cloudflare.send.mockRejectedValueOnce(Object.assign(new Error('daily quota'), { code: 'E_DAILY_LIMIT_EXCEEDED' }));
+    await expect(processEmailOutboxMessage(f.db, email.message, settings)).resolves.toEqual({ action: 'retry', delaySeconds: 3_600 });
+    expect(row(email.id)).toMatchObject({ status: 'retry', bcc_json: JSON.stringify(APPROVED_BCC), to_json: JSON.stringify([TEST_CUSTOMER]) });
+    makeDue(email.id);
+    await expect(processEmailOutboxMessage(f.db, email.message, settings)).resolves.toEqual({ action: 'ack', status: 'sent' });
+    expect(cloudflare.send).toHaveBeenCalledTimes(2);
+    expect(cloudflare.send.mock.calls[0]).toEqual(cloudflare.send.mock.calls[1]);
+    expect(cloudflare.send).toHaveBeenLastCalledWith(expect.objectContaining({
+      to: [TEST_CUSTOMER], bcc: APPROVED_BCC,
+      subject: '[SANDBOX] Order Confirmation - AJ-TEST', html: email.payload.html,
+    }));
+    await expect(processEmailOutboxMessage(f.db, email.message, settings)).resolves.toEqual({ action: 'ack', status: 'already_handled' });
+    expect(cloudflare.send).toHaveBeenCalledTimes(2);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('still blocks unknown recipients when an additional test customer is approved', async () => {
+    const email = await addEmail({ to: 'customer@example.com', bcc: APPROVED_BCC });
+    const cloudflare = cloudflareBinding();
+    await expect(processEmailOutboxMessage(f.db, email.message, {
+      ...sandbox, provider: 'cloudflare', emailBinding: cloudflare.binding, sandboxTestRecipient: TEST_CUSTOMER,
+    })).resolves.toEqual({ action: 'ack', status: 'failed' });
+    expect(cloudflare.send).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['E_RATE_LIMIT_EXCEEDED', 60],
+    ['E_DAILY_LIMIT_EXCEEDED', 3_600],
+    ['E_INTERNAL_SERVER_ERROR', 30],
+  ])('retries transient Cloudflare error %s', async (code, delaySeconds) => {
+    const email = await addEmail();
+    const cloudflare = cloudflareBinding();
+    cloudflare.send.mockRejectedValueOnce(Object.assign(new Error('temporary failure'), { code }));
+    await expect(processEmailOutboxMessage(f.db, email.message, {
+      ...sandbox,
+      provider: 'cloudflare',
+      apiKey: undefined,
+      emailBinding: cloudflare.binding,
+    })).resolves.toEqual({ action: 'retry', delaySeconds });
+    expect(row(email.id)).toMatchObject({ status: 'retry', last_error: expect.stringContaining(code) });
+  });
+
+  it('does not retry a permanent Cloudflare sender rejection', async () => {
+    const email = await addEmail();
+    const cloudflare = cloudflareBinding();
+    cloudflare.send.mockRejectedValueOnce(Object.assign(new Error('sender is not verified'), {
+      code: 'E_SENDER_NOT_VERIFIED',
+    }));
+    await expect(processEmailOutboxMessage(f.db, email.message, {
+      ...sandbox,
+      provider: 'cloudflare',
+      apiKey: undefined,
+      emailBinding: cloudflare.binding,
+    })).resolves.toEqual({ action: 'ack', status: 'failed' });
+    expect(row(email.id)).toMatchObject({
+      status: 'failed',
+      last_error: expect.stringContaining('E_SENDER_NOT_VERIFIED'),
+    });
   });
 });
 

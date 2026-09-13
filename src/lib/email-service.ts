@@ -6,13 +6,14 @@
  * 2. Pickup ready notification
  * 3. Delivery/shipping confirmation
  *
- * Resend delivery happens asynchronously in the custom Worker Queue consumer.
+ * Provider delivery happens asynchronously in the custom Worker Queue consumer.
  */
 
 import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/constants';
 import { formatPickupDate } from '@/lib/date';
 import { SALES_TAX_LABEL, shippingMethodLabel } from '@/lib/pricing';
 import { enqueueEmail, isEmailOutboxConfigured, type EmailOutboxPayload } from '@/lib/email-outbox';
+import { ORDER_CONFIRMATION_BCC } from '@/lib/email-recipients';
 import type { DeliveryShippingMethod } from '@/types';
 
 /**
@@ -26,17 +27,8 @@ function getOwnerEmails(): string[] {
     .filter(Boolean);
 }
 
-/** Only the public business inbox receives customer order-confirmation copies. */
-function getOrderConfirmationBcc(): string[] {
-  const excluded = new Set(['ramcharan8600@gmail.com', 'smallogi5@gmail.com']);
-  return (process.env.ORDER_CONFIRMATION_BCC_EMAIL || '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter((email) => email && !excluded.has(email));
-}
-
 export function isEmailConfigured(): boolean {
-  // Accept mail into D1 even while Resend itself is unavailable or over quota.
+  // Accept mail into D1 even while the active provider is unavailable or over quota.
   return isEmailOutboxConfigured();
 }
 
@@ -75,15 +67,15 @@ function baseTemplate(content: string): string {
     <html>
     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #2D2926;">
-      <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #7B1F1F;">
+      <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #5C1626;">
         <table align="center" style="margin: 0 auto;">
           <tr>
-            <td style="vertical-align: middle; padding-right: 12px;">
-              <img src="${SITE_URL}/images/brand/email-logo.png" alt="${BRAND_NAME}" width="52" height="52" style="display: block; border-radius: 50%;" />
+            <td style="vertical-align: middle; padding-right: 13.2px;">
+              <img src="${SITE_URL}/images/brand/email-logo.png" alt="${BRAND_NAME}" width="57" height="57" style="display: block; width: 57.2px; height: 57.2px; border-radius: 50%;" />
             </td>
             <td style="vertical-align: middle; text-align: left;">
-              <div style="color: #7B1F1F; font-size: 24px; font-weight: bold; line-height: 1.1;">${BRAND_NAME}</div>
-              <div style="color: #C6992E; font-size: 12px; letter-spacing: 2px;">FLAVORS OF HOME</div>
+              <div style="color: #7B1F1F; font-size: 26.4px; font-weight: bold; line-height: 1.1;">${BRAND_NAME}</div>
+              <div style="color: #C6992E; font-size: 13.2px; letter-spacing: 2.2px;">FLAVORS OF HOME</div>
             </td>
           </tr>
         </table>
@@ -221,9 +213,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
     to: params.email,
     subject: `Order Confirmed — ${params.orderNumber}`,
     html,
-    // A BCC is a separate Resend quota unit. Only the public business inbox is
-    // retained; personal owner addresses are intentionally excluded.
-    bcc: getOrderConfirmationBcc(),
+    bcc: [...ORDER_CONFIRMATION_BCC],
     dedupeKey: `order-confirmation:${params.orderNumber}`,
   };
 }
