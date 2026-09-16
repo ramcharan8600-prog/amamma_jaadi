@@ -12,6 +12,8 @@ export interface Product {
   category: ProductCategory;
   unitPrice: number;
   image: string;
+  /** Additional photos shown alongside the primary photo on gift-box cards. */
+  additionalImages?: { src: string; alt: string }[];
   /** Override the card image fit. Defaults to 'cover' (fills/crops). 'contain' shows the whole image. */
   imageFit?: 'cover' | 'contain';
   /** For pickles: fixed size label */

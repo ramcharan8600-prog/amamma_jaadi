@@ -128,7 +128,12 @@ export const PRODUCTS: Product[] = [
       'A desi-style sweets gift box with 12 pieces, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. A single $30 box is available for Texas delivery. It can be included with other items in large out-of-state orders.',
     category: 'gift-boxes',
     unitPrice: 30,
-    image: '/images/products/gift box.jpg',
+    image: '/images/products/texas-limited-gift-box-closed.jpg',
+    imageFit: 'contain',
+    additionalImages: [{
+      src: '/images/products/texas-limited-gift-box-open.jpg',
+      alt: 'Texas Limited Edition gift box open with individually wrapped sweets',
+    }],
     isFixedQuantity: true,
     inStock: true,
     deliveryStateCodes: ['TX'],
