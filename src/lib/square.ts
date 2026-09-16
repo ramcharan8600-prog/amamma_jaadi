@@ -121,6 +121,8 @@ export interface SquarePaymentRequest {
 }
 
 export interface SquarePaymentResult {
+  capturedAt?: string;
+  completedUpdateAt?: string;
   paymentId: string;
   status: string;
 }
@@ -188,7 +190,8 @@ export async function executeSquarePaymentRequest(
   let response: Response;
   let data: {
     errors?: Array<{ code?: string; category?: string }>;
-    payment?: { id?: string; status?: string; reference_id?: string;
+    payment?: { id?: string; status?: string; reference_id?: string; updated_at?: string;
+      card_details?: { card_payment_timeline?: { captured_at?: string } };
       amount_money?: { amount?: number; currency?: string }; location_id?: string };
   };
   try {
@@ -237,7 +240,10 @@ export async function executeSquarePaymentRequest(
   if (payment.status === 'FAILED' || payment.status === 'CANCELED') {
     throw new SquarePaymentError(code, true, payment.id);
   }
-  return { paymentId: payment.id, status: payment.status };
+  return { paymentId: payment.id, status: payment.status,
+    ...(payment.card_details?.card_payment_timeline?.captured_at ? { capturedAt: payment.card_details.card_payment_timeline.captured_at } : {}),
+    ...(payment.updated_at ? { completedUpdateAt: payment.updated_at } : {}),
+  };
 }
 
 export async function createPayment(params: SquarePaymentParams): Promise<SquarePaymentResult> {

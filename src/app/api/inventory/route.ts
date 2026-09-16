@@ -9,7 +9,7 @@ import { ok, fail } from '@/lib/api';
  * GET /api/inventory — PUBLIC stock counts for tracked products.
  *
  * Used by the storefront to show "Out of Stock" / "Only N left". Exposes only
- * `{ productId: count }` for the tracked pickles — no customer or order data.
+ * `{ productId: count }` for tracked products — no customer or order data.
  * Returns an empty map when the DB isn't configured so the page still renders.
  */
 export async function GET() {

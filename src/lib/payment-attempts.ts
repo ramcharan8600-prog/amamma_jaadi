@@ -1,7 +1,9 @@
+import { preparePaymentReceipt, paymentDate, type PaymentDateFields } from '@/lib/tax-records';
 import type { D1Database } from '@cloudflare/workers-types';
 import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { validateCart } from '@/lib/cart-validation';
-import { getTotalPieces } from '@/data/products';
+import { getTotalPieces, getBobbatluPieces, BOBBATLU_PRODUCT_ID } from '@/data/products';
+import { getStockMap } from '@/lib/inventory';
 import { getPickupDateError } from '@/lib/pickup-date';
 import { calculateOrderTotals, getDeliveryMinimumShortfall, isSupportedDeliveryState, normalizeStateCode } from '@/lib/pricing';
 import {
@@ -82,24 +84,32 @@ function reviewReply(): PaymentReply {
 }
 
 /** Old unattempted sessions must not preserve a pre-fix price/quantity exploit. */
-function validateUnattemptedSession(session: Record<string, unknown>) {
+async function validateUnattemptedSession(session: Record<string, unknown>, db: D1Database) {
   try {
     const cart = validateCart(typeof session.cart_data === 'string' ? JSON.parse(session.cart_data) : session.cart_data);
     if (!cart.ok) return null;
+    const picklesOnly = cart.items.every(({ product }) => product.category === 'pickles');
     const fulfillment = typeof session.fulfillment_data === 'string' ? JSON.parse(session.fulfillment_data) : session.fulfillment_data;
     if (!fulfillment || typeof fulfillment !== 'object' || Array.isArray(fulfillment) ||
         (fulfillment.type !== 'pickup' && fulfillment.type !== 'delivery')) return null;
     const delivery = fulfillment?.type === 'delivery';
     // Recheck only before the FIRST charge, including sessions opened before
     // midnight or this fix. Never interrupt an existing payment's recovery.
-    if (!delivery && getPickupDateError(fulfillment.date, getTotalPieces(cart.items))) return null;
+    if (!delivery) {
+      const requested = getBobbatluPieces(cart.items);
+      const stock = requested > 0 ? await getStockMap(db) : {};
+      if (getPickupDateError(fulfillment.date, getTotalPieces(cart.items), new Date(),
+        requested > (stock[BOBBATLU_PRODUCT_ID] ?? 0))) return null;
+    }
     const state = normalizeStateCode(fulfillment.state);
     if (delivery && (!isSupportedDeliveryState(state) ||
-        getDeliveryMinimumShortfall(cart.subtotal, state) > 0 ||
+        getDeliveryMinimumShortfall(cart.subtotal, state, picklesOnly) > 0 ||
         cart.items.some(item => item.product.deliveryStateCodes?.length &&
           !item.product.deliveryStateCodes.includes(state) &&
           cart.subtotal < (item.product.deliveryOutsideStateMinimum ?? Number.POSITIVE_INFINITY)))) return null;
     const expected = calculateOrderTotals(cart.subtotal, {
+      picklesOnly,
+      pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       taxableSubtotal: cart.taxableSubtotal, fulfillmentType: delivery ? 'delivery' : 'pickup',
       deliveryState: delivery ? state : undefined,
     });
@@ -214,7 +224,7 @@ export async function runPaymentAttempt(
 
   if (!attempt) {
     if (!input.sourceId) return { ...pendingPaymentReply('MISSING_PAYMENT_DETAILS'), httpStatus: 400 };
-    const canonicalItems = validateUnattemptedSession(session);
+    const canonicalItems = await validateUnattemptedSession(session, db);
     if (!canonicalItems) {
       await db.prepare(
         `UPDATE payment_sessions SET payment_status = 'expired'
@@ -314,6 +324,10 @@ export async function runPaymentAttempt(
 
   try {
     await db.batch([
+      preparePaymentReceipt(db, sessionId, payment.paymentId, paymentDate({
+        updated_at: payment.completedUpdateAt,
+        card_details: { card_payment_timeline: { captured_at: payment.capturedAt } },
+      })),
       db.prepare(
         `UPDATE payment_attempts SET state = 'completed', square_payment_id = ?, request_json = NULL,
          lease_token = NULL, lease_until = NULL, resolved_at = datetime('now'), updated_at = datetime('now')
@@ -363,9 +377,11 @@ export async function recordPaymentWebhookOutcome(
   db: D1Database,
   sessionId: string,
   paymentId: string,
-  outcome: 'completed' | 'declined'
+  outcome: 'completed' | 'declined',
+  dateFields?: PaymentDateFields
 ): Promise<void> {
   await db.batch([
+    ...(outcome === 'completed' ? [preparePaymentReceipt(db, sessionId, paymentId, paymentDate(dateFields))] : []),
     db.prepare(
       `UPDATE payment_attempts SET state = ?, square_payment_id = ?, request_json = NULL,
        lease_token = NULL, lease_until = NULL, resolved_at = datetime('now'), updated_at = datetime('now')

@@ -109,6 +109,23 @@ describe('atomic order finalization using real SQLite transactions', () => {
     sqlite.close();
   });
 
+  it.each([100, 20, 0])('deducts Bobbatlu pieces once and allows made-to-order at %s stock', async stock => {
+    const { db, sqlite, session } = setup({
+      cart_data: [
+        { productId: 'sweet-bobbatlu', quantity: 2, selectedTier: 16, lineTotal: 96 },
+        { productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 25, lineTotal: 75 },
+      ], total_amount: 171,
+    });
+    sqlite.prepare("UPDATE inventory SET stock_count=? WHERE product_id='sweet-bobbatlu'").run(stock);
+    await createOrderFromSession(db, session, 'PAY-BOBBATLU');
+    await createOrderFromSession(db, session, 'PAY-BOBBATLU');
+    expect(sqlite.prepare("SELECT stock_count FROM inventory WHERE product_id='sweet-bobbatlu'").get()?.stock_count)
+      .toBe(Math.max(0, stock - 57));
+    expect(count(sqlite, 'orders')).toBe(1);
+    expect(count(sqlite, 'order_items')).toBe(3); // Includes the existing coupon bonus.
+    sqlite.close();
+  });
+
   it('keeps an email durable when Queue publication fails and cron recovers it', async () => {
     const { db, sqlite, session } = setup();
     queue.send.mockRejectedValueOnce(new Error('Queue unavailable'));
@@ -242,4 +259,25 @@ describe('atomic order finalization using real SQLite transactions', () => {
     expect(queue.send).not.toHaveBeenCalled();
     sqlite.close();
   });
+});
+
+
+it('preserves mixed Texas tax in the order record and confirmation', async () => {
+  const { db, sqlite, session } = setup({
+    cart_data: [
+      {productId: 'gift-box-sweet-memories', quantity: 1, selectedVariant: '12 pcs Guntur Malpuri', lineTotal: 30},
+      {productId: 'pickle-gongura-chicken', quantity: 1, lineTotal: 19},
+    ],
+    fulfillment_data: {type: 'delivery', addressLine1: '123 Test Street', city: 'Plano', state: 'TX', zip: '75093', country: 'USA'},
+    total_amount: 58.13, tax: 2.14, shipping: 6.99, coupon_code: null,
+  });
+  try {
+    await createOrderFromSession(db, session, 'PAY-MIXED-TAX-TEST');
+    expect(sqlite.prepare('SELECT tax, total_price FROM orders').get()).toMatchObject({tax: 2.14, total_price: 58.13});
+    const outbox = sqlite.prepare('SELECT html FROM email_outbox').get();
+    expect(outbox?.html).toContain('Sales Tax (8.25%)');
+    expect(outbox?.html).toContain('$2.14');
+  } finally {
+    sqlite.close();
+  }
 });

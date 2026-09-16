@@ -1,16 +1,16 @@
 /**
- * Stock tracking for countable products (currently the pickles).
+ * Stock tracking for pickle jars and ready-made Bobbatlu pieces.
  *
  * Design rules:
  *  1. A product with NO `inventory` row is UNTRACKED and always purchasable.
- *     Sweets/gift boxes are made fresh to order, so they simply have no row —
- *     and adding this feature can never hide an existing product by accident.
+ *     Other sweets/gift boxes are made fresh to order, so they have no row —
+ *     Bobbatlu has a piece count but remains available on a 1-day lead time.
  *  2. Availability is enforced SERVER-SIDE in create-session (before payment).
  *  3. Stock is decremented only when a paid order is created, and a failed
  *     decrement NEVER fails the order — the customer has already been charged.
  */
 import type { D1Database } from '@cloudflare/workers-types';
-import { PRODUCTS, TRACKED_CATEGORY } from '@/data/products';
+import { PRODUCTS, isStockTracked, stockUnits, BOBBATLU_PRODUCT_ID } from '@/data/products';
 
 export interface StockRow {
   product_id: string;
@@ -21,9 +21,7 @@ export interface StockRow {
  * Product ids that participate in stock tracking — derived from the catalog,
  * so adding a new pickle makes it tracked automatically with no code change.
  */
-export const TRACKED_PRODUCT_IDS = PRODUCTS.filter(
-  (p) => p.category === TRACKED_CATEGORY
-).map((p) => p.id);
+export const TRACKED_PRODUCT_IDS = PRODUCTS.filter(isStockTracked).map((p) => p.id);
 
 /**
  * Current stock for every tracked product, as `{ productId: count }`.
@@ -79,14 +77,14 @@ export async function setStock(
  */
 export async function decrementStockForOrder(
   db: D1Database,
-  items: Array<{ productId?: string; quantity?: number }>,
+  items: Array<{ productId?: string; quantity?: number; selectedTier?: number | null }>,
   orderNumber: string
 ): Promise<void> {
   for (const item of items) {
     const productId = item?.productId;
     if (!productId || !TRACKED_PRODUCT_IDS.includes(productId)) continue;
 
-    const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+    const qty = stockUnits(productId, Math.max(1, Math.floor(Number(item.quantity) || 1)), item.selectedTier);
     try {
       const res = await db
         .prepare(
@@ -106,7 +104,7 @@ export async function decrementStockForOrder(
           )
           .bind(productId)
           .run();
-        console.warn(
+        if (productId !== BOBBATLU_PRODUCT_ID) console.warn(
           `[inventory] OVERSOLD: order ${orderNumber} took ${qty} x ${productId} but stock was insufficient — count floored at 0. Restock/verify manually.`
         );
       }

@@ -14,6 +14,7 @@ interface GiftBoxCardProps {
 
 export default function GiftBoxCard({ product }: GiftBoxCardProps) {
   const variants = product.variantOptions ?? [];
+  const photos = [{ src: product.image, alt: product.name }, ...(product.additionalImages ?? [])];
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(variants[0]);
   const [added, setAdded] = useState(false);
@@ -31,13 +32,19 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
   return (
     <div className="card border-brand-gold/30 group">
       <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-brand-gold/10 to-brand-cream">
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          sizes="(max-width: 768px) 100vw, 50vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+        <div className="absolute inset-0 flex">
+          {photos.map((photo) => (
+            <div key={photo.src} className="relative flex-1 min-w-0">
+              <Image
+                src={photo.src}
+                alt={photo.alt}
+                fill
+                sizes={photos.length > 1 ? '(max-width: 768px) 50vw, 25vw' : '(max-width: 768px) 100vw, 50vw'}
+                className={product.imageFit === 'contain' ? 'object-contain' : 'object-cover group-hover:scale-105 transition-transform duration-500'}
+              />
+            </div>
+          ))}
+        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
         <span className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-brand-gold text-white text-sm font-semibold px-3 py-1.5 rounded-full">
           <Gift size={14} />

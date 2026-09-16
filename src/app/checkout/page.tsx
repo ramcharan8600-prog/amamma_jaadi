@@ -21,7 +21,11 @@ import {
   getPickupLocationById,
   getTotalPieces as calculateTotalPieces,
   isProductTaxExempt,
+  getBobbatluPieces,
+  BOBBATLU_PRODUCT_ID,
 } from '@/data/products';
+import { useStock, invalidateStock } from '@/hooks/useStock';
+import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
 import { getPickupDateBounds, getPickupDateError } from '@/lib/pickup-date';
 import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
@@ -81,7 +85,6 @@ export default function CheckoutPage() {
   const [deliveryAddressLine2, setDeliveryAddressLine2] = useState('');
   const [deliveryCity, setDeliveryCity] = useState('');
   const [deliveryState, setDeliveryState] = useState('');
-  const [deliveryCountry] = useState('USA');
   const [deliveryZip, setDeliveryZip] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
@@ -220,6 +223,7 @@ export default function CheckoutPage() {
     mark('order_created', number);
     flushTrail('completed');
     clearCart();
+    invalidateStock();
   }, [clearCart, mark, flushTrail]);
 
   const releasePayment = useCallback((sessionId: string, message: string) => {
@@ -341,9 +345,12 @@ export default function CheckoutPage() {
     [mounted, items]
   );
   const resolvedShippingMethod: DeliveryShippingMethod = 'standard';
+  const picklesOnly = items.length > 0 && items.every(({ product }) => product.category === 'pickles');
   const totals = useMemo(
     () => calculateOrderTotals(subtotal, {
       taxableSubtotal,
+      picklesOnly,
+      pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,
       shippingMethod:
@@ -351,12 +358,30 @@ export default function CheckoutPage() {
           ? 'standard'
           : undefined,
     }),
-    [subtotal, taxableSubtotal, fulfillmentType, deliveryState]
+    [subtotal, taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly]
   );
+  const nearbyPickup = getNearbyPickup(deliveryState, deliveryZip);
+  const pickupLocations = nearbyPickup
+    ? [...PICKUP_LOCATIONS].sort((a, b) => Number(b.zip === nearbyPickup.zip) - Number(a.zip === nearbyPickup.zip))
+    : PICKUP_LOCATIONS;
+
+  const switchToPickup = () => {
+    if (!nearbyPickup || submitting || paying || pendingPayment) return;
+    setPickupName(deliveryName);
+    setPickupPhone(deliveryPhone);
+    setPickupEmail(deliveryEmail);
+    setFulfillmentType('pickup');
+    setSessionInfo(null);
+    sessionIdRef.current = '';
+    setPaymentError('');
+    setSubmitError('');
+    setStep('details');
+  };
+
   const deliveryMinimumShortfall = isSupportedDeliveryState(deliveryState)
-    ? getDeliveryMinimumShortfall(subtotal, deliveryState)
+    ? getDeliveryMinimumShortfall(subtotal, deliveryState, picklesOnly)
     : 0;
-  const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState);
+  const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState, picklesOnly);
   const stateRestrictedItem = isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0
     ? items.find(({ product }) =>
         product.deliveryStateCodes?.length &&
@@ -371,8 +396,11 @@ export default function CheckoutPage() {
     [mounted, items]
   );
   const largeOrder = totalPieces > 150;
-  const pickupBounds = getPickupDateBounds(totalPieces, pickupNow);
-  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow);
+  const bobbatluPieces = mounted ? getBobbatluPieces(items) : 0;
+  const { count: bobbatluStock } = useStock(bobbatluPieces > 0 ? BOBBATLU_PRODUCT_ID : null);
+  const bobbatluNeedsPreparation = bobbatluPieces > (bobbatluStock ?? 0);
+  const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, bobbatluNeedsPreparation);
+  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, bobbatluNeedsPreparation);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
   // Refresh an open date picker after midnight and when returning to the tab.
   useEffect(() => {
@@ -521,7 +549,7 @@ export default function CheckoutPage() {
     const now = new Date();
     setPickupNow(now);
     setPickupDateTouched(true);
-    const dateError = getPickupDateError(pickupDate, totalPieces, now);
+    const dateError = getPickupDateError(pickupDate, totalPieces, now, bobbatluNeedsPreparation);
     if (dateError) {
       setSubmitError(dateError);
       return;
@@ -776,8 +804,8 @@ export default function CheckoutPage() {
         })}
       </div>
 
-      {/* Same-day notice stays on method/payment, not cart or details. */}
-      {(step === 'method' || step === 'payment') && <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-4 mb-6 flex items-start gap-3">
+      {/* Pickup instructions only apply to customers who selected pickup. */}
+      {fulfillmentType === 'pickup' && (step === 'details' || step === 'payment') && <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-4 mb-6 flex items-start gap-3">
         <Clock size={20} className="text-brand-gold shrink-0 mt-0.5" />
         <div className="font-body text-sm text-brand-charcoal/80">
           <p>
@@ -843,12 +871,10 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
-              {totals.tax > 0 && (
-                <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                  <span>{SALES_TAX_LABEL}</span>
-                  <span>{formatCurrency(totals.tax)}</span>
-                </div>
-              )}
+              <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                <span>{SALES_TAX_LABEL}</span>
+                <span>{formatCurrency(totals.tax)}</span>
+              </div>
               <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
                 <span>Total</span>
                 <span className="text-brand-maroon">{formatCurrency(totals.total)}</span>
@@ -939,6 +965,9 @@ export default function CheckoutPage() {
             <button
               onClick={() => {
                 setFulfillmentType('pickup');
+                if (deliveryName) setPickupName(deliveryName);
+                if (deliveryPhone) setPickupPhone(deliveryPhone);
+                if (deliveryEmail) setPickupEmail(deliveryEmail);
                 setStep('details');
               }}
               className="card p-6 text-left hover:border-brand-maroon transition-colors group"
@@ -946,7 +975,7 @@ export default function CheckoutPage() {
               <MapPin size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
               <h3 className="font-display text-xl font-semibold text-brand-charcoal">Pickup</h3>
               <p className="font-body text-sm text-brand-charcoal/60 mt-1">
-                Free - order ready to pick up same day, or schedule for a later date.
+                <strong className="font-bold text-brand-charcoal">FREE</strong> - order ready to pick up same day, or schedule for a later date.
                 <br />
                 Pick-up from our partner locations in{' '}
                 <strong className="font-semibold text-[1.1em] leading-[inherit] text-brand-charcoal">Frisco</strong>,{' '}
@@ -957,6 +986,9 @@ export default function CheckoutPage() {
             <button
               onClick={() => {
                 setFulfillmentType('delivery');
+                if (pickupName) setDeliveryName(pickupName);
+                if (pickupPhone) setDeliveryPhone(pickupPhone);
+                if (pickupEmail) setDeliveryEmail(pickupEmail);
                 setStep('details');
               }}
               className="card p-6 text-left hover:border-brand-maroon transition-colors group"
@@ -984,6 +1016,10 @@ export default function CheckoutPage() {
             <h2 className="font-display text-2xl font-bold text-brand-charcoal">Step 3</h2>
             <p className="font-body text-sm text-brand-charcoal/60">Pickup details</p>
           </div>
+
+          {bobbatluNeedsPreparation && (
+            <p className="font-body text-sm text-amber-800">Bobbatlu for this order is made fresh to order. Please allow 1 day for preparation.</p>
+          )}
 
           <div>
             <label htmlFor="pickup-date" className="label-text">Pickup Date</label>
@@ -1019,9 +1055,9 @@ export default function CheckoutPage() {
               className="input-field"
             >
               <option value="">Select a location</option>
-              {PICKUP_LOCATIONS.map((loc) => (
+              {pickupLocations.map((loc) => (
                 <option key={loc.id} value={loc.id}>
-                  {loc.name}
+                  {loc.name}{nearbyPickup?.zip === loc.zip ? ' — Closest to your ZIP' : ''}
                 </option>
               ))}
             </select>
@@ -1033,9 +1069,13 @@ export default function CheckoutPage() {
             )}
           </div>
 
+          <p className="font-body text-sm text-brand-charcoal">
+            Free pickup · Order total: <strong>{formatCurrency(totals.total)}</strong>
+          </p>
+
           {pickupLocationId && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <p className="font-body text-sm text-blue-800">
+            <div className="bg-[#93C572] border border-[#93C572] rounded-xl p-4">
+              <p className="font-body text-sm text-brand-charcoal">
                 Please pick up your orders between{' '}
                 <span className="font-semibold">6:30 PM and 1:30 AM</span> at the selected pickup
                 location.
@@ -1123,11 +1163,14 @@ export default function CheckoutPage() {
             <p className="font-body text-sm text-brand-charcoal/60">Delivery details</p>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-1">
-            <p className="font-body text-sm text-blue-800 font-semibold">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-1">
+            <p className="font-body text-sm text-green-800 font-semibold">
               Shipping times begin after your order is prepared.
             </p>
-            <p className="font-body text-sm text-blue-700">
+            {bobbatluNeedsPreparation && (
+              <p className="font-body text-sm text-green-800">Bobbatlu for this order needs 1 day for preparation before dispatch.</p>
+            )}
+            <p className="font-body text-sm text-green-800">
               We use UPS 2nd Day Air for out-of-state orders for faster delivery from Dallas to
               your destination. Packages typically arrive within 2 business days after dispatch.
             </p>
@@ -1197,8 +1240,8 @@ export default function CheckoutPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
+          <div className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_12rem_8rem_6rem] gap-4">
+            <div className="min-w-0">
               <label className="label-text">City</label>
               <input
                 type="text"
@@ -1238,25 +1281,22 @@ export default function CheckoutPage() {
                 required
               />
             </div>
+            <div>
+              <label htmlFor="delivery-country" className="label-text">Country</label>
+              <input
+                id="delivery-country"
+                type="text"
+                value="USA"
+                readOnly
+                aria-readonly="true"
+                className="input-field bg-brand-cream/60"
+              />
+            </div>
           </div>
 
           <p className="font-body text-xs text-brand-charcoal/50 -mt-3">
             Alaska and Hawaii require a manual shipping quote. Please contact us before ordering.
           </p>
-
-          <div>
-            <label className="label-text">Country</label>
-            <input
-              type="text"
-              value={deliveryCountry}
-              readOnly
-              aria-readonly="true"
-              className="input-field bg-brand-cream/60 cursor-not-allowed"
-            />
-            <p className="font-body text-xs text-brand-charcoal/50 mt-1">
-              We currently deliver within the United States only.
-            </p>
-          </div>
 
           {deliveryMinimumShortfall > 0 && (
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3.5">
@@ -1287,15 +1327,25 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
-              {totals.tax > 0 && (
-                <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                  <span>{SALES_TAX_LABEL}</span>
-                  <span>{formatCurrency(totals.tax)}</span>
+              <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                <span>{deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod)}</span>
+                <span>{totals.shipping > 0 ? formatCurrency(totals.shipping) : 'Free'}</span>
+              </div>
+              {nearbyPickup && (
+                <div className="font-body text-xs text-green-800 space-y-1 py-2">
+                  <p className="font-bold">
+                    {totals.shipping > 0 ? `Save ${formatCurrency(totals.shipping)} with free pickup` : 'Free pickup is also available'}
+                  </p>
+                  <p>Our {nearbyPickup.city} pickup point is closest to your delivery ZIP.</p>
+                  <button type="button" onClick={switchToPickup} disabled={submitting || paying || !!pendingPayment}
+                    className="font-bold underline underline-offset-2 disabled:opacity-50">
+                    Pick up for free →
+                  </button>
                 </div>
               )}
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                <span>{shippingMethodLabel(resolvedShippingMethod)}</span>
-                <span>{totals.shipping > 0 ? formatCurrency(totals.shipping) : 'Free'}</span>
+                <span>{SALES_TAX_LABEL}</span>
+                <span>{formatCurrency(totals.tax)}</span>
               </div>
               <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
                 <span>Total</span>
@@ -1350,18 +1400,16 @@ export default function CheckoutPage() {
               <span>Subtotal</span>
               <span>{formatCurrency(sessionInfo.subtotal)}</span>
             </div>
-            {sessionInfo.tax > 0 && (
-              <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
-                <span>{SALES_TAX_LABEL}</span>
-                <span>{formatCurrency(sessionInfo.tax)}</span>
-              </div>
-            )}
             {fulfillment?.type === 'delivery' && (
               <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
-                <span>{shippingMethodLabel(sessionInfo.shippingMethod)}</span>
+                <span>{fulfillment?.type === 'delivery' && fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod)}</span>
                 <span>{sessionInfo.shipping > 0 ? formatCurrency(sessionInfo.shipping) : 'Free'}</span>
               </div>
             )}
+            <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
+              <span>{SALES_TAX_LABEL}</span>
+              <span>{formatCurrency(sessionInfo.tax)}</span>
+            </div>
             <div className="flex justify-between items-center pt-1.5 border-t border-brand-cream-dark">
               <span className="font-body text-sm text-brand-charcoal/60">Amount due</span>
               <span className="font-display text-xl font-bold text-brand-maroon">

@@ -3,7 +3,8 @@ import type { D1Database, D1PreparedStatement, Queue } from '@cloudflare/workers
 import { generateOrderNumber, newId, parseJson } from '@/lib/db';
 import { buildOrderConfirmationEmail, buildOwnerOrderAlertEmail } from '@/lib/email-service';
 import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage } from '@/lib/email-outbox';
-import { getPickupLocationById, getProductById, TRACKED_CATEGORY } from '@/data/products';
+import { getPickupLocationById, getProductById, isStockTracked, stockUnits } from '@/data/products';
+import { prepareOrderTaxRecord } from '@/lib/tax-records';
 import type { DeliveryShippingMethod } from '@/types';
 
 export interface PaymentSessionRow {
@@ -122,7 +123,7 @@ function canonicalPaidLines(session: PaymentSessionRow): CanonicalLine[] {
     if (amount <= 0) throw new Error('Paid session has empty item amount; manual review required');
     return { productId: product.id, name: variant ? `${product.name} (${variant})` : product.name,
       quantity: item.quantity, selectedTier: tier, lineTotal: amount / 100,
-      tracked: product.category === TRACKED_CATEGORY };
+      tracked: isStockTracked(product) };
   });
   const merchandise = lines.reduce((total, line) => total + cents(line.lineTotal, 'cart amount'), 0);
   const total = cents(session.total_amount, 'payment total');
@@ -227,6 +228,10 @@ export async function createOrderFromSession(
     ).bind(session.id, attemptId, orderId, existing ? 1 : 0, squarePaymentId, orderId),
     db.prepare(`DELETE FROM order_items WHERE order_id = ${resolvedId}`).bind(attemptId),
   ];
+  const taxRecord = await prepareOrderTaxRecord(db, session.id, attemptId, {
+    total: session.total_amount, tax: session.tax ?? 0, shipping: session.shipping ?? 0,
+  });
+  if (taxRecord) statements.push(taxRecord);
   for (const line of lines) {
     statements.push(db.prepare(
       `INSERT INTO order_items (id, order_id, product_name, quantity, product_price, selected_tier, line_total)
@@ -246,7 +251,8 @@ export async function createOrderFromSession(
   }
   const trackedQuantities = new Map<string, number>();
   for (const line of lines) {
-    if (line.tracked) trackedQuantities.set(line.productId, (trackedQuantities.get(line.productId) ?? 0) + line.quantity);
+    if (line.tracked) trackedQuantities.set(line.productId,
+      (trackedQuantities.get(line.productId) ?? 0) + stockUnits(line.productId, line.quantity, line.selectedTier));
   }
   for (const [productId, quantity] of trackedQuantities) {
     statements.push(db.prepare(

@@ -15,6 +15,7 @@ import {
 describe('product catalog integrity', () => {
   it('uses the approved pickle jar prices', () => {
     expect(getProductById('pickle-chicken')?.unitPrice).toBe(18);
+    expect(getProductById('pickle-gongura-chicken')?.unitPrice).toBe(19);
     expect(getProductById('pickle-mutton')?.unitPrice).toBe(21);
     expect(getProductById('pickle-prawns')?.unitPrice).toBe(21);
   });

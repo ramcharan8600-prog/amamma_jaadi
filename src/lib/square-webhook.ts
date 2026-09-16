@@ -1,11 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { getPaymentRefundSummary } from '@/lib/square';
 
-interface SquareRefund {
-  id?: string;
-  payment_id?: string;
-  status?: string;
-}
+import { prepareRefundFacts, type RefundFacts } from '@/lib/tax-refunds';
 
 export type RefundPaymentLookup = (paymentId: string) => Promise<{
   totalAmount: number;
@@ -22,7 +18,7 @@ export type RefundPaymentLookup = (paymentId: string) => Promise<{
 export async function processRefundEvent(
   db: D1Database,
   eventType: string,
-  refund: SquareRefund | undefined,
+  refund: RefundFacts | undefined,
   lookupPayment: RefundPaymentLookup = getPaymentRefundSummary
 ): Promise<{
   handled: boolean;
@@ -89,12 +85,14 @@ export async function processRefundEvent(
   }
 
   await db.batch([
+    ...prepareRefundFacts(db, order.id, refund),
     db.prepare(
-      'UPDATE orders SET payment_status = ?, refunded_amount = ? WHERE square_payment_id = ?'
-    ).bind(paymentStatus, payment.refundedAmount / 100, refund.payment_id),
+      'UPDATE orders SET payment_status = ?, refunded_amount = MAX(refunded_amount, ?) WHERE square_payment_id = ? AND refunded_amount <= ?'
+    ).bind(paymentStatus, payment.refundedAmount / 100, refund.payment_id, payment.refundedAmount / 100),
     db.prepare(
-      'UPDATE payment_sessions SET payment_status = ? WHERE square_payment_id = ? OR id = ?'
-    ).bind(paymentStatus, refund.payment_id, payment.referenceId ?? ''),
+      `UPDATE payment_sessions SET payment_status = (SELECT payment_status FROM orders WHERE id = ?)
+       WHERE square_payment_id = ? OR id = ?`
+    ).bind(order.id, refund.payment_id, payment.referenceId ?? ''),
   ]);
 
   console.log(JSON.stringify({

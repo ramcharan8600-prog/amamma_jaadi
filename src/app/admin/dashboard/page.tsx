@@ -381,7 +381,8 @@ export default function AdminDashboardPage() {
             Manage orders and production
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/admin/taxes" className="btn-secondary text-xs gap-1.5">Tax records</Link>
           <Link
             href="/admin/coupons"
             className="btn-secondary text-xs gap-1.5"
@@ -581,6 +582,7 @@ export default function AdminDashboardPage() {
                   'Type',
                   'Date/Location',
                   'Total',
+                  'Sales tax',
                   'Payment',
                   'Status',
                   'Shipment Status',
@@ -673,6 +675,9 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="py-3 px-2 font-body text-xs font-medium">
                       {formatCurrency(order.total_price)}
+                    </td>
+                    <td className="py-3 px-2 font-body text-xs font-medium">
+                      {formatCurrency(order.tax ?? 0)}
                     </td>
                     <td className="py-3 px-2">
                       <span

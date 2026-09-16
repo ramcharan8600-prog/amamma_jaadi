@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
-import { calculateSweetPrice } from '@/data/products';
+import { calculateSweetPrice, BOBBATLU_PRODUCT_ID } from '@/data/products';
+import { useStock } from '@/hooks/useStock';
 import { formatCurrency } from '@/lib/utils';
 
 interface SweetCardProps {
@@ -18,6 +19,11 @@ export default function SweetCard({ product }: SweetCardProps) {
   const [selectedTier, setSelectedTier] = useState(tiers[0]);
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
+  const isBobbatlu = product.id === BOBBATLU_PRODUCT_ID;
+  const { count } = useStock(isBobbatlu ? product.id : null);
+  const readyFromStock = isBobbatlu && (count ?? 0) >= selectedTier;
+  const prepNotice = readyFromStock ? 'Freshly made and in stock.' : product.prepNotice;
+  const freshNotice = readyFromStock || product.prepNoticeTone === 'fresh';
 
   const currentPrice = calculateSweetPrice(product.unitPrice, selectedTier);
 
@@ -62,18 +68,18 @@ export default function SweetCard({ product }: SweetCardProps) {
           </p>
         </div>
 
-        {product.prepNotice &&
-          (product.prepNoticeTone === 'fresh' ? (
+        {prepNotice &&
+          (freshNotice ? (
             // Reassurance (baked daily) — reads as good news, not a caution.
             <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
               <Sparkles size={14} className="text-green-600 shrink-0 mt-0.5" />
-              <p className="font-body text-xs text-green-800">{product.prepNotice}</p>
+              <p className="font-body text-xs text-green-800">{prepNotice}</p>
             </div>
           ) : (
             // Lead time required — the customer needs to plan ahead.
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               <Clock size={14} className="text-amber-600 shrink-0 mt-0.5" />
-              <p className="font-body text-xs text-amber-800">{product.prepNotice}</p>
+              <p className="font-body text-xs text-amber-800">{prepNotice}</p>
             </div>
           ))}
 

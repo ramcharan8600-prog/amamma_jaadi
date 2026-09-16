@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
         console.error(JSON.stringify({ event: 'webhook_payment_amount_mismatch', paymentId: squarePaymentId }));
         return fail('Payment amount mismatch', 400);
       }
-      await recordPaymentWebhookOutcome(db, String(raw.id), squarePaymentId, 'completed');
+      await recordPaymentWebhookOutcome(db, String(raw.id), squarePaymentId, 'completed', payment);
 
       // createOrderFromSession is idempotent (3-layer dedup on the payment id)
       // — a duplicate webhook returns the existing order rather than creating

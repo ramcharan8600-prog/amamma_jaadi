@@ -6,6 +6,7 @@ import { getProductById } from '@/data/products';
 import { useCartStore } from '@/store/cart';
 import { PENDING_PAYMENT_KEY, readPendingPayment, rememberPendingPayment } from '@/lib/payment-recovery';
 import CheckoutPage from './page';
+import { invalidateStock } from '@/hooks/useStock';
 
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: { children: ReactNode; href: string }) =>
@@ -19,6 +20,7 @@ let host: HTMLDivElement;
 let paymentResult: () => Promise<Response>;
 let verifyResult: () => Promise<Response>;
 let createdSessions: number;
+let bobbatluStock = 0;
 const tokenize = vi.fn();
 const destroy = vi.fn(async () => undefined);
 const completed = () => Response.json({ success: true, status: 'completed', orderNumber: 'AJ-1234' });
@@ -27,6 +29,7 @@ const pending = () => Response.json({
 }, { status: 202 });
 const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async (input) => {
   const url = String(input);
+  if (url === '/api/inventory') return Response.json({ stock: { 'sweet-bobbatlu': bobbatluStock } });
   if (url === '/api/payments/create-session') {
     createdSessions += 1;
     return Response.json({
@@ -105,6 +108,8 @@ async function readyToPay() {
 }
 
 beforeEach(() => {
+  invalidateStock();
+  bobbatluStock = 0;
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-09-08T18:00:00Z'));
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -138,7 +143,7 @@ afterEach(async () => {
 });
 
 describe('checkout pickup date controls', () => {
-  it.each(['Pickup', 'Delivery'])('hides Step 1 banners and Step 3 pickup notice for %s', async (method) => {
+  it.each(['Pickup', 'Delivery'])('shows pickup instructions only after selecting pickup (%s)', async (method) => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
     await render();
     expect(host.textContent).toContain('Cart overview');
@@ -146,11 +151,11 @@ describe('checkout pickup date controls', () => {
     expect(host.textContent).not.toContain('Fast nationwide shipping:');
     expect(host.textContent).toContain('$40.00');
     await click('Continue');
-    expect(host.textContent).toContain('pick up orders before 4:30 PM');
+    expect(host.textContent).not.toContain('pick up orders before 4:30 PM');
     const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === method);
     await act(async () => choice!.click());
     expect(host.textContent).toContain('Step 3');
-    expect(host.textContent).not.toContain('pick up orders before 4:30 PM');
+    expect(host.textContent?.includes('pick up orders before 4:30 PM')).toBe(method === 'Pickup');
     if (method === 'Delivery') expect(host.textContent).toContain('Shipping times begin after your order is prepared.');
   });
 
@@ -329,5 +334,166 @@ describe('checkout payment recovery wiring', () => {
     expect(host.textContent).toContain('Payment safety check');
     expect(calls('/api/payments/create-session')).toHaveLength(0);
     expect(calls('/api/payments/create-payment')).toHaveLength(0);
+  });
+});
+
+
+describe('nearby delivery pickup switch', () => {
+  async function delivery(zip = '75093', state = 'TX') {
+    useCartStore.getState().addItem(getProductById('sweet-bobbatlu')!, state === 'TX' ? 1 : 2, 16);
+    await render();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    await act(async () => choice!.click());
+    await input('input[autocomplete="name"]', 'Nearby Test');
+    await input('input[type="tel"]', '2145550100');
+    await input('input[type="email"]', 'nearby@example.com');
+    await input('input[placeholder="Street address"]', '123 Test Street');
+    const city = Array.from(host.querySelectorAll('input')).find(field => field.parentElement?.querySelector('label')?.textContent === 'City')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(city, 'Test City');
+      city.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await input('#delivery-state', state);
+    await input('input[autocomplete="postal-code"]', zip);
+    expect(button('Continue to payment').disabled).toBe(false);
+    expect(host.textContent).toContain('Step 3');
+  }
+
+  it('preserves contacts/address, permits any pickup point, and creates a new pickup session', async () => {
+    await delivery();
+    expect(host.textContent).toContain('estimated 1 business day after dispatch');
+    expect(host.textContent).not.toContain('pick up orders before 4:30 PM');
+    expect(host.textContent).toContain('Plano pickup point is closest');
+    expect(host.textContent).toContain('Save $6.99 with free pickup');
+    expect(calls('/api/payments/create-session')).toHaveLength(0);
+    await click('Continue to payment');
+    expect(host.textContent).toContain('Step 4');
+    expect(host.textContent).not.toContain('Pick up for free →');
+    await click('Back');
+    await click('Pick up for free →');
+    expect(host.textContent).toContain('Step 3');
+    expect(host.textContent).toContain('Free pickup · Order total: $48.00');
+    expect(host.querySelector<HTMLInputElement>('input[autocomplete="name"]')?.value).toBe('Nearby Test');
+    expect(host.querySelector<HTMLInputElement>('input[type="tel"]')?.value).toBe('2145550100');
+    expect(host.querySelector<HTMLInputElement>('input[type="email"]')?.value).toBe('nearby@example.com');
+    const options = Array.from(host.querySelectorAll('select option'));
+    expect(options).toHaveLength(5);
+    expect(options[1].textContent).toContain('Plano');
+    expect(options[1].textContent).toContain('Closest to your ZIP');
+    await input('select', 'irving-ravibabu');
+    await input('input[type="date"]', '2026-09-09');
+    await click('Continue to payment');
+    const requests = calls('/api/payments/create-session');
+    expect(requests).toHaveLength(2);
+    expect(JSON.parse(String(requests[1][1]?.body)).fulfillment).toMatchObject({ type: 'pickup', locationId: 'irving-ravibabu', customerName: 'Nearby Test' });
+    expect(host.textContent).toContain('pick up orders before 4:30 PM');
+    expect(host.textContent).not.toContain('Pick up for free →');
+    await click('Back');
+    await click('Back');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    await act(async () => choice!.click());
+    expect(host.querySelector<HTMLInputElement>('input[placeholder="Street address"]')?.value).toBe('123 Test Street');
+    expect(host.querySelector<HTMLInputElement>('input[autocomplete="postal-code"]')?.value).toBe('75093');
+  });
+
+  it('shows Texas mixed-order tax separately and removes shipping tax on pickup', async () => {
+    useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
+    await delivery();
+    expect(host.textContent).toContain('Sales Tax (8.25%)');
+    expect(host.textContent).toContain('$2.14');
+    expect(host.textContent).toContain('$76.13');
+    await click('Pick up for free →');
+    expect(host.textContent).toContain('Free pickup · Order total: $68.57');
+  });
+
+  it.each([['77002', 'TX'], ['90001', 'CA'], ['99999', 'TX']])('does not offer a pickup switch for %s %s', async (zip, state) => {
+    await delivery(zip, state);
+    expect(host.textContent).not.toContain('Pick up for free →');
+    expect(host.textContent).not.toContain('pick up orders before 4:30 PM');
+    if (state === 'CA') expect(host.textContent).not.toContain('1 business day');
+    await click('Continue to payment');
+    expect(host.textContent).toContain('Step 4');
+    expect(host.textContent).not.toContain('Pick up for free →');
+  });
+});
+
+
+it.each([0, 15, 16])('sets Bobbatlu pickup dates from %s available pieces', async stock => {
+  bobbatluStock = stock;
+  useCartStore.getState().addItem(getProductById('sweet-bobbatlu')!, 1, 16);
+  await render();
+  await click('Continue');
+  const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
+  await act(async () => pickup!.click());
+  expect(host.querySelector('input[type="date"]')?.getAttribute('min')).toBe(stock >= 16 ? '2026-09-08' : '2026-09-09');
+  expect(host.textContent?.includes('Please allow 1 day for preparation')).toBe(stock < 16);
+});
+
+it.each([[1,'6.99','2.14','28.13'],[2,'5.99','3.63','47.62'],[3,'4.99','5.11','67.10']])(
+  'displays the correct shipping and tax for %s pickle jars',async(quantity,shipping,tax,total)=>{
+    useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!,Number(quantity));
+    await render();await click('Continue');
+    const choice=Array.from(host.querySelectorAll('button')).find(item=>item.querySelector('h3')?.textContent==='Delivery');
+    await act(async()=>choice!.click());
+    await input('#delivery-state','TX');
+    await input('input[autocomplete="postal-code"]','75093');
+    expect(host.textContent).toContain(`Save $${shipping} with free pickup`);
+    expect(host.textContent).toContain(`$${tax}`);
+    expect(host.textContent).toContain(`$${total}`);
+  });
+
+describe('nationwide pickle-only delivery', () => {
+  async function enterDeliveryDetails(state: string) {
+    await render();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button'))
+      .find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    await act(async () => choice!.click());
+    await input('input[autocomplete="name"]', 'Pickle Shipping Test');
+    await input('input[type="tel"]', '2145550100');
+    await input('input[type="email"]', 'pickle-shipping@example.com');
+    await input('input[placeholder="Street address"]', '123 Test Street');
+    const city = Array.from(host.querySelectorAll('input'))
+      .find(field => field.parentElement?.querySelector('label')?.textContent === 'City')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(city, 'Test City');
+      city.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await input('#delivery-state', state);
+    await input('input[autocomplete="postal-code"]', state === 'NY' ? '10001' : '73102');
+  }
+
+  it.each([
+    ['NY', 1, '6.99', '1.57', '27.56'],
+    ['NY', 2, '5.99', '3.14', '47.13'],
+    ['NY', 3, '4.99', '4.70', '66.69'],
+    ['OK', 3, '4.99', '4.70', '66.69'],
+  ] as const)('allows %s delivery of %s jars below $80', async (state, quantity, shipping, tax, total) => {
+    useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, quantity);
+    await enterDeliveryDetails(state);
+    expect(host.textContent).not.toContain('A minimum product subtotal');
+    expect(host.textContent).toContain(`$${shipping}`);
+    expect(host.textContent).toContain(`$${tax}`);
+    expect(host.textContent).toContain(`$${total}`);
+    expect(button('Continue to payment').disabled).toBe(false);
+    await click('Continue to payment');
+    expect(calls('/api/payments/create-session')).toHaveLength(1);
+    expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body))).toMatchObject({
+      fulfillment: { type: 'delivery', state },
+      items: [{ productId: 'pickle-gongura-chicken', quantity }],
+    });
+  });
+
+  it('retains the far-state minimum when sweets are included', async () => {
+    useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    await enterDeliveryDetails('NY');
+    expect(host.textContent).toContain('A minimum product subtotal of $80.00');
+    expect(host.textContent).toContain('$21.00');
+    expect(button('Continue to payment').disabled).toBe(true);
+    await click('Continue to payment');
+    expect(calls('/api/payments/create-session')).toHaveLength(0);
+    expect(tokenize).not.toHaveBeenCalled();
   });
 });

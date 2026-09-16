@@ -127,7 +127,7 @@ describe('inventory — stock map', () => {
     expect(await getStockMap(db)).toEqual({ 'pickle-chicken': 7, 'pickle-mutton': 0 });
   });
 
-  it('tracks exactly the three pickles', () => {
-    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-mutton', 'pickle-prawns']);
+  it('tracks all four pickles and Bobbatlu', () => {
+    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-bobbatlu']);
   });
 });

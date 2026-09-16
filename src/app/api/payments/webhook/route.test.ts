@@ -88,7 +88,7 @@ describe('Square refund webhook processing', () => {
   it('marks both the order and payment session refunded after a full refund', async () => {
     const { db, batch, statements } = makeDb({ order: { id: 'ORDER_1' } });
     const result = await processRefundEvent(db, 'refund.updated', {
-      id: 'REFUND_2',
+      id: 'REFUND_2', amount_money: { amount: 10000, currency: 'USD' },
       payment_id: 'PAYMENT_2',
       status: 'COMPLETED',
     }, async () => ({
@@ -99,23 +99,23 @@ describe('Square refund webhook processing', () => {
 
     expect(result).toEqual({ handled: true, updated: true, paymentStatus: 'refunded' });
     expect(batch).toHaveBeenCalledTimes(1);
-    expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain('orders SET payment_status = ?, refunded_amount = ?');
-    expect(statements[1].sql).toContain('payment_sessions SET payment_status = ?');
-    expect(statements[0].binds).toEqual(['refunded', 100, 'PAYMENT_2']);
-    expect(statements[1].binds).toEqual(['refunded', 'PAYMENT_2', 'SESSION_2']);
+    expect(statements).toHaveLength(4);
+    expect(statements[2].sql).toContain('orders SET payment_status = ?, refunded_amount = MAX');
+    expect(statements[3].sql).toContain('payment_sessions SET payment_status = (SELECT');
+    expect(statements[2].binds).toEqual(['refunded', 100, 'PAYMENT_2', 100]);
+    expect(statements[3].binds).toEqual(['ORDER_1', 'PAYMENT_2', 'SESSION_2']);
   });
 
   it('labels a cumulative partial refund without hiding the order', async () => {
     const { db, statements } = makeDb({ order: { id: 'ORDER_3' } });
     const result = await processRefundEvent(db, 'refund.updated', {
-      id: 'REFUND_3',
+      id: 'REFUND_3', amount_money: { amount: 2500, currency: 'USD' },
       payment_id: 'PAYMENT_3',
       status: 'COMPLETED',
     }, async () => ({ totalAmount: 10000, refundedAmount: 2500 }));
 
     expect(result.paymentStatus).toBe('partially_refunded');
-    expect(statements[0].binds).toEqual(['partially_refunded', 25, 'PAYMENT_3']);
+    expect(statements[2].binds).toEqual(['partially_refunded', 25, 'PAYMENT_3', 25]);
   });
 
   it('requests a retry when a website refund races ahead of order creation', async () => {
@@ -210,7 +210,7 @@ describe('Square webhook POST signature and payment guards', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ received: true, orderNumber: 'AJ-UNIT-TEST', duplicate: false });
     expect(bind).toHaveBeenCalledWith('fictional-payment-1', 'test-session');
-    expect(routeMocks.recordOutcome).toHaveBeenCalledExactlyOnceWith(db, 'test-session', 'fictional-payment-1', 'completed');
+    expect(routeMocks.recordOutcome).toHaveBeenCalledExactlyOnceWith(db, 'test-session', 'fictional-payment-1', 'completed', expect.objectContaining({ status: 'COMPLETED' }));
     expect(routeMocks.finalize).toHaveBeenCalledExactlyOnceWith(db,
       expect.objectContaining({ id: 'test-session', total_amount: 40 }), 'fictional-payment-1');
   });
@@ -275,7 +275,7 @@ describe('Square webhook POST signature and payment guards', () => {
     routeMocks.finalize.mockRejectedValueOnce(new Error('fictional D1 interruption'));
     const response = await POST(request(JSON.stringify(event())));
     expect(response.status).toBe(500);
-    expect(routeMocks.recordOutcome).toHaveBeenCalledExactlyOnceWith(db, 'test-session', 'fictional-payment-1', 'completed');
+    expect(routeMocks.recordOutcome).toHaveBeenCalledExactlyOnceWith(db, 'test-session', 'fictional-payment-1', 'completed', expect.objectContaining({ status: 'COMPLETED' }));
   });
 
   it.each(['FAILED', 'DECLINED', 'CANCELED'])('records signed %s without creating an order', async status => {

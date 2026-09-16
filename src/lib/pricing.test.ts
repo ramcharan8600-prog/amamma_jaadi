@@ -90,13 +90,13 @@ describe('pricing — Texas delivery (in-state)', () => {
       .toBe(6.99);
   });
 
-  it('a taxable cart uses the same flat TX rate', () => {
+  it('a mixed cart taxes pickles and the full TX shipping fee', () => {
     const mixed = calculateOrderTotals(44, {
       fulfillmentType: 'delivery', taxableSubtotal: 14, ...TX,
     });
     expect(mixed.shipping).toBe(6.99);
-    expect(mixed.tax).toBe(1.16);
-    expect(mixed.total).toBe(roundMoney(44 + 1.16 + 6.99));
+    expect(mixed.tax).toBe(1.73);
+    expect(mixed.total).toBe(roundMoney(44 + 1.73 + 6.99));
   });
 });
 
@@ -114,11 +114,11 @@ describe('pricing — nearby-state delivery', () => {
 describe('pricing — far-state delivery', () => {
   const NY = { deliveryState: 'NY' };
 
-  it('charges a flat $12.99 shipping fee', () => {
+  it('charges a flat $11.99 shipping fee', () => {
     expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', ...NY }).shipping)
-      .toBe(12.99);
+      .toBe(11.99);
     expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', ...NY }).shipping)
-      .toBe(12.99);
+      .toBe(11.99);
   });
 
   it('requires an $80 merchandise subtotal', () => {
@@ -200,9 +200,9 @@ describe('pricing — pickup and general', () => {
     ).toBe(0);
   });
 
-  it('does not tax the delivery fee', () => {
+  it('taxes the delivery fee when Texas merchandise is taxable', () => {
     const t = calculateOrderTotals(30, { fulfillmentType: 'delivery', taxableSubtotal: 30, deliveryState: 'TX' });
-    expect(t.tax).toBe(roundMoney(30 * 0.0825));
+    expect(t.tax).toBe(roundMoney((30 + 6.99) * 0.0825));
     expect(t.total).toBe(roundMoney(30 + t.tax + 6.99));
   });
 
@@ -238,5 +238,62 @@ describe('pricing — pickup and general', () => {
     expect(roundMoney(1.155)).toBe(1.16);
     expect(roundMoney(0.005)).toBe(0.01);
     expect(roundMoney(2.674999)).toBe(2.67);
+  });
+});
+
+
+describe('approved Texas mixed-cart policy', () => {
+  it.each([
+    [19, 19, true, 6.99, 2.14, 28.13],
+    [30, 0, false, 6.99, 0, 36.99],
+    [49, 19, false, 6.99, 2.14, 58.13],
+  ])('prices subtotal %s with taxable subtotal %s', (subtotal, taxableSubtotal, picklesOnly, shipping, tax, total) => {
+    expect(calculateOrderTotals(subtotal, {fulfillmentType: 'delivery', deliveryState: 'TX', taxableSubtotal, picklesOnly}))
+      .toEqual({subtotal, shipping, tax, total});
+  });
+  it('removes shipping and its tax for mixed pickup', () => {
+    expect(calculateOrderTotals(49, {fulfillmentType: 'pickup', taxableSubtotal: 19}))
+      .toEqual({subtotal: 49, shipping: 0, tax: 1.57, total: 50.57});
+  });
+  it('preserves the out-of-state tax base with the new pickle rate', () => {
+    expect(calculateOrderTotals(95, {fulfillmentType: 'delivery', deliveryState: 'CA', taxableSubtotal: 95, picklesOnly: true, pickleJarCount: 5}))
+      .toEqual({subtotal: 95, shipping: 4.99, tax: 7.84, total: 107.83});
+  });
+});
+
+
+describe('Texas pickle shipping by total jars', () => {
+  it.each([
+    [1, 19, 6.99, 2.14, 28.13], [2, 38, 5.99, 3.63, 47.62],
+    [3, 57, 4.99, 5.11, 67.10], [4, 76, 4.99, 6.68, 87.67],
+  ])('%s jars: taxes merchandise plus the correct shipping fee', (pickleJarCount, subtotal, shipping, tax, total) => {
+    expect(calculateOrderTotals(subtotal, {fulfillmentType:'delivery', deliveryState:'TX',
+      taxableSubtotal:subtotal, picklesOnly:true, pickleJarCount})).toEqual({subtotal,shipping,tax,total});
+  });
+  it('keeps mixed-cart regional rates and free pickup unchanged', () => {
+    expect(calculateOrderTotals(68, {fulfillmentType:'delivery',deliveryState:'TX',taxableSubtotal:38,picklesOnly:false,pickleJarCount:2}).shipping).toBe(6.99);
+    expect(calculateOrderTotals(38, {fulfillmentType:'pickup',taxableSubtotal:38,picklesOnly:true,pickleJarCount:2}).shipping).toBe(0);
+    for (const [deliveryState, subtotal, shipping] of [['OK',38,11.99],['OK',76,8.99],['CA',95,11.99]] as const) {
+      expect(calculateOrderTotals(subtotal,{fulfillmentType:'delivery',deliveryState,taxableSubtotal:19,picklesOnly:false,pickleJarCount:1}).shipping).toBe(shipping);
+    }
+  });
+});
+
+describe('pickle-only nationwide rates and minimum exemption', () => {
+  it.each(DELIVERY_STATE_OPTIONS)('$code uses jar-count rates with no minimum', ({ code }) => {
+    for (const [pickleJarCount, shipping] of [[1, 6.99], [2, 5.99], [3, 4.99], [10, 4.99]]) {
+      const subtotal = 19 * pickleJarCount;
+      expect(calculateOrderTotals(subtotal, {
+        fulfillmentType: 'delivery', deliveryState: code, taxableSubtotal: subtotal,
+        picklesOnly: true, pickleJarCount,
+      }).shipping).toBe(shipping);
+      expect(getDeliveryMinimumSubtotal(code, true)).toBe(0);
+      expect(getDeliveryMinimumShortfall(subtotal, code, true)).toBe(0);
+    }
+  });
+  it('restores the far-state minimum when sweets are present', () => {
+    expect(getDeliveryMinimumSubtotal('NY', false)).toBe(80);
+    expect(getDeliveryMinimumShortfall(59, 'NY', false)).toBe(21);
+    expect(getDeliveryMinimumShortfall(80, 'NY', false)).toBe(0);
   });
 });

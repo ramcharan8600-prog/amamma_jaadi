@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
-import { PRODUCTS, getTotalPieces } from '@/data/products';
+import { PRODUCTS, getTotalPieces, getBobbatluPieces, BOBBATLU_PRODUCT_ID } from '@/data/products';
 import { validateCart } from '@/lib/cart-validation';
 import { getPickupDateError } from '@/lib/pickup-date';
 import {
@@ -15,6 +15,7 @@ import { getStockMap } from '@/lib/inventory';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
 import { validateRequiredContact } from '@/lib/contact-validation';
+import { buildTaxSnapshot } from '@/lib/tax-records';
 import { ok, fail } from '@/lib/api';
 
 /**
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
     const body = input as Record<string, unknown>;
     const cart = validateCart(body.items);
     if (!cart.ok) return fail(cart.error, cart.status);
+    const picklesOnly = cart.items.every(({ product }) => product.category === 'pickles');
     const customerName = sanitize(body.customerName, 100);
     const email = sanitize(body.email, 200).toLowerCase();
     const phone = sanitize(body.phone, 20);
@@ -66,6 +68,8 @@ export async function POST(request: NextRequest) {
     const stock = await getStockMap(getDb());
     const { requestedByProduct, subtotal: serverTotal, taxableSubtotal: taxableTotal } = cart;
     for (const { product } of cart.items) {
+      // Bobbatlu stays purchasable when ready stock runs out.
+      if (product.id === BOBBATLU_PRODUCT_ID) continue;
       // Stock check for tracked products (untracked products aren't in the map).
       if (Object.prototype.hasOwnProperty.call(stock, product.id)) {
         const available = stock[product.id];
@@ -93,7 +97,8 @@ export async function POST(request: NextRequest) {
     let shippingMethod: 'standard' | 'ground' | 'expedited' | undefined;
 
     if (fulfillmentType === 'pickup') {
-      const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items));
+      const needsPreparation = getBobbatluPieces(cart.items) > (stock[BOBBATLU_PRODUCT_ID] ?? 0);
+      const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), new Date(), needsPreparation);
       if (dateError) return fail(dateError, 400);
     }
 
@@ -110,10 +115,10 @@ export async function POST(request: NextRequest) {
         return fail('Please select a valid delivery state.', 400);
       }
 
-      // Apply the destination-wide minimum first. It is higher than the gift-box
-      // minimum for far states, so the customer receives one clear requirement.
-      const minimumSubtotal = getDeliveryMinimumSubtotal(normalizedDeliveryState);
-      const minimumShortfall = getDeliveryMinimumShortfall(serverTotal, normalizedDeliveryState);
+      // Pickle-only orders have no minimum. For sweets/mixed carts, check the
+      // destination minimum before the gift-box minimum to give one requirement.
+      const minimumSubtotal = getDeliveryMinimumSubtotal(normalizedDeliveryState, picklesOnly);
+      const minimumShortfall = getDeliveryMinimumShortfall(serverTotal, normalizedDeliveryState, picklesOnly);
       if (minimumShortfall > 0) {
         return fail(
           `A minimum product subtotal of $${minimumSubtotal.toFixed(2)} is required for delivery to this state. Add $${minimumShortfall.toFixed(2)} more to continue.`,
@@ -164,11 +169,13 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Subtotal → + Texas sales tax → + delivery fee → charged total. Same helper
+    // Price merchandise and shipping, then tax the applicable base. Same helper
     // the checkout UI uses, so the amount shown always matches the amount charged.
     const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, {
       fulfillmentType,
       taxableSubtotal: taxableTotal,
+      picklesOnly,
+      pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       deliveryState,
       shippingMethod,
     });
@@ -199,9 +206,12 @@ export async function POST(request: NextRequest) {
     const sessionId = newId();
     const idempotencyKey = `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-    // Create payment session (NOT an order). JSON columns are stored as text.
-    await getDb()
-      .prepare(
+    const squarePublic = getSquarePublicConfig();
+    const taxSnapshot = buildTaxSnapshot(cart.items, { subtotal, tax, shipping, total },
+      fulfillment ?? { type: fulfillmentType }, squarePublic.environment);
+    const db = getDb();
+    // The payable session and its immutable tax quote must commit together.
+    await db.batch([db.prepare(
         `INSERT INTO payment_sessions
           (id, customer_name, email, phone_number, cart_data, fulfillment_data,
            total_amount, tax, shipping, coupon_code, payment_status, idempotency_key)
@@ -219,13 +229,14 @@ export async function POST(request: NextRequest) {
         shipping,
         validCoupon,
         idempotencyKey
-      )
-      .run();
+      ),
+      db.prepare('INSERT INTO payment_tax_quotes (session_id, snapshot_json) VALUES (?, ?)')
+        .bind(sessionId, JSON.stringify(taxSnapshot)),
+    ]);
 
     // Read the Square public config from the Worker env at runtime, so the app
     // id / location id / environment flow from the Cloudflare dashboard vars
     // (not from build-time-inlined NEXT_PUBLIC_* values).
-    const squarePublic = getSquarePublicConfig();
     return ok({
       sessionId,
       subtotal,

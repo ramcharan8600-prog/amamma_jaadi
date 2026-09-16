@@ -30,6 +30,20 @@ export const PRODUCTS: Product[] = [
     tags: ['spicy', 'non-veg', 'andhra'],
   },
   {
+    id: 'pickle-gongura-chicken',
+    slug: 'gongura-chicken-pickle',
+    name: 'Gongura Chicken Pickle',
+    description:
+      'Made with fresh boneless chicken and tangy gongura, blended with traditional Andhra spices.',
+    category: 'pickles',
+    unitPrice: 19,
+    image: '/images/products/Chicken Pickle.jpg',
+    sizeLabel: '12oz / 354ml Glass Jar',
+    isFixedQuantity: true,
+    inStock: true,
+    tags: ['spicy', 'non-veg', 'andhra'],
+  },
+  {
     id: 'pickle-mutton',
     slug: 'mutton-pickle',
     name: 'Mutton Pickle',
@@ -101,7 +115,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/products/bobbatlu.jpg',
     quantityOptions: [16, 25, 50],
     inStock: true,
-    prepNotice: 'Baked fresh to order — please place this order at least 2 days in advance.',
+    prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
   },
   {
@@ -128,7 +142,12 @@ export const PRODUCTS: Product[] = [
       'A desi-style sweets gift box with 12 pieces, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. A single $30 box is available for Texas delivery. It can be included with other items in large out-of-state orders.',
     category: 'gift-boxes',
     unitPrice: 30,
-    image: '/images/products/gift box.jpg',
+    image: '/images/products/texas-limited-gift-box-closed.jpg',
+    imageFit: 'contain',
+    additionalImages: [{
+      src: '/images/products/texas-limited-gift-box-open.jpg',
+      alt: 'Texas Limited Edition gift box open with individually wrapped sweets',
+    }],
     isFixedQuantity: true,
     inStock: true,
     deliveryStateCodes: ['TX'],
@@ -160,12 +179,23 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-/**
- * The one product category with counted stock. Pickles are jarred in batches,
- * so they can genuinely run out; sweets and gift boxes are made fresh to order
- * and are always available. See lib/inventory.ts.
- */
+/** Pickles have a hard stock limit; Bobbatlu falls back to made-to-order. */
 export const TRACKED_CATEGORY: ProductCategory = 'pickles';
+export const BOBBATLU_PRODUCT_ID = 'sweet-bobbatlu';
+
+export function isStockTracked(product: Product): boolean {
+  return product.category === TRACKED_CATEGORY || product.id === BOBBATLU_PRODUCT_ID;
+}
+
+/** Jars for pickles; individual pieces for Bobbatlu's variable box sizes. */
+export function stockUnits(productId: string, quantity: number, selectedTier?: number | null): number {
+  return quantity * (productId === BOBBATLU_PRODUCT_ID ? (selectedTier ?? 16) : 1);
+}
+
+export function getBobbatluPieces(items: Array<{ productId: string; quantity: number; selectedTier?: number | null }>): number {
+  return items.filter(item => item.productId === BOBBATLU_PRODUCT_ID)
+    .reduce((sum, item) => sum + stockUnits(item.productId, item.quantity, item.selectedTier), 0);
+}
 
 // ── Pickup Locations ────────────────────────────────────────
 export const PICKUP_LOCATIONS: PickupLocation[] = [

@@ -28,7 +28,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'Are your sweets freshly made?',
     answer:
-      'Yes. Guntur Malpuri and Nellore Malai Khaja are baked fresh every day. Kova and Bobbatlu are baked to order, so please place those orders at least 2 days in advance. Nothing is mass produced or kept in storage.',
+      'Yes. Guntur Malpuri and Nellore Malai Khaja are baked fresh every day. Bobbatlu is available from ready stock; when your order exceeds available stock, please allow 1 day for preparation. Kova is made to order and requires at least 2 days’ notice.',
   },
   {
     question: 'Do you cater sweets for weddings, parties and corporate events?',
@@ -43,7 +43,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'UPS shipping within Texas is a flat $6.99. Shipping to Alabama, Arkansas, Colorado, Louisiana, New Mexico, and Oklahoma is $11.99 below $60 and $8.99 at $60 or more. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. All other contiguous states and Washington, DC require an $80 minimum merchandise subtotal and have a flat $12.99 shipping fee. We use UPS 2nd Day Air for out-of-state orders for faster delivery from Dallas to your destination. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
+      'Pickle-only orders have no minimum order value. Shipping is $6.99 for one jar, $5.99 for two jars, and $4.99 for three or more jars throughout the contiguous United States and Washington, DC. Orders containing sweets, including mixed orders, follow these regional rates: $6.99 within Texas; $11.99 below $60 or $8.99 at $60 or more to Alabama, Arkansas, Colorado, Louisiana, New Mexico, and Oklahoma; and a flat $11.99 with an $80 minimum merchandise subtotal to all other contiguous states and Washington, DC. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. We use UPS 2nd Day Air for out-of-state orders for faster delivery from Dallas to your destination. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
   },
   {
     question: 'Where can I pick up my order?',

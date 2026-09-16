@@ -32,15 +32,20 @@ export const BUSINESS_TZ = 'America/Chicago';
 /** The $60 boundary used by nearby-state shipping. */
 export const STANDARD_SHIPPING_THRESHOLD = 60;
 
-/** Minimum merchandise subtotal accepted for far-state delivery. */
+/** Minimum merchandise subtotal for far-state delivery when sweets are included. */
 export const FAR_SHIPPING_MINIMUM = 80;
 
 /** Flat UPS shipping within Texas. */
 export const SHIPPING_TX = 6.99;
+
+/** Shipping to any supported state for orders containing only pickle jars. */
+export const SHIPPING_PICKLES_SINGLE = 6.99;
+export const SHIPPING_PICKLES_DOUBLE = 5.99;
+export const SHIPPING_PICKLES_THREE_PLUS = 4.99;
 
 /** Shipping rates for the configured nearby-state region. */
 export const SHIPPING_NEARBY_BELOW = 11.99;
 export const SHIPPING_NEARBY_ABOVE = 8.99;
 
 /** Flat shipping for eligible far-state orders. */
-export const SHIPPING_FAR = 12.99;
+export const SHIPPING_FAR = 11.99;

@@ -11,6 +11,9 @@ import {
   STANDARD_SHIPPING_THRESHOLD,
   FAR_SHIPPING_MINIMUM,
   SHIPPING_TX,
+  SHIPPING_PICKLES_SINGLE,
+  SHIPPING_PICKLES_DOUBLE,
+  SHIPPING_PICKLES_THREE_PLUS,
   SHIPPING_NEARBY_BELOW,
   SHIPPING_NEARBY_ABOVE,
   SHIPPING_FAR,
@@ -124,16 +127,17 @@ export function shippingMethodLabel(method: DeliveryShippingMethod | null | unde
   return 'UPS 2nd Day Air';
 }
 
-/** Far-state orders must reach this merchandise subtotal before checkout. */
-export function getDeliveryMinimumSubtotal(state: string | undefined | null): number {
-  return getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
+/** Pickle-only carts have no minimum; other far-state orders require $80. */
+export function getDeliveryMinimumSubtotal(state: string | undefined | null, picklesOnly = false): number {
+  return !picklesOnly && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
 
 export function getDeliveryMinimumShortfall(
   subtotal: number,
-  state: string | undefined | null
+  state: string | undefined | null,
+  picklesOnly = false
 ): number {
-  return roundMoney(Math.max(0, getDeliveryMinimumSubtotal(state) - Math.max(0, subtotal)));
+  return roundMoney(Math.max(0, getDeliveryMinimumSubtotal(state, picklesOnly) - Math.max(0, subtotal)));
 }
 
 export interface OrderTotals {
@@ -146,9 +150,13 @@ export interface OrderTotals {
 /**
  * Break a subtotal into subtotal + tax + shipping + total.
  *
- * Texas: $6.99 flat.
- * Nearby states (AL/AR/CO/LA/NM/OK): $11.99 below $60, otherwise $8.99.
- * Far states: $12.99 flat, with an $80 merchandise minimum enforced by checkout.
+ * Pickle-only, all supported states, no minimum: $6.99 for one jar,
+ * $5.99 for two jars, $4.99 for three or more jars.
+ * Texas sweets and mixed carts: $6.99.
+ * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
+ * taxed when taxable merchandise is present; exempt-only carts have zero tax.
+ * Sweets/mixed in nearby states (AL/AR/CO/LA/NM/OK): $11.99 below $60, otherwise $8.99.
+ * Sweets/mixed in far states: $11.99 flat, with an $80 merchandise minimum.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */
@@ -157,6 +165,8 @@ export function calculateOrderTotals(
   opts: {
     fulfillmentType?: 'pickup' | 'delivery';
     taxableSubtotal?: number;
+    picklesOnly?: boolean;
+    pickleJarCount?: number;
     deliveryState?: string;
     shippingMethod?: DeliveryShippingMethod;
   } = {}
@@ -165,12 +175,15 @@ export function calculateOrderTotals(
   const taxable = roundMoney(
     Math.min(safeSubtotal, Math.max(0, Number(opts.taxableSubtotal ?? safeSubtotal) || 0))
   );
-  const tax = roundMoney(taxable * SALES_TAX_RATE);
 
   let shipping = 0;
   if (opts.fulfillmentType === 'delivery') {
     const zone = getShippingZone(opts.deliveryState);
-    if (zone === 'texas') {
+    if (opts.picklesOnly) {
+      const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
+      shipping = jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
+        : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE;
+    } else if (zone === 'texas') {
       shipping = SHIPPING_TX;
     } else if (zone === 'nearby') {
       shipping = safeSubtotal >= STANDARD_SHIPPING_THRESHOLD
@@ -180,6 +193,10 @@ export function calculateOrderTotals(
       shipping = SHIPPING_FAR;
     }
   }
+
+  const taxableShipping = opts.fulfillmentType === 'delivery' && isTexas(opts.deliveryState) && taxable > 0
+    ? shipping : 0;
+  const tax = roundMoney((taxable + taxableShipping) * SALES_TAX_RATE);
 
   return { subtotal: safeSubtotal, tax, shipping, total: roundMoney(safeSubtotal + tax + shipping) };
 }

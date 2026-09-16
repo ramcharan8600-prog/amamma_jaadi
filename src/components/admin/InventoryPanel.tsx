@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Boxes, Check, Loader2 } from 'lucide-react';
-import { PRODUCTS, TRACKED_CATEGORY } from '@/data/products';
+import { PRODUCTS, isStockTracked, BOBBATLU_PRODUCT_ID } from '@/data/products';
+import { invalidateStock } from '@/hooks/useStock';
 
 /**
- * Admin stock editor for tracked products (pickles).
+ * Admin stock editor for pickle jars and ready-made Bobbatlu pieces.
  * Counts decrement automatically on each paid order; this panel is for
  * restocking and corrections.
  */
@@ -56,6 +57,7 @@ export default function InventoryPanel() {
         return;
       }
       setStock(data.stock ?? {});
+      invalidateStock();
       setSavedId(productId);
       setTimeout(() => setSavedId(null), 1500);
     } catch {
@@ -65,14 +67,14 @@ export default function InventoryPanel() {
     }
   };
 
-  const tracked = PRODUCTS.filter((p) => p.category === TRACKED_CATEGORY);
+  const tracked = PRODUCTS.filter(isStockTracked);
 
   return (
     <div className="card p-6 mb-8">
       <div className="flex items-center gap-2 mb-4">
         <Boxes size={20} className="text-brand-gold" />
         <h2 className="font-display text-lg font-semibold text-brand-charcoal">
-          Inventory — Pickles
+          Inventory — Pickles & Bobbatlu
         </h2>
         <span className="font-body text-xs text-brand-charcoal/40 ml-1">
           counts drop automatically with each paid order
@@ -87,6 +89,7 @@ export default function InventoryPanel() {
         <div className="space-y-2">
           {tracked.map((p) => {
             const current = stock[p.id] ?? 0;
+            const isBobbatlu = p.id === BOBBATLU_PRODUCT_ID;
             const isOut = current <= 0;
             const isLow = current > 0 && current <= 5;
             return (
@@ -96,17 +99,20 @@ export default function InventoryPanel() {
               >
                 <span className="font-body text-sm font-medium text-brand-charcoal flex-1 min-w-[140px]">
                   {p.name}
+                  <span className="block text-xs font-normal text-brand-charcoal/60">
+                    {isBobbatlu ? 'Count individual pieces. Orders beyond stock need 1 day to prepare.' : 'Count jars.'}
+                  </span>
                 </span>
                 <span
                   className={`font-body text-xs px-2 py-0.5 rounded-full ${
-                    isOut
+                    isOut && !isBobbatlu
                       ? 'bg-red-50 text-red-700'
                       : isLow
                         ? 'bg-amber-50 text-amber-700'
                         : 'bg-green-50 text-green-700'
                   }`}
                 >
-                  {isOut ? 'Out of stock' : `${current} in stock`}
+                  {isOut ? (isBobbatlu ? '1-day preparation' : 'Out of stock') : `${current} ${isBobbatlu ? 'pieces ready' : 'in stock'}`}
                 </span>
                 <input
                   type="number"

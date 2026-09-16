@@ -118,7 +118,7 @@ describe('durable payment recovery using real SQLite transactions', () => {
 
   it.each([
     ['stale item price', 39, 0, pickupFulfillment()],
-    ['far-state minimum bypass', 52.99, 12.99, { type: 'delivery', state: 'NY' }],
+    ['far-state minimum bypass', 51.99, 11.99, { type: 'delivery', state: 'NY' }],
     ['invalid delivery state', 46.99, 6.99, { type: 'delivery', state: 'TE' }],
     ['stale shipping rate', 44.99, 4.99, { type: 'delivery', state: 'TX' }],
   ])('closes an unattempted checkout with %s instead of charging it', async (_label, total, shipping, fulfillment) => {
@@ -373,4 +373,71 @@ describe('durable payment recovery using real SQLite transactions', () => {
     expect(execute).not.toHaveBeenCalled();
     expect(attempt()).toBeUndefined();
   });
+});
+
+
+it('rechecks Bobbatlu ready pieces before a first same-day charge', async () => {
+  fixture.sqlite.prepare("UPDATE payment_sessions SET cart_data=?, total_amount=48 WHERE id='test-session'")
+    .run(JSON.stringify([{ productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 16, lineTotal: 48 }]));
+  fixture.sqlite.exec("UPDATE inventory SET stock_count=15 WHERE product_id='sweet-bobbatlu'");
+  const execute = vi.fn();
+  expect(await runPaymentAttempt(fixture.db,
+    { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+    .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+  expect(execute).not.toHaveBeenCalled();
+  expect(attempt()).toBeUndefined();
+});
+
+it.each([[1,6.99,2.14,28.13],[2,5.99,3.63,47.62],[3,4.99,5.11,67.10]])(
+  'accepts the new %s-jar shipping quote before charging', async (quantity,shipping,tax,total) => {
+    fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=?,tax=?,total_amount=?')
+      .run(JSON.stringify([{productId:'pickle-gongura-chicken',quantity,lineTotal:19*quantity}]),
+        JSON.stringify({type:'delivery',state:'TX'}),shipping,tax,total);
+    const execute=vi.fn<(request: SquarePaymentRequest)=>Promise<{paymentId:string;status:string}>>(
+      async ()=>({paymentId:'payment-new-shipping',status:'COMPLETED'}));
+    expect(await runPaymentAttempt(fixture.db,{sessionId:'test-session',sourceId:'test-token'},{execute,finalize}))
+      .toMatchObject({status:'completed'});
+    expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(total*100));
+  });
+
+it('expires an unattempted old pickle shipping quote without sending a charge',async()=>{
+  fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=6,tax=2.06,total_amount=27.06')
+    .run(JSON.stringify([{productId:'pickle-gongura-chicken',quantity:1,lineTotal:19}]),JSON.stringify({type:'delivery',state:'TX'}));
+  const execute=vi.fn();
+  expect(await runPaymentAttempt(fixture.db,{sessionId:'test-session',sourceId:'unused-token'},{execute,finalize}))
+    .toMatchObject({code:'SESSION_EXPIRED'});
+  expect(execute).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['NY', 1, 6.99, 1.57, 27.56],
+  ['NY', 2, 5.99, 3.14, 47.13],
+  ['NY', 3, 4.99, 4.70, 66.69],
+  ['OK', 3, 4.99, 4.70, 66.69],
+] as const)('permits a %s first charge for %s pickle jars below $80', async (state, quantity, shipping, tax, total) => {
+  fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=?,tax=?,total_amount=?')
+    .run(JSON.stringify([{ productId: 'pickle-gongura-chicken', quantity, lineTotal: 19 * quantity }]),
+      JSON.stringify({ type: 'delivery', state }), shipping, tax, total);
+  const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(
+    async () => ({ paymentId: 'payment-national-pickle-shipping', status: 'COMPLETED' }));
+  expect(await runPaymentAttempt(fixture.db,
+    { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
+    .toMatchObject({ status: 'completed' });
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(total * 100));
+});
+
+it('retains the far-state minimum before charging a mixed pickle and sweets order', async () => {
+  fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=11.99,tax=1.57,total_amount=72.56')
+    .run(JSON.stringify([
+      { productId: 'pickle-gongura-chicken', quantity: 1, lineTotal: 19 },
+      { productId: 'sweet-malpuri', quantity: 1, selectedTier: 16, lineTotal: 40 },
+    ]), JSON.stringify({ type: 'delivery', state: 'NY' }));
+  const execute = vi.fn();
+  expect(await runPaymentAttempt(fixture.db,
+    { sessionId: 'test-session', sourceId: 'unused-token' }, { execute, finalize }))
+    .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+  expect(execute).not.toHaveBeenCalled();
+  expect(finalize).not.toHaveBeenCalled();
+  expect(attempt()).toBeUndefined();
 });
