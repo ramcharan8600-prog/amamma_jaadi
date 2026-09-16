@@ -122,3 +122,62 @@ it('distinguishes empty order history from a failed request and displays zero bu
   expect(chart('Orders by Day of Week').querySelectorAll('li')).toHaveLength(7);
   expect([...host.querySelectorAll<HTMLElement>('ul [aria-hidden="true"] > div, ul button > span')].every(bar => bar.style.height === '0px')).toBe(true);
 });
+
+it('shows every pickle product with zero jars and places its full-width chart below monthly revenue', async () => {
+  orderResponse = async () => Response.json({ orders: [] });
+  await unlock();
+  const pickles = chart('Pickle Sales by Product');
+  const bars = [...pickles.querySelectorAll('li')];
+  expect(bars).toHaveLength(4);
+  expect(bars.map(bar => bar.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+    '0 jarsChicken Pickle',
+    '0 jarsGongura Chicken Pickle',
+    '0 jarsMutton Pickle',
+    '0 jarsPrawns Pickle',
+  ]);
+  expect([...pickles.querySelectorAll<HTMLElement>('[aria-hidden="true"] > div')].every(bar => bar.style.height === '0px')).toBe(true);
+  const pickleCard = pickles.closest('.card');
+  const monthlyCard = chart('Monthly Revenue').closest('.card');
+  expect(pickleCard?.parentElement).toBe(monthlyCard?.parentElement?.parentElement);
+  expect(pickleCard?.previousElementSibling).toBe(monthlyCard?.parentElement);
+  expect(pickleCard?.parentElement?.className).not.toContain('grid');
+  expect(pickles.compareDocumentPosition(chart('Orders by Day of Week')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it('counts jars in paid and partially refunded mixed orders without counting tiers, sweets, tests, or unpaid orders', async () => {
+  const item = (product_name: string, quantity: number, selected_tier: number | null = null) => ({
+    product_name, quantity, selected_tier, product_price: 19, line_total: 19 * quantity,
+  });
+  const order = (payment_status: string, order_items: ReturnType<typeof item>[], extra = {}) => ({
+    created_at: '2026-09-15 18:00:00', total_price: 100, refunded_amount: 0,
+    payment_status, order_items, ...extra,
+  });
+  orderResponse = async () => Response.json({ orders: [
+    order('paid', [
+      item('Chicken Pickle', 2, 12), item('Gongura Chicken Pickle', 1),
+      item('Bobbatlu', 2, 16),
+    ]),
+    order('partially_refunded', [
+      item('Chicken Pickle', 1), item('Mutton Pickle', 3), item('Prawns Pickle', 1),
+    ], { refunded_amount: 20 }),
+    order('paid', [item('Chicken Pickle', 99)], { is_test_order: 1 }),
+    order('refunded', [item('Gongura Chicken Pickle', 99)], { refunded_amount: 100 }),
+    order('pending', [item('Mutton Pickle', 99)]),
+  ] });
+  await unlock();
+  const pickles = chart('Pickle Sales by Product');
+  const bars = [...pickles.querySelectorAll('li')];
+  expect(bars).toHaveLength(4);
+  expect(bars.map(bar => bar.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+    '3 jarsChicken Pickle',
+    '1 jarGongura Chicken Pickle',
+    '3 jarsMutton Pickle',
+    '1 jarPrawns Pickle',
+  ]);
+  expect(pickles.textContent).not.toContain('Bobbatlu');
+  const heights = [...pickles.querySelectorAll<HTMLElement>('[aria-hidden="true"] > div')].map(bar => parseFloat(bar.style.height));
+  expect(heights[0]).toBe(128);
+  expect(heights[2]).toBe(128);
+  expect(heights[1]).toBeCloseTo(128 / 3);
+  expect(heights[3]).toBeCloseTo(128 / 3);
+});

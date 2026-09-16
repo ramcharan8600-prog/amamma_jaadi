@@ -33,13 +33,14 @@ function netOrderRevenue(order: OrderRecord): number {
   return Math.max(0, total - refunded);
 }
 
-function AnalyticsBarChart({ label, data, formatValue, barClassName, weekly = false, minimumWidth = 400 }: {
+function AnalyticsBarChart({ label, data, formatValue, barClassName, weekly = false, minimumWidth = 400, wrapLabels = false }: {
   label: string;
   data: { label: string; value: number; rangeLabel?: string }[];
   formatValue: (value: number) => string;
   barClassName: string;
   weekly?: boolean;
   minimumWidth?: number;
+  wrapLabels?: boolean;
 }) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const selected = data[selectedIndex ?? data.length - 1];
@@ -70,7 +71,7 @@ function AnalyticsBarChart({ label, data, formatValue, barClassName, weekly = fa
               <div className={`absolute bottom-0 w-full rounded-t ${barClassName}`}
                 style={{ height: point.value > 0 ? Math.max(4, point.value / maximum * plotHeight) : 0 }} />
             </div>}
-            <span aria-hidden={weekly || undefined} className={`block font-body text-[10px] text-brand-charcoal/60 mt-2 whitespace-nowrap ${weekly && index % 4 !== 0 && index !== data.length - 1 ? 'invisible' : ''} ${weekly && index === data.length - 1 ? 'text-right' : ''} ${weekly && index === 0 ? 'text-left' : ''}`}>
+            <span aria-hidden={weekly || undefined} className={`block font-body text-[10px] text-brand-charcoal/60 mt-2 ${wrapLabels ? 'whitespace-normal break-words' : 'whitespace-nowrap'} ${weekly && index % 4 !== 0 && index !== data.length - 1 ? 'invisible' : ''} ${weekly && index === data.length - 1 ? 'text-right' : ''} ${weekly && index === 0 ? 'text-left' : ''}`}>
               {point.label}
             </span>
           </li>
@@ -160,6 +161,10 @@ export default function AnalyticsPage() {
 
     // Product sales — aggregated from each order's nested order_items rows
     const productMap = new Map<string, { name: string; revenue: number; qty: number }>();
+    // Start with the entire pickle catalog so unsold products still have a zero bar.
+    const pickleSales = PRODUCTS.filter(product => product.category === 'pickles')
+      .map(product => ({ label: product.name, value: 0 }));
+    const pickleByName = new Map(pickleSales.map(product => [product.label.toLowerCase(), product]));
     for (const o of paidOrders) {
       const items = Array.isArray(o.order_items) ? o.order_items : [];
       const grossRevenue = Number(o.total_price) || 0;
@@ -168,6 +173,10 @@ export default function AnalyticsPage() {
         : 0;
       for (const item of items) {
         const key = item.product_name || 'Unknown';
+        const pickle = pickleByName.get(key.trim().toLowerCase());
+        const jars = Number(item.quantity);
+        // Pickles are individual jars, independent of the sweets piece tiers.
+        if (pickle && Number.isSafeInteger(jars) && jars > 0) pickle.value += jars;
         const lineTotal = (Number(item.line_total) || 0) * revenueRatio;
         const pieces = (Number(item.quantity) || 0) * (Number(item.selected_tier) || 1);
         const existing = productMap.get(key);
@@ -204,6 +213,7 @@ export default function AnalyticsPage() {
       monthlyRevenue,
       dayOfWeek,
       categoryRevenue,
+      pickleSales,
     };
   }, [orders]);
 
@@ -366,6 +376,14 @@ export default function AnalyticsPage() {
           <AnalyticsBarChart label="Monthly Revenue" data={analytics.monthlyRevenue}
             formatValue={formatCurrency} barClassName="bg-brand-gold" minimumWidth={720} />
         </div>
+      </div>
+
+      <div className="card p-5 mb-8">
+        <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">Pickle Sales by Product</h3>
+        <p className="font-body text-xs text-brand-charcoal/60 mb-4">Jars sold · Paid and partially refunded orders</p>
+        <AnalyticsBarChart label="Pickle Sales by Product" data={analytics.pickleSales}
+          formatValue={value => `${value} ${value === 1 ? 'jar' : 'jars'}`}
+          barClassName="bg-brand-green/80" wrapLabels />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
