@@ -3,6 +3,7 @@ import { act, createElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import AnalyticsPage from './page';
+import { getSalesTimeSeries } from '@/lib/sales-analytics';
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
@@ -11,6 +12,7 @@ vi.mock('next/link', () => ({ default: ({ children, ...props }: { children: Reac
 let host: HTMLDivElement;
 let root: Root;
 let orderResponse: () => Promise<Response>;
+let revenueResponse: (year: number) => Promise<Response>;
 const orders = [
   { created_at: '2026-09-15 18:00:00', total_price: 100, refunded_amount: 20, payment_status: 'partially_refunded', order_items: [] },
   { created_at: '2026-09-12 18:00:00', total_price: 50, refunded_amount: 0, payment_status: 'paid', order_items: [] },
@@ -20,6 +22,7 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   if (path === '/api/auth') return Response.json({ authenticated: true });
   if (path === '/api/auth/verify-pin') return Response.json({ verified: true });
   if (path === '/api/orders?filter=all') return orderResponse();
+  if (path.startsWith('/api/admin/revenue?year=')) return revenueResponse(Number(path.split('=')[1]));
   throw new Error(`Unexpected request: ${path}`);
 });
 
@@ -29,6 +32,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-09-16T18:00:00Z'));
   vi.stubGlobal('fetch', fetchMock);
   orderResponse = async () => Response.json({ orders });
+  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries(orders, year) });
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -58,9 +62,9 @@ it('renders real values and definite bar heights for all three charts after load
   const weekly = chart('Weekly Revenue');
   expect(weekly.querySelector('button[aria-label*="$80.00"]')).toBeTruthy();
   expect(weekly.querySelector('button[aria-label*="$50.00"]')).toBeTruthy();
-  expect(weekly.querySelectorAll('li')).toHaveLength(52);
+  expect(weekly.querySelectorAll('li')).toHaveLength(27);
   expect(chart('Monthly Revenue').textContent).toContain('$130.00');
-  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(12);
+  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(6);
   const days = chart('Orders by Day of Week');
   expect(days.querySelectorAll('li')).toHaveLength(7);
   expect([...days.querySelectorAll('li')].find(el => el.textContent?.includes('Tue'))?.textContent).toBe('1Tue');
@@ -74,9 +78,9 @@ it('renders real values and definite bar heights for all three charts after load
   expect(fetchMock.mock.calls.every(([input]) => !String(input).includes('/payments'))).toBe(true);
   expect(weekly.closest('.card')?.parentElement).toBe(chart('Monthly Revenue').closest('.card')?.parentElement);
   expect(weekly.closest('.card')?.parentElement?.className).toContain('space-y-6');
-  expect(weekly.style.minWidth).toBe('1248px');
-  expect(host.textContent).toContain('Last 52 weeks');
-  expect(host.textContent).toContain('Last 12 calendar months');
+  expect(weekly.style.minWidth).toBe('648px');
+  expect(host.textContent).toContain('July–December 2026');
+  expect(weekly.querySelector('button')?.getAttribute('aria-label')).toContain('Jul 1, 2026 – Jul 5, 2026');
   const previousWeek = weekly.querySelector<HTMLButtonElement>('button[aria-label*="$50.00"]')!;
   await act(async () => previousWeek.click());
   expect(host.querySelector('[role="status"]')?.textContent).toBe('Sep 7, 2026 – Sep 13, 2026: $50.00');
@@ -115,12 +119,76 @@ it('excludes owner-confirmed production tests from every sales total and chart',
 
 it('distinguishes empty order history from a failed request and displays zero buckets', async () => {
   orderResponse = async () => Response.json({ orders: [] });
+  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries([], year) });
   await unlock();
   expect(host.textContent).toContain('No paid orders to display yet.');
-  expect(chart('Weekly Revenue').querySelectorAll('li')).toHaveLength(52);
-  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(12);
+  expect(chart('Weekly Revenue').querySelectorAll('li')).toHaveLength(27);
+  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(6);
   expect(chart('Orders by Day of Week').querySelectorAll('li')).toHaveLength(7);
   expect([...host.querySelectorAll<HTMLElement>('ul [aria-hidden="true"] > div, ul button > span')].every(bar => bar.style.height === '0px')).toBe(true);
+});
+
+it('switches both revenue charts between the six selectable years without reloading other analytics', async () => {
+  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries([
+    ...orders, { ...orders[0], created_at: '2027-01-02 18:00:00', total_price: 207, refunded_amount: 0 },
+  ], year) });
+  await unlock();
+  const selector = host.querySelector<HTMLSelectElement>('#revenue-year')!;
+  expect(selector.value).toBe('2026');
+  expect([...selector.options].map(option => option.value)).toEqual(['2026', '2027', '2028', '2029', '2030', '2031']);
+  expect(chart('Monthly Revenue').textContent).toContain('Jul 26');
+  expect(chart('Monthly Revenue').textContent).not.toContain('Jun 26');
+  const ordersRequests = fetchMock.mock.calls.filter(([url]) => url === '/api/orders?filter=all').length;
+  await act(async () => {
+    selector.value = '2027';
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(12);
+  expect(chart('Monthly Revenue').textContent).toContain('Jan 27');
+  expect(chart('Monthly Revenue').textContent).toContain('$207.00');
+  expect(chart('Monthly Revenue').textContent).not.toContain('$130.00');
+  expect(chart('Weekly Revenue').querySelectorAll('li')).toHaveLength(53);
+  expect(chart('Weekly Revenue').querySelector('button')?.getAttribute('aria-label')).toContain('Jan 1, 2027 – Jan 3, 2027: $207.00');
+  expect(fetchMock.mock.calls.filter(([url]) => url === '/api/orders?filter=all')).toHaveLength(ordersRequests);
+  await act(async () => {
+    selector.value = '2026';
+    selector.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(6);
+  expect(chart('Monthly Revenue').textContent).toContain('$130.00');
+});
+
+it('ignores a slow response for a previously selected year', async () => {
+  let resolvePrevious!: (response: Response) => void;
+  revenueResponse = async year => year === 2027
+    ? new Promise<Response>(resolve => { resolvePrevious = resolve; })
+    : Response.json({ year, ...getSalesTimeSeries([], year) });
+  await unlock();
+  const selector = host.querySelector<HTMLSelectElement>('#revenue-year')!;
+  await act(async () => {
+    selector.value = '2027'; selector.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(host.textContent).toContain('Loading 2027 revenue');
+  expect(host.querySelector('ul[aria-label="Monthly Revenue"]')).toBeNull();
+  await act(async () => {
+    selector.value = '2028'; selector.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await act(async () => resolvePrevious(Response.json({ year: 2027, ...getSalesTimeSeries(orders, 2027) })));
+  expect(chart('Monthly Revenue').textContent).toContain('Jan 28');
+  expect(chart('Monthly Revenue').textContent).not.toContain('Jan 27');
+  expect(host.textContent).not.toContain('Loading 2027 revenue');
+});
+
+it('lets a failed yearly revenue request retry without hiding the product charts', async () => {
+  revenueResponse = async () => Response.json({ error: 'Unavailable' }, { status: 500 });
+  await unlock();
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('Unable to load revenue for this year');
+  expect(chart('Pickle Sales by Product')).toBeTruthy();
+  expect(host.querySelector('ul[aria-label="Monthly Revenue"]')).toBeNull();
+  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries(orders, year) });
+  await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Retry revenue')!.click());
+  expect(chart('Monthly Revenue').textContent).toContain('$130.00');
+  expect(host.querySelector('[role="alert"]')).toBeNull();
 });
 
 it('shows every pickle product with zero jars and places its full-width chart below monthly revenue', async () => {

@@ -1,4 +1,4 @@
-import { d1TimestampToBusinessDate, toBusinessDateString } from '@/lib/date';
+import { d1TimestampToBusinessDate } from '@/lib/date';
 import type { OrderRecord } from '@/types';
 
 type SalesOrder = Pick<
@@ -8,8 +8,7 @@ type SalesOrder = Pick<
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
-const DISPLAYED_WEEKS = 52;
-const DISPLAYED_MONTHS = 12;
+export const REVENUE_YEARS = [2026, 2027, 2028, 2029, 2030, 2031] as const;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short', day: 'numeric', timeZone: 'UTC',
@@ -34,15 +33,25 @@ function netRevenueCents(order: SalesOrder): number {
   return Math.max(0, Math.round(total * 100) - Math.round(refund * 100));
 }
 
-/** Revenue periods and order weekdays based on the store's Central calendar. */
-export function getSalesTimeSeries(orders: readonly SalesOrder[], now = new Date()) {
-  const today = calendarDate(toBusinessDateString(now));
-  const currentMonday = today.getTime() - ((today.getUTCDay() + 6) % 7) * DAY_MS;
-  const firstMonday = currentMonday - (DISPLAYED_WEEKS - 1) * WEEK_MS;
+/** Selected-year revenue and all-history weekdays in the store's Central calendar. */
+export function getSalesTimeSeries(orders: readonly SalesOrder[], year: number) {
+  if (!REVENUE_YEARS.some((supportedYear) => supportedYear === year)) {
+    throw new RangeError('Revenue year must be between 2026 and 2031.');
+  }
 
-  const weeklyRevenue = Array.from({ length: DISPLAYED_WEEKS }, (_, index) => {
-    const start = new Date(firstMonday + index * WEEK_MS);
-    const end = new Date(start.getTime() + 6 * DAY_MS);
+  // Revenue reporting begins in July 2026. Later years show
+  // January through December, including empty periods and partial edge weeks.
+  const firstMonth = year === 2026 ? 6 : 0;
+  const rangeStart = new Date(Date.UTC(year, firstMonth, 1));
+  const rangeStartMs = rangeStart.getTime();
+  const rangeEndMs = Date.UTC(year + 1, 0, 1);
+  const firstMonday = rangeStartMs - ((rangeStart.getUTCDay() + 6) % 7) * DAY_MS;
+  const weekCount = Math.ceil((rangeEndMs - firstMonday) / WEEK_MS);
+
+  const weeklyRevenue = Array.from({ length: weekCount }, (_, index) => {
+    const monday = firstMonday + index * WEEK_MS;
+    const start = new Date(Math.max(monday, rangeStartMs));
+    const end = new Date(Math.min(monday + 6 * DAY_MS, rangeEndMs - DAY_MS));
     return {
       label: shortDateFormatter.format(start),
       rangeLabel: `${fullDateFormatter.format(start)} – ${fullDateFormatter.format(end)}`,
@@ -50,14 +59,8 @@ export function getSalesTimeSeries(orders: readonly SalesOrder[], now = new Date
     };
   });
 
-  const firstMonth = new Date(Date.UTC(
-    today.getUTCFullYear(), today.getUTCMonth() - (DISPLAYED_MONTHS - 1), 1
-  ));
-  const firstMonthNumber = firstMonth.getUTCFullYear() * 12 + firstMonth.getUTCMonth();
-  const monthlyRevenue = Array.from({ length: DISPLAYED_MONTHS }, (_, index) => ({
-    label: monthFormatter.format(new Date(Date.UTC(
-      firstMonth.getUTCFullYear(), firstMonth.getUTCMonth() + index, 1
-    ))),
+  const monthlyRevenue = Array.from({ length: 12 - firstMonth }, (_, index) => ({
+    label: monthFormatter.format(new Date(Date.UTC(year, firstMonth + index, 1))),
     value: 0,
   }));
   const dayOfWeek = DAY_NAMES.map((day) => ({ day, orders: 0 }));
@@ -68,18 +71,15 @@ export function getSalesTimeSeries(orders: readonly SalesOrder[], now = new Date
     const ymd = d1TimestampToBusinessDate(order.created_at);
     if (!ymd) continue;
     const date = calendarDate(ymd);
-    const revenue = netRevenueCents(order);
-
-    const weekIndex = Math.floor((date.getTime() - firstMonday) / WEEK_MS);
-    if (weekIndex >= 0 && weekIndex < weeklyRevenue.length) {
-      weeklyRevenue[weekIndex].value += revenue;
-    }
-
-    const monthIndex = date.getUTCFullYear() * 12 + date.getUTCMonth() - firstMonthNumber;
-    if (monthIndex >= 0 && monthIndex < monthlyRevenue.length) {
-      monthlyRevenue[monthIndex].value += revenue;
-    }
     dayOfWeek[date.getUTCDay()].orders += 1;
+
+    const dateMs = date.getTime();
+    if (dateMs < rangeStartMs || dateMs >= rangeEndMs) continue;
+
+    const revenue = netRevenueCents(order);
+    const weekIndex = Math.floor((dateMs - firstMonday) / WEEK_MS);
+    weeklyRevenue[weekIndex].value += revenue;
+    monthlyRevenue[date.getUTCMonth() - firstMonth].value += revenue;
   }
 
   return {

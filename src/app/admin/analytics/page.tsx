@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { PRODUCTS } from '@/data/products';
-import { getSalesTimeSeries } from '@/lib/sales-analytics';
+import { getSalesTimeSeries, REVENUE_YEARS } from '@/lib/sales-analytics';
+import { toBusinessDateString } from '@/lib/date';
 import type { OrderRecord } from '@/types';
 
 /**
@@ -93,6 +94,16 @@ export default function AnalyticsPage() {
   const [pinVerified, setPinVerified] = useState(false);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
+  const [revenueYear, setRevenueYear] = useState(() => Math.min(2031, Math.max(2026,
+    Number(toBusinessDateString(new Date()).slice(0, 4)))));
+  const [revenueSeries, setRevenueSeries] = useState<{
+    year: number;
+    weeklyRevenue: ReturnType<typeof getSalesTimeSeries>['weeklyRevenue'];
+    monthlyRevenue: ReturnType<typeof getSalesTimeSeries>['monthlyRevenue'];
+  } | null>(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [revenueError, setRevenueError] = useState('');
+  const [revenueAttempt, setRevenueAttempt] = useState(0);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -152,6 +163,33 @@ export default function AnalyticsPage() {
     return () => controller.abort();
   }, [authed, pinVerified, loadAttempt]);
 
+  useEffect(() => {
+    if (!authed || !pinVerified) return;
+    const controller = new AbortController();
+    setRevenueLoading(true);
+    setRevenueError('');
+    setRevenueSeries(null);
+    const fetchRevenue = async () => {
+      try {
+        const response = await fetch(`/api/admin/revenue?year=${revenueYear}`, {
+          cache: 'no-store', signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('Revenue request failed');
+        const data = await response.json();
+        if (data.year !== revenueYear || !Array.isArray(data.weeklyRevenue) || !Array.isArray(data.monthlyRevenue)) {
+          throw new Error('Invalid revenue response');
+        }
+        if (!controller.signal.aborted) setRevenueSeries(data);
+      } catch {
+        if (!controller.signal.aborted) setRevenueError('Unable to load revenue for this year. Please try again.');
+      } finally {
+        if (!controller.signal.aborted) setRevenueLoading(false);
+      }
+    };
+    fetchRevenue();
+    return () => controller.abort();
+  }, [authed, pinVerified, revenueYear, revenueAttempt]);
+
   const analytics = useMemo(() => {
     // Partial refunds remain real orders, but revenue should reflect only the
     // amount the business retained. Fully refunded orders are excluded.
@@ -193,7 +231,8 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.revenue - a.revenue)
       .map((p) => ({ ...p, category: categoryForProduct(p.name), trend: p.revenue > 50 ? 'up' : p.revenue > 20 ? 'stable' : 'down' }));
 
-    const { weeklyRevenue, monthlyRevenue, dayOfWeek } = getSalesTimeSeries(paidOrders);
+    // Weekday counts remain across the loaded order history; only revenue charts use the year selector.
+    const { dayOfWeek } = getSalesTimeSeries(paidOrders, 2026);
 
     // Category revenue
     const catMap = new Map<string, number>();
@@ -209,8 +248,6 @@ export default function AnalyticsPage() {
       totalRevenue: paidOrders.reduce((s, o) => s + netOrderRevenue(o), 0),
       totalOrders: paidOrders.length,
       productSales,
-      weeklyRevenue,
-      monthlyRevenue,
       dayOfWeek,
       categoryRevenue,
       pickleSales,
@@ -357,14 +394,30 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="space-y-6 mb-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <label htmlFor="revenue-year" className="font-body text-sm font-medium text-brand-charcoal">
+            Revenue year
+            <select id="revenue-year" className="input-field block mt-2 w-36" value={revenueYear}
+              onChange={event => setRevenueYear(Number(event.target.value))}>
+              {REVENUE_YEARS.map(year => <option key={year} value={year}>{year}</option>)}
+            </select>
+          </label>
+          <p className="font-body text-xs text-brand-charcoal/60">2026 starts in July. Later years show January–December.</p>
+        </div>
+        {revenueLoading && <p role="status" className="font-body text-sm text-brand-charcoal/60">Loading {revenueYear} revenue…</p>}
+        {revenueError && <div className="space-y-3">
+          <p role="alert" className="font-body text-sm text-red-700">{revenueError}</p>
+          <button className="btn-secondary text-sm" onClick={() => setRevenueAttempt(attempt => attempt + 1)}>Retry revenue</button>
+        </div>}
+        {revenueSeries?.year === revenueYear && <>
         {/* Weekly Revenue */}
         <div className="card p-5">
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Weekly Revenue
           </h3>
-          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Last 52 weeks · Monday–Sunday · US Central time</p>
-          <AnalyticsBarChart label="Weekly Revenue" data={analytics.weeklyRevenue}
-            formatValue={formatCurrency} barClassName="bg-brand-maroon/80" weekly minimumWidth={1248} />
+          <p className="font-body text-xs text-brand-charcoal/60 mb-4">{revenueYear === 2026 ? 'July–December' : 'January–December'} {revenueYear} · Monday–Sunday · US Central time · Boundary weeks show only dates within this period.</p>
+          <AnalyticsBarChart key={revenueYear} label="Weekly Revenue" data={revenueSeries.weeklyRevenue}
+            formatValue={formatCurrency} barClassName="bg-brand-maroon/80" weekly minimumWidth={Math.max(640, revenueSeries.weeklyRevenue.length * 24)} />
         </div>
 
         {/* Monthly Revenue */}
@@ -372,10 +425,11 @@ export default function AnalyticsPage() {
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Monthly Revenue
           </h3>
-          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Last 12 calendar months · US Central time</p>
-          <AnalyticsBarChart label="Monthly Revenue" data={analytics.monthlyRevenue}
-            formatValue={formatCurrency} barClassName="bg-brand-gold" minimumWidth={720} />
+          <p className="font-body text-xs text-brand-charcoal/60 mb-4">{revenueYear === 2026 ? 'July–December' : 'January–December'} {revenueYear} · US Central time</p>
+          <AnalyticsBarChart label="Monthly Revenue" data={revenueSeries.monthlyRevenue}
+            formatValue={formatCurrency} barClassName="bg-brand-gold" minimumWidth={Math.max(400, revenueSeries.monthlyRevenue.length * 60)} />
         </div>
+        </>}
       </div>
 
       <div className="card p-5 mb-8">
