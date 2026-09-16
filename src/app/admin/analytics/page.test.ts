@@ -89,6 +89,21 @@ it.each(['http', 'network', 'invalid'] as const)('shows a retryable error instea
   expect(host.querySelector('[role="alert"]')).toBeNull();
 });
 
+it('excludes owner-confirmed production tests from every sales total and chart', async () => {
+  orderResponse = async () => Response.json({ orders: [...orders, {
+    created_at: '2026-09-15 18:00:00', total_price: 88.77, refunded_amount: 0,
+    payment_status: 'paid', is_test_order: 1,
+    order_items: [{ product_name: 'Dummy pickle', line_total: 82, quantity: 1 }],
+  }] });
+  await unlock();
+  expect(chart('Monthly Revenue').textContent).toContain('$130.00');
+  expect(chart('Weekly Revenue').textContent).toContain('$80.00');
+  expect([...chart('Orders by Day of Week').querySelectorAll('li')].find(el => el.textContent?.includes('Tue'))?.textContent).toBe('1Tue');
+  expect(host.textContent).not.toContain('Dummy pickle');
+  expect(host.textContent).not.toContain('$218.77');
+  expect(host.textContent).toContain('Owner-confirmed test orders are excluded');
+});
+
 it('distinguishes empty order history from a failed request and displays zero buckets', async () => {
   orderResponse = async () => Response.json({ orders: [] });
   await unlock();

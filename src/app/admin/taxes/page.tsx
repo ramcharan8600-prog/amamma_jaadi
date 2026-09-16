@@ -84,6 +84,10 @@ export default function TaxRecordsPage() {
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {report && s && <>
       {report.environment === 'sandbox' && <p className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 mb-5 font-semibold">Sandbox test records — do not use these amounts for filing.</p>}
+      {report.reportingExclusions.length > 0 && <p className="text-sm text-brand-charcoal/70 mb-5">
+        {report.reportingExclusions.length} owner-confirmed test order(s) excluded from tax reports across all dates: {report.reportingExclusions.map(order => order.order_number).join(', ')}.
+        {' '}Original order records are preserved. Exclusion details are included in the Quarter summary CSV.
+      </p>}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
           ['Sales tax collected', money(s.collectedTaxCents)], ['Allocated tax refunds', money(s.allocatedRefundTaxCents)],
@@ -99,17 +103,13 @@ export default function TaxRecordsPage() {
         {[['transactions', 'Transactions CSV'], ['items', 'Product details CSV'], ['summary', 'Quarter summary CSV'], ['refund-history', 'Refund audit CSV']].map(([view, label]) =>
           <a key={view} href={download(view)} className="btn-secondary text-xs"><Download size={14} /> {label}</a>)}
       </div>
-      <div className="grid md:grid-cols-2 gap-5 mb-7">
+      <div className="mb-7">
         <div className="card p-4"><h2 className="font-semibold mb-3">Recorded sales breakdown</h2>
           <dl className="space-y-2 text-sm">{[
             ['Taxable products', s.taxableMerchandiseCents], ['Exempt products', s.exemptMerchandiseCents],
             ['Shipping charged', s.shippingCents], ['Taxable portion of shipping', s.taxableShippingCents],
             ['Customer payments including tax', s.grossReceiptsCents], ['Customer refunds including tax', s.refundCents],
           ].map(([label, amount]) => <div key={label} className="flex justify-between gap-3"><dt>{label}</dt><dd>{money(Number(amount))}</dd></div>)}</dl>
-        </div>
-        <div className="card p-4"><h2 className="font-semibold mb-3">Collections by destination state</h2>
-          <p className="text-xs text-brand-charcoal/60 mb-2">Destination grouping; not a city or county tax allocation.</p>
-          {report.byState.map(state => <div key={state.state} className="flex justify-between gap-3 text-sm py-1"><span>{state.state}</span><span>{money(state.taxCollectedCents)} collected · {money(state.taxRefundedCents)} refunded</span></div>)}
         </div>
       </div>
       <h2 className="font-semibold mb-3">Transactions · Q{quarter} {year}</h2>

@@ -44,6 +44,10 @@ function legacy(id: string, created = '2026-08-01 18:00:00', tax = 0) {
     VALUES (?,?, 'Test', '555', 'delivery',36.99,?,?, 'paid',?)`).run(id, `AJ-${id}`, tax, `oldpay-${id}`, created);
   f.sqlite.prepare(`INSERT INTO order_items (id,order_id,product_name,quantity,product_price,line_total) VALUES (?,?, 'Baked sweets',1,30,30)`).run(`item-${id}`, id);
 }
+function excludeTestOrder(orderId: string) {
+  f.sqlite.prepare(`INSERT INTO order_reporting_exclusions (order_id,reason,recorded_by,recorded_at)
+    VALUES (?, 'Owner-confirmed production test order', 'owner_confirmation', '2026-09-16 18:00:00')`).run(orderId);
+}
 
 describe('historical tax records', () => {
   it('saves the charged base, classifications, destination and policy atomically and only once', async () => {
@@ -110,6 +114,62 @@ describe('historical tax records', () => {
       taxableShippingCents: 699, taxCents: 214, reviewReason: null,
     });
     expect(buildTaxSnapshot(cart.items, totals, { type: 'delivery', state: 'OK' }, 'sandbox').reviewReason).toContain('Out-of-state');
+  });
+});
+
+describe('owner-confirmed test order reporting exclusions', () => {
+  it('removes the $9.25 test tax from reports without changing original payment or tax records', async () => {
+    legacy('1005', undefined, 2.48); legacy('1006', undefined, 6.77); legacy('customer');
+    const original = f.sqlite.prepare('SELECT * FROM orders ORDER BY id').all();
+    expect((await getTaxReport(f.db, 2026, 3, 'production')).summary.collectedTaxCents).toBe(925);
+    excludeTestOrder('1005'); excludeTestOrder('1006');
+    const report = await getTaxReport(f.db, 2026, 3, 'production');
+    expect(report.summary).toMatchObject({ salesCount: 1, collectedTaxCents: 0, netRecordedTaxCents: 0 });
+    expect(report.rows.map(row => row.order_number)).toEqual(['AJ-customer']);
+    expect(report.reportingExclusions).toEqual([
+      { order_id: '1005', order_number: 'AJ-1005', reason: 'Owner-confirmed production test order',
+        recorded_by: 'owner_confirmation', recorded_at: '2026-09-16 18:00:00' },
+      { order_id: '1006', order_number: 'AJ-1006', reason: 'Owner-confirmed production test order',
+        recorded_by: 'owner_confirmation', recorded_at: '2026-09-16 18:00:00' },
+    ]);
+    expect(f.sqlite.prepare('SELECT * FROM orders ORDER BY id').all()).toEqual(original);
+    expect(f.sqlite.prepare('SELECT COUNT(*) n FROM order_refunds').get()?.n).toBe(0);
+    expect(taxReportCsv(report, 'transactions')).not.toContain('AJ-1005');
+    expect(taxReportCsv(report, 'items')).not.toContain('AJ-1006');
+    const summary = taxReportCsv(report, 'summary');
+    expect(summary).toContain('Excluded test orders (all dates)');
+    expect(summary).toContain('Excluded test order AJ-1005: reason');
+    expect(summary).toContain('Owner-confirmed production test order');
+    expect(summary).toContain('owner_confirmation');
+    expect(summary).toContain('2026-09-16 18:00:00');
+  });
+
+  it('excludes test refunds and their allocation history without creating negative customer tax', async () => {
+    const { result } = await sale();
+    excludeTestOrder(result!.orderId);
+    await refund('full-test-refund', 5813, 5813);
+    const q3 = await getTaxReport(f.db, 2026, 3, 'production');
+    const q4 = await getTaxReport(f.db, 2026, 4, 'production');
+    expect(q3.summary).toMatchObject({ collectedTaxCents: 0, netRecordedTaxCents: 0 });
+    expect(q4.summary).toMatchObject({ refundCount: 0, allocatedRefundTaxCents: 0, netRecordedTaxCents: 0 });
+    expect(q4.rows).toEqual([]);
+    expect(q4.allocationHistory).toEqual([]);
+    expect(q4.byState).toEqual([]);
+    expect(taxReportCsv(q4, 'refund-history')).not.toContain('full-test-refund');
+    expect(f.sqlite.prepare('SELECT COUNT(*) n FROM order_refunds').get()?.n).toBe(1);
+    expect(f.sqlite.prepare('SELECT COUNT(*) n FROM refund_allocations').get()?.n).toBe(1);
+    expect(f.sqlite.prepare('SELECT tax,refunded_amount FROM orders').get()).toEqual({ tax: 2.14, refunded_amount: 58.13 });
+  });
+
+  it('filters only flagged refund gaps and keeps later unflagged pickle sales taxable', async () => {
+    legacy('test-gap', undefined, 2.48); legacy('customer-gap');
+    f.sqlite.exec("UPDATE orders SET payment_status='partially_refunded',refunded_amount=10");
+    excludeTestOrder('test-gap');
+    await sale('future-customer', '2026-09-17T18:00:00Z');
+    const report = await getTaxReport(f.db, 2026, 3, 'production');
+    expect(report.summary).toMatchObject({ salesCount: 2, collectedTaxCents: 214, netRecordedTaxCents: 214 });
+    expect(report.refundGaps.map(gap => gap.order_id)).toEqual(['customer-gap']);
+    expect(report.rows.find(row => row.square_payment_id === 'pay-future-customer')).toMatchObject({ tax_cents: 214 });
   });
 });
 

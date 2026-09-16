@@ -605,6 +605,7 @@ export default function AdminDashboardPage() {
                   >
                     <td className="py-3 px-2 font-body text-xs font-medium text-brand-maroon">
                       {order.order_number}
+                      {!!order.is_test_order && <span className="block mt-1 text-brand-charcoal/60">Test order · excluded from reports</span>}
                     </td>
                     <td className="py-3 px-2 font-body text-xs">
                       {order.customer_name || '—'}

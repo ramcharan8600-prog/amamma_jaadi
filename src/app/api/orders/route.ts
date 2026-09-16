@@ -127,7 +127,9 @@ export async function GET(request: NextRequest) {
     }
 
     const ordersRes = await db
-      .prepare(`SELECT * FROM orders WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 200`)
+      .prepare(`SELECT orders.*, EXISTS (
+        SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = orders.id
+      ) AS is_test_order FROM orders WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 200`)
       .bind(...binds)
       .all<Record<string, unknown>>();
     const orders = ordersRes.results ?? [];

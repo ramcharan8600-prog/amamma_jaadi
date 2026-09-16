@@ -145,6 +145,8 @@ export interface OrderRecord {
   tax?: number;
   status: string;
   payment_status: string;
+  /** Owner-confirmed production tests remain visible in history, outside reporting totals. */
+  is_test_order?: number;
   refunded_amount: number;
   shipment_status: ShipmentStatus;
   tracking_id: string | null;

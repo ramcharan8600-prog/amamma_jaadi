@@ -138,7 +138,7 @@ export default function AnalyticsPage() {
     // Partial refunds remain real orders, but revenue should reflect only the
     // amount the business retained. Fully refunded orders are excluded.
     const paidOrders = orders.filter((o) =>
-      ['paid', 'partially_refunded'].includes(o.payment_status)
+      !o.is_test_order && ['paid', 'partially_refunded'].includes(o.payment_status)
     );
 
     // Product sales — aggregated from each order's nested order_items rows
@@ -290,6 +290,9 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      {orders.some(order => order.is_test_order) && (
+        <p className="font-body text-sm text-brand-charcoal/60 mb-6">Owner-confirmed test orders are excluded from all sales totals and charts.</p>
+      )}
       {analytics.totalOrders === 0 && (
         <p className="font-body text-sm text-brand-charcoal/60 mb-6">No paid orders to display yet.</p>
       )}

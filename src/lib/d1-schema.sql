@@ -264,3 +264,11 @@ BEGIN SELECT RAISE(ABORT, 'Append a refund allocation correction instead'); END;
 
 -- Ready-made Bobbatlu is counted in pieces; zero falls back to 1-day preparation.
 INSERT OR IGNORE INTO inventory (product_id, stock_count) VALUES ('sweet-bobbatlu', 0);
+
+-- Owner-confirmed tests stay in order history but are excluded from sales/tax reports.
+CREATE TABLE IF NOT EXISTS order_reporting_exclusions (
+  order_id TEXT PRIMARY KEY REFERENCES orders(id),
+  reason TEXT NOT NULL,
+  recorded_by TEXT NOT NULL,
+  recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

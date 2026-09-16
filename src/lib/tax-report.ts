@@ -35,6 +35,9 @@ export interface RefundGap {
   order_id: string; order_number: string; square_payment_id: string;
   refunded_cents: number; recorded_refunds_cents: number;
 }
+export interface ReportingExclusion {
+  order_id: string; order_number: string; reason: string; recorded_by: string; recorded_at: string;
+}
 export interface TaxReportSummary {
   salesCount: number; refundCount: number; collectedTaxCents: number;
   allocatedRefundTaxCents: number; netRecordedTaxCents: number;
@@ -49,6 +52,8 @@ export interface TaxReport {
   generatedAt: string; rows: TaxReportRow[]; summary: TaxReportSummary;
   refundGaps: RefundGap[]; byState: Array<{ state: string; taxCollectedCents: number; taxRefundedCents: number }>;
   allocationHistory: Array<Record<string, unknown>>;
+  // Global audit list; exclusions apply regardless of the selected quarter.
+  reportingExclusions: ReportingExclusion[];
 }
 
 export function quarterRange(year: number, quarter: number) {
@@ -78,7 +83,7 @@ function rowIssues(row: TaxReportRow): string[] {
 export async function getTaxReport(db: D1Database, year: number, quarter: number, environment: string): Promise<TaxReport> {
   const { start, end } = quarterRange(year, quarter);
   const paidDate = 'COALESCE(t.paid_at, p.paid_at, o.created_at)';
-  const [sales, refunds, gaps, history] = await db.batch([
+  const [sales, refunds, gaps, history, exclusions] = await db.batch([
     db.prepare(`SELECT o.id AS event_id, 'sale' AS event_type, o.id AS order_id, o.order_number,
       o.square_payment_id, ${paidDate} AS occurred_at,
       COALESCE(t.date_source, p.date_source, 'legacy_order_created_at') AS date_source,
@@ -92,6 +97,7 @@ export async function getTaxReport(db: D1Database, year: number, quarter: number
       FROM orders o LEFT JOIN order_tax_records t ON t.order_id = o.id
       LEFT JOIN payment_receipts p ON p.square_payment_id = o.square_payment_id
       WHERE o.payment_status IN ('paid', 'partially_refunded', 'refunded')
+        AND NOT EXISTS (SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = o.id)
         AND ${paidDate} >= ? AND ${paidDate} < ? ORDER BY occurred_at, o.id`).bind(environment, start, end),
     db.prepare(`SELECT r.square_refund_id AS event_id, 'refund' AS event_type, o.id AS order_id,
       o.order_number, o.square_payment_id, r.refunded_at AS occurred_at, r.date_source,
@@ -104,18 +110,26 @@ export async function getTaxReport(db: D1Database, year: number, quarter: number
       FROM order_refunds r JOIN orders o ON o.id = r.order_id
       LEFT JOIN order_tax_records t ON t.order_id = o.id
       LEFT JOIN refund_allocations a ON a.id = (SELECT MAX(id) FROM refund_allocations WHERE square_refund_id = r.square_refund_id)
-      WHERE r.refunded_at >= ? AND r.refunded_at < ? ORDER BY r.refunded_at, r.square_refund_id`).bind(environment, start, end),
+      WHERE r.refunded_at >= ? AND r.refunded_at < ?
+        AND NOT EXISTS (SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = o.id)
+      ORDER BY r.refunded_at, r.square_refund_id`).bind(environment, start, end),
     // Unknown historical refunds cannot honestly be assigned to a quarter.
     db.prepare(`SELECT o.id AS order_id, o.order_number, o.square_payment_id,
       CAST(ROUND(o.refunded_amount * 100) AS INTEGER) AS refunded_cents,
       COALESCE(SUM(r.amount_cents), 0) AS recorded_refunds_cents
       FROM orders o LEFT JOIN order_refunds r ON r.order_id = o.id
-      WHERE o.refunded_amount > 0 GROUP BY o.id
+      WHERE o.refunded_amount > 0
+        AND NOT EXISTS (SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = o.id)
+      GROUP BY o.id
       HAVING CAST(ROUND(o.refunded_amount * 100) AS INTEGER) <> COALESCE(SUM(r.amount_cents), 0)`),
     db.prepare(`SELECT a.*, r.order_id, r.refunded_at, o.order_number
       FROM refund_allocations a JOIN order_refunds r ON r.square_refund_id = a.square_refund_id
       JOIN orders o ON o.id = r.order_id WHERE r.refunded_at >= ? AND r.refunded_at < ?
+        AND NOT EXISTS (SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = o.id)
       ORDER BY a.id`).bind(start, end),
+    db.prepare(`SELECT x.order_id, o.order_number, x.reason, x.recorded_by, x.recorded_at
+      FROM order_reporting_exclusions x JOIN orders o ON o.id = x.order_id
+      ORDER BY x.recorded_at, o.order_number`),
   ]);
   const rows = [...sales.results, ...refunds.results] as unknown as TaxReportRow[];
   for (const row of rows) row.issues = rowIssues(row);
@@ -160,6 +174,7 @@ export async function getTaxReport(db: D1Database, year: number, quarter: number
     refundGaps: gaps.results as unknown as RefundGap[],
     byState: Array.from(states.values()).sort((a, b) => a.state.localeCompare(b.state)),
     allocationHistory: history.results as Record<string, unknown>[],
+    reportingExclusions: exclusions.results as unknown as ReportingExclusion[],
   };
 }
 
@@ -180,6 +195,13 @@ export function taxReportCsv(report: TaxReport, view: 'transactions' | 'items' |
         report.environment, key.endsWith('Cents') ? key.replace(/Cents$/, ' (USD)') : key,
         key.endsWith('Cents') ? value / 100 : value]),
       [report.year, report.quarter, report.timeZone, report.environment, 'Unreconciled refund orders (all dates)', report.refundGaps.length],
+      [report.year, report.quarter, report.timeZone, report.environment, 'Excluded test orders (all dates)', report.reportingExclusions.length],
+      ...report.reportingExclusions.flatMap(exclusion => [
+        [report.year, report.quarter, report.timeZone, report.environment, `Excluded test order ${exclusion.order_number}: reason`, exclusion.reason],
+        [report.year, report.quarter, report.timeZone, report.environment, `Excluded test order ${exclusion.order_number}: order ID`, exclusion.order_id],
+        [report.year, report.quarter, report.timeZone, report.environment, `Excluded test order ${exclusion.order_number}: recorded by`, exclusion.recorded_by],
+        [report.year, report.quarter, report.timeZone, report.environment, `Excluded test order ${exclusion.order_number}: recorded at (UTC)`, exclusion.recorded_at],
+      ]),
       [report.year, report.quarter, report.timeZone, report.environment, 'Scope', 'Website records only; not a completed tax return. Missing breakdowns excluded from component totals.'],
     ]);
   }
