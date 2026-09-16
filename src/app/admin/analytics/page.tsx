@@ -33,34 +33,51 @@ function netOrderRevenue(order: OrderRecord): number {
   return Math.max(0, total - refunded);
 }
 
-function AnalyticsBarChart({ label, data, formatValue, barClassName }: {
+function AnalyticsBarChart({ label, data, formatValue, barClassName, weekly = false, minimumWidth = 400 }: {
   label: string;
   data: { label: string; value: number; rangeLabel?: string }[];
   formatValue: (value: number) => string;
   barClassName: string;
+  weekly?: boolean;
+  minimumWidth?: number;
 }) {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const selected = data[selectedIndex ?? data.length - 1];
   const maximum = Math.max(...data.map(point => point.value), 1);
   const plotHeight = 128;
   return (
-    <div className="overflow-x-auto">
-      <ul aria-label={label} className="flex gap-2 min-w-[400px]">
-        {data.map(point => (
+    <>
+      {weekly && selected && <div className="flex flex-wrap justify-between gap-2 mb-3 font-body text-xs">
+        <p role="status" aria-live="polite" className="text-brand-charcoal">
+          {selected.rangeLabel ?? selected.label}: <strong>{formatValue(selected.value)}</strong>
+        </p>
+        <p className="text-brand-charcoal/60">Hover or select a week for details. Scroll to see more on smaller screens.</p>
+      </div>}
+      <div className="overflow-x-auto">
+      <ul aria-label={label} className={`flex ${weekly ? 'gap-1' : 'gap-2'}`} style={{ minWidth: minimumWidth }}>
+        {data.map((point, index) => (
           <li key={point.label} className="min-w-0 flex-1 text-center"
             title={`${point.rangeLabel ?? point.label}: ${formatValue(point.value)}`}>
-            <span className="block font-body text-[10px] font-medium text-brand-charcoal mb-2 whitespace-nowrap">
+            {!weekly && <span className="block font-body text-[10px] font-medium text-brand-charcoal mb-2 whitespace-nowrap">
               {formatValue(point.value)}
-            </span>
-            <div aria-hidden="true" className="relative w-full border-b border-brand-cream-dark" style={{ height: plotHeight }}>
+            </span>}
+            {weekly ? <button type="button" className="relative block w-full border-b border-brand-cream-dark rounded-t focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-maroon hover:bg-brand-cream"
+              style={{ height: plotHeight }} aria-label={`${point.rangeLabel ?? point.label}: ${formatValue(point.value)}`}
+              onMouseEnter={() => setSelectedIndex(index)} onFocus={() => setSelectedIndex(index)} onClick={() => setSelectedIndex(index)}>
+              <span aria-hidden="true" className={`absolute bottom-0 left-0 w-full rounded-t ${barClassName}`}
+                style={{ height: point.value > 0 ? Math.max(4, point.value / maximum * plotHeight) : 0 }} />
+            </button> : <div aria-hidden="true" className="relative w-full border-b border-brand-cream-dark" style={{ height: plotHeight }}>
               <div className={`absolute bottom-0 w-full rounded-t ${barClassName}`}
                 style={{ height: point.value > 0 ? Math.max(4, point.value / maximum * plotHeight) : 0 }} />
-            </div>
-            <span className="block font-body text-[10px] text-brand-charcoal/60 mt-2 whitespace-nowrap">
+            </div>}
+            <span aria-hidden={weekly || undefined} className={`block font-body text-[10px] text-brand-charcoal/60 mt-2 whitespace-nowrap ${weekly && index % 4 !== 0 && index !== data.length - 1 ? 'invisible' : ''} ${weekly && index === data.length - 1 ? 'text-right' : ''} ${weekly && index === 0 ? 'text-left' : ''}`}>
               {point.label}
             </span>
           </li>
         ))}
       </ul>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -329,15 +346,15 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6 mb-8">
+      <div className="space-y-6 mb-8">
         {/* Weekly Revenue */}
         <div className="card p-5">
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Weekly Revenue
           </h3>
-          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Monday–Sunday · US Central time</p>
+          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Last 52 weeks · Monday–Sunday · US Central time</p>
           <AnalyticsBarChart label="Weekly Revenue" data={analytics.weeklyRevenue}
-            formatValue={formatCurrency} barClassName="bg-brand-maroon/80" />
+            formatValue={formatCurrency} barClassName="bg-brand-maroon/80" weekly minimumWidth={1248} />
         </div>
 
         {/* Monthly Revenue */}
@@ -345,9 +362,9 @@ export default function AnalyticsPage() {
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Monthly Revenue
           </h3>
-          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Last 6 calendar months · US Central time</p>
+          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Last 12 calendar months · US Central time</p>
           <AnalyticsBarChart label="Monthly Revenue" data={analytics.monthlyRevenue}
-            formatValue={formatCurrency} barClassName="bg-brand-gold" />
+            formatValue={formatCurrency} barClassName="bg-brand-gold" minimumWidth={720} />
         </div>
       </div>
 

@@ -56,21 +56,30 @@ function chart(name: string) {
 it('renders real values and definite bar heights for all three charts after loading orders', async () => {
   await unlock();
   const weekly = chart('Weekly Revenue');
-  expect(weekly.textContent).toContain('$80.00');
-  expect(weekly.textContent).toContain('$50.00');
-  expect(weekly.querySelectorAll('li')).toHaveLength(8);
+  expect(weekly.querySelector('button[aria-label*="$80.00"]')).toBeTruthy();
+  expect(weekly.querySelector('button[aria-label*="$50.00"]')).toBeTruthy();
+  expect(weekly.querySelectorAll('li')).toHaveLength(52);
   expect(chart('Monthly Revenue').textContent).toContain('$130.00');
+  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(12);
   const days = chart('Orders by Day of Week');
   expect(days.querySelectorAll('li')).toHaveLength(7);
   expect([...days.querySelectorAll('li')].find(el => el.textContent?.includes('Tue'))?.textContent).toBe('1Tue');
   expect([...days.querySelectorAll('li')].find(el => el.textContent?.includes('Sat'))?.textContent).toBe('1Sat');
   for (const list of [weekly, chart('Monthly Revenue'), days]) {
-    const plots = [...list.querySelectorAll<HTMLElement>('[aria-hidden="true"]')];
+    const plots = [...list.querySelectorAll<HTMLElement>(list === weekly ? 'button' : '[aria-hidden="true"]')];
     expect(plots.every(plot => plot.style.height === '128px')).toBe(true);
     expect(plots.some(plot => (plot.firstElementChild as HTMLElement).style.height === '128px')).toBe(true);
   }
   expect(host.textContent).toContain('US Central time');
   expect(fetchMock.mock.calls.every(([input]) => !String(input).includes('/payments'))).toBe(true);
+  expect(weekly.closest('.card')?.parentElement).toBe(chart('Monthly Revenue').closest('.card')?.parentElement);
+  expect(weekly.closest('.card')?.parentElement?.className).toContain('space-y-6');
+  expect(weekly.style.minWidth).toBe('1248px');
+  expect(host.textContent).toContain('Last 52 weeks');
+  expect(host.textContent).toContain('Last 12 calendar months');
+  const previousWeek = weekly.querySelector<HTMLButtonElement>('button[aria-label*="$50.00"]')!;
+  await act(async () => previousWeek.click());
+  expect(host.querySelector('[role="status"]')?.textContent).toBe('Sep 7, 2026 – Sep 13, 2026: $50.00');
 });
 
 it.each(['http', 'network', 'invalid'] as const)('shows a retryable error instead of blank charts for a %s failure', async (failure) => {
@@ -97,7 +106,7 @@ it('excludes owner-confirmed production tests from every sales total and chart',
   }] });
   await unlock();
   expect(chart('Monthly Revenue').textContent).toContain('$130.00');
-  expect(chart('Weekly Revenue').textContent).toContain('$80.00');
+  expect(chart('Weekly Revenue').querySelector('button[aria-label*="$80.00"]')).toBeTruthy();
   expect([...chart('Orders by Day of Week').querySelectorAll('li')].find(el => el.textContent?.includes('Tue'))?.textContent).toBe('1Tue');
   expect(host.textContent).not.toContain('Dummy pickle');
   expect(host.textContent).not.toContain('$218.77');
@@ -108,8 +117,8 @@ it('distinguishes empty order history from a failed request and displays zero bu
   orderResponse = async () => Response.json({ orders: [] });
   await unlock();
   expect(host.textContent).toContain('No paid orders to display yet.');
-  expect(chart('Weekly Revenue').querySelectorAll('li')).toHaveLength(8);
-  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(6);
+  expect(chart('Weekly Revenue').querySelectorAll('li')).toHaveLength(52);
+  expect(chart('Monthly Revenue').querySelectorAll('li')).toHaveLength(12);
   expect(chart('Orders by Day of Week').querySelectorAll('li')).toHaveLength(7);
-  expect([...host.querySelectorAll<HTMLElement>('ul [aria-hidden="true"] > div')].every(bar => bar.style.height === '0px')).toBe(true);
+  expect([...host.querySelectorAll<HTMLElement>('ul [aria-hidden="true"] > div, ul button > span')].every(bar => bar.style.height === '0px')).toBe(true);
 });

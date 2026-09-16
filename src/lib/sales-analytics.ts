@@ -8,6 +8,8 @@ type SalesOrder = Pick<
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
+const DISPLAYED_WEEKS = 52;
+const DISPLAYED_MONTHS = 12;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short', day: 'numeric', timeZone: 'UTC',
@@ -36,9 +38,9 @@ function netRevenueCents(order: SalesOrder): number {
 export function getSalesTimeSeries(orders: readonly SalesOrder[], now = new Date()) {
   const today = calendarDate(toBusinessDateString(now));
   const currentMonday = today.getTime() - ((today.getUTCDay() + 6) % 7) * DAY_MS;
-  const firstMonday = currentMonday - 7 * WEEK_MS;
+  const firstMonday = currentMonday - (DISPLAYED_WEEKS - 1) * WEEK_MS;
 
-  const weeklyRevenue = Array.from({ length: 8 }, (_, index) => {
+  const weeklyRevenue = Array.from({ length: DISPLAYED_WEEKS }, (_, index) => {
     const start = new Date(firstMonday + index * WEEK_MS);
     const end = new Date(start.getTime() + 6 * DAY_MS);
     return {
@@ -48,9 +50,11 @@ export function getSalesTimeSeries(orders: readonly SalesOrder[], now = new Date
     };
   });
 
-  const firstMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 5, 1));
+  const firstMonth = new Date(Date.UTC(
+    today.getUTCFullYear(), today.getUTCMonth() - (DISPLAYED_MONTHS - 1), 1
+  ));
   const firstMonthNumber = firstMonth.getUTCFullYear() * 12 + firstMonth.getUTCMonth();
-  const monthlyRevenue = Array.from({ length: 6 }, (_, index) => ({
+  const monthlyRevenue = Array.from({ length: DISPLAYED_MONTHS }, (_, index) => ({
     label: monthFormatter.format(new Date(Date.UTC(
       firstMonth.getUTCFullYear(), firstMonth.getUTCMonth() + index, 1
     ))),

@@ -15,8 +15,8 @@ describe('getSalesTimeSeries', () => {
   it('returns complete zero-filled series when no orders are available', () => {
     const result = getSalesTimeSeries([], new Date('2026-09-16T17:00:00Z'));
 
-    expect(result.weeklyRevenue).toHaveLength(8);
-    expect(result.monthlyRevenue).toHaveLength(6);
+    expect(result.weeklyRevenue).toHaveLength(52);
+    expect(result.monthlyRevenue).toHaveLength(12);
     expect(result.weeklyRevenue.every((week) => week.value === 0)).toBe(true);
     expect(result.monthlyRevenue.every((month) => month.value === 0)).toBe(true);
     expect(result.dayOfWeek).toEqual(
@@ -31,10 +31,10 @@ describe('getSalesTimeSeries', () => {
       order('2026-09-16 12:00:00', 30), // Earlier today
     ], new Date('2026-09-16T17:00:00Z'));
 
-    expect(result.weeklyRevenue[6]).toEqual({
+    expect(result.weeklyRevenue[50]).toEqual({
       label: 'Sep 7', rangeLabel: 'Sep 7, 2026 – Sep 13, 2026', value: 11,
     });
-    expect(result.weeklyRevenue[7]).toEqual({
+    expect(result.weeklyRevenue[51]).toEqual({
       label: 'Sep 14', rangeLabel: 'Sep 14, 2026 – Sep 20, 2026', value: 50,
     });
     expect(result.dayOfWeek[0].orders).toBe(1);
@@ -47,14 +47,14 @@ describe('getSalesTimeSeries', () => {
       order('2026-06-01 02:30:00', 19), // Still Sunday, May 31 Central
     ], new Date('2026-06-01T03:00:00Z'));
 
-    expect(result.weeklyRevenue[7]).toEqual({
+    expect(result.weeklyRevenue[51]).toEqual({
       label: 'May 25', rangeLabel: 'May 25, 2026 – May 31, 2026', value: 19,
     });
-    expect(result.monthlyRevenue[5]).toEqual({ label: 'May 26', value: 19 });
+    expect(result.monthlyRevenue[11]).toEqual({ label: 'May 26', value: 19 });
     expect(result.dayOfWeek[0].orders).toBe(1);
   });
 
-  it('generates six distinct calendar months on March 31 without rolling February into March', () => {
+  it('generates twelve distinct calendar months on March 31 without rolling February into March', () => {
     const result = getSalesTimeSeries([
       order('2025-10-15 12:00:00', 10),
       order('2025-11-15 12:00:00', 20),
@@ -65,6 +65,12 @@ describe('getSalesTimeSeries', () => {
     ], new Date('2026-03-31T17:00:00Z'));
 
     expect(result.monthlyRevenue).toEqual([
+      { label: 'Apr 25', value: 0 },
+      { label: 'May 25', value: 0 },
+      { label: 'Jun 25', value: 0 },
+      { label: 'Jul 25', value: 0 },
+      { label: 'Aug 25', value: 0 },
+      { label: 'Sep 25', value: 0 },
       { label: 'Oct 25', value: 10 },
       { label: 'Nov 25', value: 20 },
       { label: 'Dec 25', value: 30 },
@@ -83,8 +89,8 @@ describe('getSalesTimeSeries', () => {
       order('2026-09-01 05:00:00', 50),
     ], new Date('2026-09-16T17:00:00Z'));
 
-    expect(result.monthlyRevenue[4]).toEqual({ label: 'Aug 26', value: 100 });
-    expect(result.monthlyRevenue[5]).toEqual({ label: 'Sep 26', value: 50 });
+    expect(result.monthlyRevenue[10]).toEqual({ label: 'Aug 26', value: 100 });
+    expect(result.monthlyRevenue[11]).toEqual({ label: 'Sep 26', value: 50 });
     expect(result.dayOfWeek[1].orders).toBe(4);
     expect(result.dayOfWeek[2].orders).toBe(1);
   });
@@ -97,8 +103,8 @@ describe('getSalesTimeSeries', () => {
       order('2026-03-09 05:00:00', 40), // Monday midnight Central
     ], new Date('2026-03-09T17:00:00Z'));
 
-    expect(result.weeklyRevenue[6].value).toBe(60);
-    expect(result.weeklyRevenue[7].value).toBe(40);
+    expect(result.weeklyRevenue[50].value).toBe(60);
+    expect(result.weeklyRevenue[51].value).toBe(40);
     expect(result.dayOfWeek[0].orders).toBe(3);
     expect(result.dayOfWeek[1].orders).toBe(1);
   });
@@ -119,8 +125,8 @@ describe('getSalesTimeSeries', () => {
       }),
     ], new Date('2026-09-16T17:00:00Z'));
 
-    expect(result.weeklyRevenue[7].value).toBe(31.48);
-    expect(result.monthlyRevenue[5].value).toBe(31.48);
+    expect(result.weeklyRevenue[51].value).toBe(31.48);
+    expect(result.monthlyRevenue[11].value).toBe(31.48);
     expect(result.dayOfWeek[3].orders).toBe(3);
   });
 
@@ -132,22 +138,47 @@ describe('getSalesTimeSeries', () => {
       order('2026-09-16 12:00:00', 9.99),
     ], new Date('2026-09-16T17:00:00Z'));
 
-    expect(result.weeklyRevenue[7].value).toBe(9.99);
-    expect(result.monthlyRevenue[5].value).toBe(9.99);
+    expect(result.weeklyRevenue[51].value).toBe(9.99);
+    expect(result.monthlyRevenue[11].value).toBe(9.99);
     expect(result.dayOfWeek.reduce((sum, day) => sum + day.orders, 0)).toBe(1);
   });
 
-  it('limits revenue to the displayed periods while weekday counts include all paid history', () => {
+  it('includes exactly 52 current-inclusive weeks across the year boundary', () => {
     const result = getSalesTimeSeries([
-      order('2025-09-16 12:00:00', 100),
-      order('2026-07-27 04:59:59', 10), // Just before the first displayed week
-      order('2026-07-27 05:00:00', 20), // First displayed week begins
+      order('2025-09-22 04:59:59', 10), // Sunday just before the first displayed week
+      order('2025-09-22 05:00:00', 20), // Monday midnight, first displayed week
+      order('2025-12-31 12:00:00', 30),
+      order('2026-01-01 12:00:00', 40), // Same calendar week across New Year
+      order('2026-09-21 05:00:00', 50), // Next week, outside the displayed range
     ], new Date('2026-09-16T17:00:00Z'));
 
-    expect(result.weeklyRevenue[0].value).toBe(20);
-    expect(result.weeklyRevenue.reduce((sum, week) => sum + week.value, 0)).toBe(20);
-    expect(result.monthlyRevenue.reduce((sum, month) => sum + month.value, 0)).toBe(30);
-    expect(result.dayOfWeek.reduce((sum, day) => sum + day.orders, 0)).toBe(3);
+    expect(result.weeklyRevenue).toHaveLength(52);
+    expect(result.weeklyRevenue[0]).toEqual({
+      label: 'Sep 22', rangeLabel: 'Sep 22, 2025 – Sep 28, 2025', value: 20,
+    });
+    expect(result.weeklyRevenue.find((week) => week.label === 'Dec 29')).toEqual({
+      label: 'Dec 29', rangeLabel: 'Dec 29, 2025 – Jan 4, 2026', value: 70,
+    });
+    expect(result.weeklyRevenue[51].rangeLabel).toBe('Sep 14, 2026 – Sep 20, 2026');
+    expect(result.weeklyRevenue.reduce((sum, week) => sum + week.value, 0)).toBe(90);
+    expect(result.dayOfWeek.reduce((sum, day) => sum + day.orders, 0)).toBe(5);
+  });
+
+  it('includes exactly 12 current-inclusive months and excludes adjacent months', () => {
+    const result = getSalesTimeSeries([
+      order('2025-10-01 04:59:59', 10), // Still September Central, before the range
+      order('2025-10-01 05:00:00', 20), // October midnight, first displayed month
+      order('2026-01-01 06:00:00', 30), // January midnight Central
+      order('2026-09-16 12:00:00', 40),
+      order('2026-10-01 05:00:00', 50), // Following month, outside the range
+    ], new Date('2026-09-16T17:00:00Z'));
+
+    expect(result.monthlyRevenue).toHaveLength(12);
+    expect(result.monthlyRevenue[0]).toEqual({ label: 'Oct 25', value: 20 });
+    expect(result.monthlyRevenue[3]).toEqual({ label: 'Jan 26', value: 30 });
+    expect(result.monthlyRevenue[11]).toEqual({ label: 'Sep 26', value: 40 });
+    expect(result.monthlyRevenue.reduce((sum, month) => sum + month.value, 0)).toBe(90);
+    expect(result.dayOfWeek.reduce((sum, day) => sum + day.orders, 0)).toBe(5);
   });
 
   it('does not mutate orders or the supplied current date', () => {
