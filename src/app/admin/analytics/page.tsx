@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { PRODUCTS } from '@/data/products';
+import { getSalesTimeSeries } from '@/lib/sales-analytics';
 import type { OrderRecord } from '@/types';
 
 /**
@@ -32,11 +33,44 @@ function netOrderRevenue(order: OrderRecord): number {
   return Math.max(0, total - refunded);
 }
 
+function AnalyticsBarChart({ label, data, formatValue, barClassName }: {
+  label: string;
+  data: { label: string; value: number; rangeLabel?: string }[];
+  formatValue: (value: number) => string;
+  barClassName: string;
+}) {
+  const maximum = Math.max(...data.map(point => point.value), 1);
+  const plotHeight = 128;
+  return (
+    <div className="overflow-x-auto">
+      <ul aria-label={label} className="flex gap-2 min-w-[400px]">
+        {data.map(point => (
+          <li key={point.label} className="min-w-0 flex-1 text-center"
+            title={`${point.rangeLabel ?? point.label}: ${formatValue(point.value)}`}>
+            <span className="block font-body text-[10px] font-medium text-brand-charcoal mb-2 whitespace-nowrap">
+              {formatValue(point.value)}
+            </span>
+            <div aria-hidden="true" className="relative w-full border-b border-brand-cream-dark" style={{ height: plotHeight }}>
+              <div className={`absolute bottom-0 w-full rounded-t ${barClassName}`}
+                style={{ height: point.value > 0 ? Math.max(4, point.value / maximum * plotHeight) : 0 }} />
+            </div>
+            <span className="block font-body text-[10px] text-brand-charcoal/60 mt-2 whitespace-nowrap">
+              {point.label}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState('');
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [authed, setAuthed] = useState(false);
   const [pinVerified, setPinVerified] = useState(false);
   const [pin, setPin] = useState('');
@@ -80,28 +114,27 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     if (!authed || !pinVerified) return;
+    const controller = new AbortController();
     const fetchAll = async () => {
       setDataLoading(true);
-      const res = await fetch('/api/orders?filter=all');
-      const data = await res.json();
-      setOrders(data.orders || []);
-      setDataLoading(false);
+      setDataError('');
+      try {
+        const res = await fetch('/api/orders?filter=all', { cache: 'no-store', signal: controller.signal });
+        if (!res.ok) throw new Error('Order request failed');
+        const data = await res.json();
+        if (!Array.isArray(data.orders)) throw new Error('Invalid order response');
+        if (!controller.signal.aborted) setOrders(data.orders);
+      } catch {
+        if (!controller.signal.aborted) setDataError('Unable to load sales data. Please try again.');
+      } finally {
+        if (!controller.signal.aborted) setDataLoading(false);
+      }
     };
     fetchAll();
-  }, [authed, pinVerified]);
+    return () => controller.abort();
+  }, [authed, pinVerified, loadAttempt]);
 
   const analytics = useMemo(() => {
-    if (orders.length === 0)
-      return {
-        totalRevenue: 0,
-        totalOrders: 0,
-        productSales: [] as { name: string; revenue: number; qty: number; trend: string }[],
-        weeklyRevenue: [] as { label: string; value: number }[],
-        monthlyRevenue: [] as { label: string; value: number }[],
-        dayOfWeek: [] as { day: string; orders: number }[],
-        categoryRevenue: [] as { category: string; revenue: number }[],
-      };
-
     // Partial refunds remain real orders, but revenue should reflect only the
     // amount the business retained. Fully refunded orders are excluded.
     const paidOrders = orders.filter((o) =>
@@ -134,47 +167,7 @@ export default function AnalyticsPage() {
       .sort((a, b) => b.revenue - a.revenue)
       .map((p) => ({ ...p, category: categoryForProduct(p.name), trend: p.revenue > 50 ? 'up' : p.revenue > 20 ? 'stable' : 'down' }));
 
-    // Weekly revenue (last 8 weeks)
-    const weeklyRevenue: { label: string; value: number }[] = [];
-    for (let w = 7; w >= 0; w--) {
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - w * 7);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      const label = `W-${w === 0 ? 'now' : w}`;
-      const value = paidOrders
-        .filter((o) => {
-          const d = new Date(o.created_at);
-          return d >= weekStart && d < weekEnd;
-        })
-        .reduce((s, o) => s + netOrderRevenue(o), 0);
-      weeklyRevenue.push({ label, value });
-    }
-
-    // Monthly revenue (last 6 months)
-    const monthlyRevenue: { label: string; value: number }[] = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    for (let m = 5; m >= 0; m--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - m);
-      const label = monthNames[date.getMonth()];
-      const value = paidOrders
-        .filter((o) => {
-          const d = new Date(o.created_at);
-          return d.getMonth() === date.getMonth() && d.getFullYear() === date.getFullYear();
-        })
-        .reduce((s, o) => s + netOrderRevenue(o), 0);
-      monthlyRevenue.push({ label, value });
-    }
-
-    // Day of week
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayMap = new Map<number, number>();
-    for (const o of paidOrders) {
-      const day = new Date(o.created_at).getDay();
-      dayMap.set(day, (dayMap.get(day) || 0) + 1);
-    }
-    const dayOfWeek = dayNames.map((day, i) => ({ day, orders: dayMap.get(i) || 0 }));
+    const { weeklyRevenue, monthlyRevenue, dayOfWeek } = getSalesTimeSeries(paidOrders);
 
     // Category revenue
     const catMap = new Map<string, number>();
@@ -268,9 +261,15 @@ export default function AnalyticsPage() {
     );
   }
 
-  const maxWeekly = Math.max(...analytics.weeklyRevenue.map((w) => w.value), 1);
-  const maxMonthly = Math.max(...analytics.monthlyRevenue.map((m) => m.value), 1);
-  const maxDay = Math.max(...analytics.dayOfWeek.map((d) => d.orders), 1);
+  if (dataError) {
+    return (
+      <div className="section-padding py-16 text-center space-y-4">
+        <p role="alert" className="font-body text-red-700">{dataError}</p>
+        <button className="btn-primary" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Try again</button>
+        <Link href="/admin/dashboard" className="block text-sm underline">Back to dashboard</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="section-padding py-8 sm:py-12">
@@ -290,6 +289,10 @@ export default function AnalyticsPage() {
           </p>
         </div>
       </div>
+
+      {analytics.totalOrders === 0 && (
+        <p className="font-body text-sm text-brand-charcoal/60 mb-6">No paid orders to display yet.</p>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -329,19 +332,9 @@ export default function AnalyticsPage() {
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Weekly Revenue
           </h3>
-          <div className="flex items-end gap-2 h-40">
-            {analytics.weeklyRevenue.map((w, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className="w-full bg-brand-maroon/80 rounded-t transition-all"
-                  style={{ height: `${(w.value / maxWeekly) * 100}%`, minHeight: '4px' }}
-                />
-                <span className="font-body text-[10px] text-brand-charcoal/40">
-                  {w.label}
-                </span>
-              </div>
-            ))}
-          </div>
+          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Monday–Sunday · US Central time</p>
+          <AnalyticsBarChart label="Weekly Revenue" data={analytics.weeklyRevenue}
+            formatValue={formatCurrency} barClassName="bg-brand-maroon/80" />
         </div>
 
         {/* Monthly Revenue */}
@@ -349,19 +342,9 @@ export default function AnalyticsPage() {
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Monthly Revenue
           </h3>
-          <div className="flex items-end gap-3 h-40">
-            {analytics.monthlyRevenue.map((m, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className="w-full bg-brand-gold rounded-t transition-all"
-                  style={{ height: `${(m.value / maxMonthly) * 100}%`, minHeight: '4px' }}
-                />
-                <span className="font-body text-[10px] text-brand-charcoal/40">
-                  {m.label}
-                </span>
-              </div>
-            ))}
-          </div>
+          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Last 6 calendar months · US Central time</p>
+          <AnalyticsBarChart label="Monthly Revenue" data={analytics.monthlyRevenue}
+            formatValue={formatCurrency} barClassName="bg-brand-gold" />
         </div>
       </div>
 
@@ -371,19 +354,10 @@ export default function AnalyticsPage() {
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Orders by Day of Week
           </h3>
-          <div className="flex items-end gap-2 h-32">
-            {analytics.dayOfWeek.map((d, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className="w-full bg-brand-green/70 rounded-t transition-all"
-                  style={{ height: `${(d.orders / maxDay) * 100}%`, minHeight: '4px' }}
-                />
-                <span className="font-body text-[10px] text-brand-charcoal/40">
-                  {d.day}
-                </span>
-              </div>
-            ))}
-          </div>
+          <p className="font-body text-xs text-brand-charcoal/60 mb-4">Order dates in US Central time</p>
+          <AnalyticsBarChart label="Orders by Day of Week"
+            data={analytics.dayOfWeek.map(day => ({ label: day.day, value: day.orders }))}
+            formatValue={value => String(value)} barClassName="bg-brand-green/70" />
         </div>
 
         {/* Category Revenue */}
