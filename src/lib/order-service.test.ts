@@ -126,6 +126,44 @@ describe('atomic order finalization using real SQLite transactions', () => {
     sqlite.close();
   });
 
+  it.each([100, 20, 0])('deducts Kova Bobbatlu pieces independently once at %s stock', async stock => {
+    const { db, sqlite, session } = setup({
+      cart_data: [
+        { productId: 'sweet-kova-bobbatlu', quantity: 2, selectedTier: 16, lineTotal: 96 },
+        { productId: 'sweet-kova-bobbatlu', quantity: 1, selectedTier: 25, lineTotal: 75 },
+        { productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 16, lineTotal: 48 },
+      ], total_amount: 219,
+    });
+    sqlite.prepare("UPDATE inventory SET stock_count=? WHERE product_id='sweet-kova-bobbatlu'").run(stock);
+    sqlite.prepare("UPDATE inventory SET stock_count=80 WHERE product_id='sweet-bobbatlu'").run();
+    await createOrderFromSession(db, session, 'PAY-KOVA-BOBBATLU');
+    await createOrderFromSession(db, session, 'PAY-KOVA-BOBBATLU');
+    expect(sqlite.prepare("SELECT stock_count FROM inventory WHERE product_id='sweet-kova-bobbatlu'").get()?.stock_count)
+      .toBe(Math.max(0, stock - 57));
+    expect(sqlite.prepare("SELECT stock_count FROM inventory WHERE product_id='sweet-bobbatlu'").get()?.stock_count).toBe(64);
+    expect(sqlite.prepare('SELECT product_name FROM order_items WHERE line_total=96').get()?.product_name)
+      .toBe('Kova Bobbatlu');
+    expect(sqlite.prepare('SELECT html FROM email_outbox').get()?.html).toContain('Kova Bobbatlu');
+    expect(count(sqlite, 'orders')).toBe(1);
+    expect(count(sqlite, 'order_items')).toBe(4); // Three purchased lines plus the coupon bonus.
+    expect(queue.send).toHaveBeenCalledOnce();
+    sqlite.close();
+  });
+
+  it('seeds Kova Bobbatlu at zero without copying or resetting either product inventory', () => {
+    const { sqlite } = setup();
+    const newInventory = readFileSync(new URL('./migrations/015-kova-bobbatlu-inventory.sql', import.meta.url), 'utf8');
+    sqlite.prepare("DELETE FROM inventory WHERE product_id='sweet-kova-bobbatlu'").run();
+    sqlite.prepare("UPDATE inventory SET stock_count=80 WHERE product_id='sweet-bobbatlu'").run();
+    sqlite.exec(newInventory);
+    expect(sqlite.prepare("SELECT stock_count FROM inventory WHERE product_id='sweet-kova-bobbatlu'").get()?.stock_count).toBe(0);
+    sqlite.prepare("UPDATE inventory SET stock_count=75 WHERE product_id='sweet-kova-bobbatlu'").run();
+    sqlite.exec(newInventory);
+    expect(sqlite.prepare("SELECT stock_count FROM inventory WHERE product_id='sweet-kova-bobbatlu'").get()?.stock_count).toBe(75);
+    expect(sqlite.prepare("SELECT stock_count FROM inventory WHERE product_id='sweet-bobbatlu'").get()?.stock_count).toBe(80);
+    sqlite.close();
+  });
+
   it('keeps an email durable when Queue publication fails and cron recovers it', async () => {
     const { db, sqlite, session } = setup();
     queue.send.mockRejectedValueOnce(new Error('Queue unavailable'));

@@ -119,6 +119,20 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
   },
   {
+    id: 'sweet-kova-bobbatlu',
+    slug: 'kova-bobbatlu',
+    name: 'Kova Bobbatlu',
+    description:
+      'Thin, golden flatbreads stuffed with a rich, sweet kova filling and cooked on a griddle with pure ghee. A creamy twist on a traditional favourite.',
+    category: 'sweets',
+    unitPrice: 3,
+    image: '/images/products/bobbatlu.jpg',
+    quantityOptions: [16, 25, 50],
+    inStock: true,
+    prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
+    tags: ['traditional', 'andhra', 'festival', 'ghee', 'milk-based'],
+  },
+  {
     id: 'sweet-kova',
     slug: 'kova',
     name: 'Kova',
@@ -182,18 +196,23 @@ export const PRODUCTS: Product[] = [
 /** Pickles have a hard stock limit; Bobbatlu falls back to made-to-order. */
 export const TRACKED_CATEGORY: ProductCategory = 'pickles';
 export const BOBBATLU_PRODUCT_ID = 'sweet-bobbatlu';
+export const KOVA_BOBBATLU_PRODUCT_ID = 'sweet-kova-bobbatlu';
+
+export function isBobbatluProduct(productId: string): boolean {
+  return productId === BOBBATLU_PRODUCT_ID || productId === KOVA_BOBBATLU_PRODUCT_ID;
+}
 
 export function isStockTracked(product: Product): boolean {
-  return product.category === TRACKED_CATEGORY || product.id === BOBBATLU_PRODUCT_ID;
+  return product.category === TRACKED_CATEGORY || isBobbatluProduct(product.id);
 }
 
 /** Jars for pickles; individual pieces for Bobbatlu's variable box sizes. */
 export function stockUnits(productId: string, quantity: number, selectedTier?: number | null): number {
-  return quantity * (productId === BOBBATLU_PRODUCT_ID ? (selectedTier ?? 16) : 1);
+  return quantity * (isBobbatluProduct(productId) ? (selectedTier ?? 16) : 1);
 }
 
-export function getBobbatluPieces(items: Array<{ productId: string; quantity: number; selectedTier?: number | null }>): number {
-  return items.filter(item => item.productId === BOBBATLU_PRODUCT_ID)
+export function getBobbatluPieces(items: Array<{ productId: string; quantity: number; selectedTier?: number | null }>, productId = BOBBATLU_PRODUCT_ID): number {
+  return items.filter(item => item.productId === productId)
     .reduce((sum, item) => sum + stockUnits(item.productId, item.quantity, item.selectedTier), 0);
 }
 

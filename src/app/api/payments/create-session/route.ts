@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
-import { PRODUCTS, getTotalPieces, BOBBATLU_PRODUCT_ID } from '@/data/products';
+import { PRODUCTS, getTotalPieces, isBobbatluProduct } from '@/data/products';
 import { validateCart } from '@/lib/cart-validation';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import {
@@ -68,8 +68,8 @@ export async function POST(request: NextRequest) {
     const stock = await getStockMap(getDb());
     const { requestedByProduct, subtotal: serverTotal, taxableSubtotal: taxableTotal } = cart;
     for (const { product } of cart.items) {
-      // Bobbatlu stays purchasable when ready stock runs out.
-      if (product.id === BOBBATLU_PRODUCT_ID) continue;
+      // Both Bobbatlu products stay purchasable when ready stock runs out.
+      if (isBobbatluProduct(product.id)) continue;
       // Stock check for tracked products (untracked products aren't in the map).
       if (Object.prototype.hasOwnProperty.call(stock, product.id)) {
         const available = stock[product.id];

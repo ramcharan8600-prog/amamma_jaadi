@@ -119,6 +119,28 @@ describe('inventory — stock decrement on a paid order', () => {
     await decrementStockForOrder(db, [{ productId: 'pickle-chicken' }], 'AJ-1006');
     expect(rows['pickle-chicken']).toBe(3);
   });
+
+  it('deducts Kova Bobbatlu in pieces without using the original Bobbatlu stock', async () => {
+    const { db, rows } = makeFakeDb({ 'sweet-bobbatlu': 100, 'sweet-kova-bobbatlu': 100 });
+    await decrementStockForOrder(db, [
+      { productId: 'sweet-kova-bobbatlu', quantity: 2, selectedTier: 16 },
+      { productId: 'sweet-kova-bobbatlu', quantity: 1, selectedTier: 25 },
+    ], 'AJ-KOVA-BOBBATLU');
+    expect(rows['sweet-kova-bobbatlu']).toBe(43);
+    expect(rows['sweet-bobbatlu']).toBe(100);
+  });
+
+  it.each([0, 15])('allows made-to-order Kova Bobbatlu at %s stock without an oversold warning', async stock => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { db, rows } = makeFakeDb({ 'sweet-kova-bobbatlu': stock });
+      await decrementStockForOrder(db, [{ productId: 'sweet-kova-bobbatlu', quantity: 1, selectedTier: 16 }], 'AJ-MADE-TO-ORDER');
+      expect(rows['sweet-kova-bobbatlu']).toBe(0);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
 
 describe('inventory — stock map', () => {
@@ -127,7 +149,7 @@ describe('inventory — stock map', () => {
     expect(await getStockMap(db)).toEqual({ 'pickle-chicken': 7, 'pickle-mutton': 0 });
   });
 
-  it('tracks all four pickles and Bobbatlu', () => {
-    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-bobbatlu']);
+  it('tracks all four pickles and both Bobbatlu products', () => {
+    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-bobbatlu', 'sweet-kova-bobbatlu']);
   });
 });

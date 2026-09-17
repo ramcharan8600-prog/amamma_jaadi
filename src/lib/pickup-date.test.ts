@@ -69,7 +69,7 @@ describe('same-day pickup cutoff and product restrictions', () => {
     if (bounds.today !== min) expect(getPickupDateError(bounds.today, 16, time)).toContain('1:30 PM Central');
   });
 
-  it.each(['sweet-bobbatlu', 'sweet-kova'])('requires tomorrow for %s alone and in mixed carts before the cutoff', productId => {
+  it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu', 'sweet-kova'])('requires tomorrow for %s alone and in mixed carts before the cutoff', productId => {
     for (const items of [[{ productId }], [{ productId: 'pickle-chicken' }, { productId }]]) {
       const hasNextDayProduct = requiresNextDayPickup(items);
       expect(hasNextDayProduct).toBe(true);

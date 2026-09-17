@@ -23,6 +23,7 @@ import {
   isProductTaxExempt,
   getBobbatluPieces,
   BOBBATLU_PRODUCT_ID,
+  KOVA_BOBBATLU_PRODUCT_ID,
 } from '@/data/products';
 import { useStock, invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
@@ -397,9 +398,15 @@ export default function CheckoutPage() {
   );
   const largeOrder = totalPieces > 150;
   const bobbatluPieces = mounted ? getBobbatluPieces(items) : 0;
+  const kovaBobbatluPieces = mounted ? getBobbatluPieces(items, KOVA_BOBBATLU_PRODUCT_ID) : 0;
   const { count: bobbatluStock } = useStock(bobbatluPieces > 0 ? BOBBATLU_PRODUCT_ID : null);
+  const { count: kovaBobbatluStock } = useStock(kovaBobbatluPieces > 0 ? KOVA_BOBBATLU_PRODUCT_ID : null);
   const bobbatluNeedsPreparation = bobbatluPieces > (bobbatluStock ?? 0);
+  const kovaBobbatluNeedsPreparation = kovaBobbatluPieces > (kovaBobbatluStock ?? 0);
   const hasNextDayProduct = requiresNextDayPickup(items);
+  const nextDayProductNames = Array.from(new Set(
+    items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
+  )).join(' and ');
   const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, hasNextDayProduct);
   const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
@@ -1023,7 +1030,7 @@ export default function CheckoutPage() {
           </div>
 
           {hasNextDayProduct && (
-            <p className="font-body text-sm text-amber-800">Your order contains Bobbatlu or Kova (needs 1 day prep time). Please select tomorrow or a later date for pickup.</p>
+            <p className="font-body text-sm text-amber-800">Your order contains {nextDayProductNames} (needs 1 day prep time). Please select tomorrow or a later date for pickup.</p>
           )}
 
           <div>
@@ -1178,6 +1185,9 @@ export default function CheckoutPage() {
             </p>
             {bobbatluNeedsPreparation && (
               <p className="font-body text-sm text-green-800">Bobbatlu for this order needs 1 day for preparation before dispatch.</p>
+            )}
+            {kovaBobbatluNeedsPreparation && (
+              <p className="font-body text-sm text-green-800">Kova Bobbatlu for this order needs 1 day for preparation before dispatch.</p>
             )}
             <p className="font-body text-sm text-green-800">
               We use UPS 2nd Day Air for out-of-state orders for faster delivery from Dallas to

@@ -34,10 +34,13 @@ it('allows an admin to save an independent stock count for Gongura Chicken', asy
 });
 
 
-it('lets admin maintain Bobbatlu pieces and shows the made-to-order fallback', async () => {
+it.each([
+  ['sweet-bobbatlu', 'Bobbatlu'],
+  ['sweet-kova-bobbatlu', 'Kova Bobbatlu'],
+])('lets admin maintain %s pieces and shows the made-to-order fallback', async (productId, name) => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   const fetchMock = vi.fn(async (_url: unknown, init?: RequestInit) => Response.json({
-    stock: { 'sweet-bobbatlu': init?.method === 'PATCH' ? 32 : 0 },
+    stock: { [productId]: init?.method === 'PATCH' ? 32 : 0 },
   }));
   vi.stubGlobal('fetch', fetchMock);
   const host = document.createElement('div');
@@ -45,7 +48,7 @@ it('lets admin maintain Bobbatlu pieces and shows the made-to-order fallback', a
   const root = createRoot(host);
   try {
     await act(async () => root.render(createElement(InventoryPanel)));
-    const input = host.querySelector<HTMLInputElement>('input[aria-label="Stock count for Bobbatlu"]')!;
+    const input = host.querySelector<HTMLInputElement>(`input[aria-label="Stock count for ${name}"]`)!;
     const row = input.parentElement!;
     expect(row.textContent).toContain('Count individual pieces');
     expect(row.textContent).toContain('1-day preparation');
@@ -55,7 +58,7 @@ it('lets admin maintain Bobbatlu pieces and shows the made-to-order fallback', a
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await act(async () => row.querySelector('button')!.click());
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({productId: 'sweet-bobbatlu', stockCount: 32});
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({productId, stockCount: 32});
     expect(row.textContent).toContain('32 pieces ready');
   } finally {
     await act(async () => root.unmount());

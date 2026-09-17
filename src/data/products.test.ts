@@ -10,9 +10,34 @@ import {
   getTotalPieces,
   productNamesFromIds,
   isProductTaxExempt,
+  isStockTracked,
+  stockUnits,
+  getBobbatluPieces,
 } from '@/data/products';
 
 describe('product catalog integrity', () => {
+  it('offers Kova Bobbatlu with the same image, tiers, price and prep time as Bobbatlu', () => {
+    const original = getProductById('sweet-bobbatlu')!;
+    const kovaBobbatlu = getProductBySlug('kova-bobbatlu')!;
+    expect(kovaBobbatlu.name).toBe('Kova Bobbatlu');
+    for (const key of ['category', 'image', 'unitPrice', 'quantityOptions', 'inStock', 'prepNotice'] as const) {
+      expect(kovaBobbatlu[key]).toEqual(original[key]);
+    }
+    expect(kovaBobbatlu.quantityOptions?.map(tier => calculateSweetPrice(kovaBobbatlu.unitPrice, tier))).toEqual([48, 75, 150]);
+    expect(isStockTracked(kovaBobbatlu)).toBe(true);
+    expect(isProductTaxExempt(kovaBobbatlu)).toBe(true);
+  });
+
+  it('counts each Bobbatlu variant inventory independently in pieces', () => {
+    const items = [
+      { productId: 'sweet-bobbatlu', quantity: 2, selectedTier: 16 },
+      { productId: 'sweet-kova-bobbatlu', quantity: 2, selectedTier: 25 },
+      { productId: 'sweet-kova-bobbatlu', quantity: 1, selectedTier: 50 },
+    ];
+    expect(getBobbatluPieces(items)).toBe(32);
+    expect(getBobbatluPieces(items, 'sweet-kova-bobbatlu')).toBe(100);
+    expect(stockUnits('sweet-kova-bobbatlu', 3)).toBe(48);
+  });
   it('uses the approved pickle jar prices', () => {
     expect(getProductById('pickle-chicken')?.unitPrice).toBe(18);
     expect(getProductById('pickle-gongura-chicken')?.unitPrice).toBe(19);

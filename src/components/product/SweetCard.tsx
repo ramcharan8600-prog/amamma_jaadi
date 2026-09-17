@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
-import { calculateSweetPrice, BOBBATLU_PRODUCT_ID } from '@/data/products';
+import { calculateSweetPrice, isBobbatluProduct } from '@/data/products';
 import { useStock } from '@/hooks/useStock';
 import { formatCurrency } from '@/lib/utils';
 
@@ -19,7 +19,7 @@ export default function SweetCard({ product }: SweetCardProps) {
   const [selectedTier, setSelectedTier] = useState(tiers[0]);
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
-  const isBobbatlu = product.id === BOBBATLU_PRODUCT_ID;
+  const isBobbatlu = isBobbatluProduct(product.id);
   const { count } = useStock(isBobbatlu ? product.id : null);
   const readyFromStock = isBobbatlu && (count ?? 0) >= selectedTier;
   const prepNotice = readyFromStock ? 'Freshly made and in stock.' : product.prepNotice;

@@ -10,7 +10,7 @@
  *     decrement NEVER fails the order — the customer has already been charged.
  */
 import type { D1Database } from '@cloudflare/workers-types';
-import { PRODUCTS, isStockTracked, stockUnits, BOBBATLU_PRODUCT_ID } from '@/data/products';
+import { PRODUCTS, isStockTracked, stockUnits, isBobbatluProduct } from '@/data/products';
 
 export interface StockRow {
   product_id: string;
@@ -104,7 +104,7 @@ export async function decrementStockForOrder(
           )
           .bind(productId)
           .run();
-        if (productId !== BOBBATLU_PRODUCT_ID) console.warn(
+        if (!isBobbatluProduct(productId)) console.warn(
           `[inventory] OVERSOLD: order ${orderNumber} took ${qty} x ${productId} but stock was insufficient — count floored at 0. Restock/verify manually.`
         );
       }

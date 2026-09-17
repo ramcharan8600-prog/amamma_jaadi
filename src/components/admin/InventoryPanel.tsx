@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Boxes, Check, Loader2 } from 'lucide-react';
-import { PRODUCTS, isStockTracked, BOBBATLU_PRODUCT_ID } from '@/data/products';
+import { PRODUCTS, isStockTracked, isBobbatluProduct } from '@/data/products';
 import { invalidateStock } from '@/hooks/useStock';
 
 /**
@@ -89,7 +89,7 @@ export default function InventoryPanel() {
         <div className="space-y-2">
           {tracked.map((p) => {
             const current = stock[p.id] ?? 0;
-            const isBobbatlu = p.id === BOBBATLU_PRODUCT_ID;
+            const isBobbatlu = isBobbatluProduct(p.id);
             const isOut = current <= 0;
             const isLow = current > 0 && current <= 5;
             return (
