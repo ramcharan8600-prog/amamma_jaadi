@@ -2,6 +2,7 @@ import { preparePaymentReceipt, paymentDate, type PaymentDateFields } from '@/li
 import type { D1Database } from '@cloudflare/workers-types';
 import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { validateCart } from '@/lib/cart-validation';
+import { isValidPhone } from '@/lib/contact-validation';
 import { getTotalPieces } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { calculateOrderTotals, getDeliveryMinimumShortfall, isSupportedDeliveryState, normalizeStateCode } from '@/lib/pricing';
@@ -82,9 +83,10 @@ function reviewReply(): PaymentReply {
   };
 }
 
-/** Old unattempted sessions must not preserve a pre-fix price/quantity exploit. */
+/** Recheck current checkout requirements only before a session's first charge. */
 function validateUnattemptedSession(session: Record<string, unknown>) {
   try {
+    if (!isValidPhone(session.phone_number)) return null;
     const cart = validateCart(typeof session.cart_data === 'string' ? JSON.parse(session.cart_data) : session.cart_data);
     if (!cart.ok) return null;
     const picklesOnly = cart.items.every(({ product }) => product.category === 'pickles');

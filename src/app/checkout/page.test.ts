@@ -216,6 +216,26 @@ describe('checkout pickup date controls', () => {
   });
 });
 
+describe('checkout phone length', () => {
+  it('blocks short and long pickup numbers without truncating, and submits ten digits', async () => {
+    await pickupDetails();
+    await input('#pickup-date', '2026-09-09');
+    for (const phone of ['2145550', '214555010', '12145550100']) {
+      await input('#pickup-phone', phone);
+      expect(host.querySelector<HTMLInputElement>('#pickup-phone')?.value).toBe(phone);
+      expect(host.querySelector('#pickup-phone')?.getAttribute('aria-invalid')).toBe('true');
+      expect(button('Continue to payment').disabled).toBe(true);
+      await click('Continue to payment');
+      expect(calls('/api/payments/create-session')).toHaveLength(0);
+    }
+    await input('#pickup-phone', '(214) 555-0100');
+    expect(host.querySelector<HTMLInputElement>('#pickup-phone')?.value).toBe('2145550100');
+    expect(button('Continue to payment').disabled).toBe(false);
+    await click('Continue to payment');
+    expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body)).phone).toBe('2145550100');
+  });
+});
+
 describe('pickup cutoff and next-day products', () => {
   it.each(['2026-09-08T18:29:59.999Z', '2026-09-08T18:30:00.000Z'])(
     'allows today through exactly 1:30 PM at %s', async instant => {
@@ -429,6 +449,21 @@ describe('nearby delivery pickup switch', () => {
     expect(button('Continue to payment').disabled).toBe(false);
     expect(host.textContent).toContain('Step 3');
   }
+
+  it('requires ten digits for delivery and normalizes formatted phone input', async () => {
+    await delivery();
+    for (const phone of ['2145550', '214555010', '12145550100']) {
+      await input('#delivery-phone', phone);
+      expect(host.querySelector<HTMLInputElement>('#delivery-phone')?.value).toBe(phone);
+      expect(button('Continue to payment').disabled).toBe(true);
+    }
+    expect(calls('/api/payments/create-session')).toHaveLength(0);
+    await input('#delivery-phone', '(214) 555-0100');
+    expect(host.querySelector<HTMLInputElement>('#delivery-phone')?.value).toBe('2145550100');
+    expect(button('Continue to payment').disabled).toBe(false);
+    await click('Continue to payment');
+    expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body)).phone).toBe('2145550100');
+  });
 
   it('preserves contacts/address, permits any pickup point, and creates a new pickup session', async () => {
     await delivery();

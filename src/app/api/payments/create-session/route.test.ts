@@ -68,6 +68,24 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+describe('create-session requires a 10-digit contact phone', () => {
+  it.each([undefined, null, '', '2145550', '214555010', '12145550100', '123456789012345',
+    '214-555-0100', '(214)5550100', '214555010x'])
+    ('rejects phone %j before storing a session', async (phone) => {
+      const response = await post({ ...checkout(), phone });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/phone/i);
+      expect(mocks.inserts).toHaveLength(0);
+      expect(mocks.getStockMap).not.toHaveBeenCalled();
+    });
+
+  it.each([pickup, delivery('TX')])('accepts exactly 10 digits for $type', async (fulfillment) => {
+    const response = await post({ ...checkout([sweet], fulfillment), phone: '2145550100' });
+    expect(response.status).toBe(201);
+    expect(mocks.inserts[0][3]).toBe('2145550100');
+  });
+});
+
 describe('create-session validates pickup dates before storing a payable session', () => {
   it.each([undefined, null, '', {}, 20260909, '122026-01-09', '2026-02-30',
     '2026-02-29', '2026-09-07', '2026-12-08', '2026-9-09', '2026-09-09T00:00:00Z'])

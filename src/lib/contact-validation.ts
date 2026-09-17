@@ -11,9 +11,7 @@ export function isValidEmail(value: unknown): boolean {
 }
 
 export function isValidPhone(value: unknown): boolean {
-  if (typeof value !== 'string') return false;
-  const digits = value.replace(/\D/g, '');
-  return digits.length >= 7 && digits.length <= 15;
+  return typeof value === 'string' && value.length === 10 && /^[0-9]{10}$/.test(value);
 }
 
 export function validateRequiredContact(input: {
@@ -22,7 +20,7 @@ export function validateRequiredContact(input: {
   phone: unknown;
 }): string | null {
   if (!isValidCustomerName(input.name)) return 'Customer name is required';
-  if (!isValidPhone(input.phone)) return 'Valid phone number is required';
+  if (!isValidPhone(input.phone)) return 'Phone number must contain exactly 10 digits';
   if (!isValidEmail(input.email)) return 'Valid email address is required';
   return null;
 }

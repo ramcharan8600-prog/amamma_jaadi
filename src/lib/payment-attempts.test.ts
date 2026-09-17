@@ -74,6 +74,79 @@ afterEach(() => {
   fixture.sqlite.close();
 });
 
+describe('10-digit contact phones before a first charge', () => {
+  it.each(['214555010', '12145550100'])('expires an unattempted session with phone %s without charging', async (phone) => {
+    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run(phone);
+    const execute = vi.fn();
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+    expect(execute).not.toHaveBeenCalled();
+    expect(finalize).not.toHaveBeenCalled();
+    expect(attempt()).toBeUndefined();
+    expect(fixture.sqlite.prepare('SELECT payment_status FROM payment_sessions').get()?.payment_status).toBe('expired');
+  });
+
+  it('allows a first charge with exactly 10 phone digits', async () => {
+    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run('2145550100');
+    const execute = vi.fn(async () => ({ paymentId: 'payment-valid-phone', status: 'COMPLETED' }));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(finalize).toHaveBeenCalledTimes(1);
+  });
+
+  it('replays an existing uncertain payment despite a now-invalid stored phone', async () => {
+    const execute = vi.fn().mockRejectedValueOnce(new SquarePaymentError('PAYMENT_RESPONSE_UNKNOWN'))
+      .mockResolvedValue({ paymentId: 'payment-recovered-phone', status: 'COMPLETED' });
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize }))
+      .toMatchObject({ status: 'unknown', canStartNewSession: false });
+    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run('214555010');
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', retry: true }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED', canStartNewSession: false });
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute.mock.calls[1][0]).toEqual(execute.mock.calls[0][0]);
+    expect(fixture.sqlite.prepare('SELECT COUNT(*) AS count FROM payment_attempts').get()?.count).toBe(1);
+  });
+
+  it('lets an in-flight payment finish despite a now-invalid stored phone', async () => {
+    let release!: () => void;
+    const barrier = new Promise<void>(resolve => { release = resolve; });
+    let started!: () => void;
+    const entered = new Promise<void>(resolve => { started = resolve; });
+    const execute = vi.fn(async () => {
+      started(); await barrier;
+      return { paymentId: 'payment-in-flight-phone', status: 'COMPLETED' };
+    });
+    const first = runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize });
+    await entered;
+    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run('214555010');
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize }))
+      .toMatchObject({ status: 'processing', canStartNewSession: false });
+    expect(execute).toHaveBeenCalledTimes(1);
+    release();
+    expect(await first).toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+  });
+
+  it('finalizes an accepted payment despite an invalid phone without charging again', async () => {
+    const execute = vi.fn(async () => ({ paymentId: 'payment-accepted-phone', status: 'COMPLETED' }));
+    finalize.mockRejectedValueOnce(new Error('D1 order transaction failed'));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'ORDER_FINALIZING', canStartNewSession: false });
+    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run('12145550100');
+    expect(await getPaymentAttemptStatus(fixture.db, 'test-session', { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED', canStartNewSession: false });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(finalize).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('durable payment recovery using real SQLite transactions', () => {
   it.each(['abc', 0, -1, 0.5, null, true])('rejects legacy quantity %j before creating a charge attempt', async quantity => {
     fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ? WHERE id = ?')

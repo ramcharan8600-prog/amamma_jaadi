@@ -1079,8 +1079,8 @@ export default function CheckoutPage() {
           </p>
 
           {pickupLocationId && (
-            <div className="bg-[#93C572] border border-[#93C572] rounded-xl p-4">
-              <p className="font-body text-sm text-brand-charcoal">
+            <div className="bg-brand-maroon/10 border border-brand-maroon/20 rounded-xl p-4">
+              <p className="font-body text-sm text-brand-maroon">
                 Please pick up your orders between{' '}
                 <span className="font-semibold">6:30 PM and 12:45 AM</span> at the selected pickup
                 location.
@@ -1102,13 +1102,17 @@ export default function CheckoutPage() {
               />
             </div>
             <div>
-              <label className="label-text">Phone Number <span aria-hidden="true">*</span></label>
+              <label htmlFor="pickup-phone" className="label-text">Phone Number <span aria-hidden="true">*</span></label>
               <input
+                id="pickup-phone"
                 type="tel"
+                inputMode="numeric"
+                pattern="[0-9]{10}"
                 value={pickupPhone}
-                onChange={(e) => setPickupPhone(e.target.value)}
+                onChange={(e) => setPickupPhone(e.target.value.replace(/\D/g, ''))}
                 placeholder="(xxx) xxx-xxxx"
                 className="input-field"
+                aria-invalid={Boolean(pickupPhone && !isValidPhone(pickupPhone))}
                 required
                 autoComplete="tel"
               />
@@ -1195,13 +1199,17 @@ export default function CheckoutPage() {
               />
             </div>
             <div>
-              <label className="label-text">Phone Number <span aria-hidden="true">*</span></label>
+              <label htmlFor="delivery-phone" className="label-text">Phone Number <span aria-hidden="true">*</span></label>
               <input
+                id="delivery-phone"
                 type="tel"
+                inputMode="numeric"
+                pattern="[0-9]{10}"
                 value={deliveryPhone}
-                onChange={(e) => setDeliveryPhone(e.target.value)}
+                onChange={(e) => setDeliveryPhone(e.target.value.replace(/\D/g, ''))}
                 className="input-field"
                 placeholder="(xxx) xxx-xxxx"
+                aria-invalid={Boolean(deliveryPhone && !isValidPhone(deliveryPhone))}
                 required
                 autoComplete="tel"
               />
