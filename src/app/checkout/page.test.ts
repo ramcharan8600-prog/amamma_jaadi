@@ -147,15 +147,15 @@ describe('checkout pickup date controls', () => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
     await render();
     expect(host.textContent).toContain('Cart overview');
-    expect(host.textContent).not.toContain('pick up orders before 4:30 PM');
+    expect(host.textContent).not.toContain('At 2 PM or later, pickup starts tomorrow');
     expect(host.textContent).not.toContain('Fast nationwide shipping:');
     expect(host.textContent).toContain('$40.00');
     await click('Continue');
-    expect(host.textContent).not.toContain('pick up orders before 4:30 PM');
+    expect(host.textContent).not.toContain('At 2 PM or later, pickup starts tomorrow');
     const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === method);
     await act(async () => choice!.click());
     expect(host.textContent).toContain('Step 3');
-    expect(host.textContent?.includes('pick up orders before 4:30 PM')).toBe(method === 'Pickup');
+    expect(host.textContent?.includes('At 2 PM or later, pickup starts tomorrow')).toBe(method === 'Pickup');
     if (method === 'Delivery') expect(host.textContent).toContain('Shipping times begin after your order is prepared.');
   });
 
@@ -213,6 +213,57 @@ describe('checkout pickup date controls', () => {
     expect(calls('/api/payments/create-session')).toHaveLength(0);
     expect(host.querySelector('#pickup-date-error')?.textContent).toContain('past');
   });
+});
+
+describe('pickup cutoff and next-day products', () => {
+  it.each(['2026-09-08T19:00:00Z', '2026-09-09T04:59:59Z'])(
+    'disables today when pickup is selected after the cutoff at %s', async instant => {
+      vi.setSystemTime(new Date(instant));
+      await pickupDetails();
+      expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-09');
+      await input('#pickup-date', '2026-09-08');
+      expect(button('Continue to payment').disabled).toBe(true);
+      expect(host.querySelector('#pickup-date-error')?.textContent).toContain('2 PM Central');
+      await input('#pickup-date', '2026-09-09');
+      expect(button('Continue to payment').disabled).toBe(false);
+    }
+  );
+
+  it('refreshes an open date picker exactly at 2 PM without a network request', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(new Date('2026-09-08T18:59:59Z'));
+    await pickupDetails();
+    await input('#pickup-date', '2026-09-08');
+    expect(button('Continue to payment').disabled).toBe(false);
+    const requests = fetchMock.mock.calls.length;
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-09');
+    expect(button('Continue to payment').disabled).toBe(true);
+    expect(fetchMock.mock.calls).toHaveLength(requests);
+  });
+
+  it('rechecks the cutoff at submission even if the browser timer has not fired', async () => {
+    vi.setSystemTime(new Date('2026-09-08T18:59:59Z'));
+    await pickupDetails();
+    await input('#pickup-date', '2026-09-08');
+    vi.setSystemTime(new Date('2026-09-08T19:00:00Z'));
+    await click('Continue to payment');
+    expect(calls('/api/payments/create-session')).toHaveLength(0);
+    expect(host.querySelector('#pickup-date-error')?.textContent).toContain('2 PM Central');
+  });
+
+  it.each(['sweet-bobbatlu', 'sweet-kova'])(
+    'requires tomorrow for a mixed pickup cart containing %s before 2 PM', async productId => {
+      bobbatluStock = 100;
+      useCartStore.getState().addItem(getProductById(productId)!, 1, 16);
+      await pickupDetails();
+      expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-09');
+      await input('#pickup-date', '2026-09-08');
+      expect(button('Continue to payment').disabled).toBe(true);
+      await input('#pickup-date', '2026-09-09');
+      expect(button('Continue to payment').disabled).toBe(false);
+    }
+  );
 });
 
 describe('checkout payment recovery wiring', () => {
@@ -363,7 +414,7 @@ describe('nearby delivery pickup switch', () => {
   it('preserves contacts/address, permits any pickup point, and creates a new pickup session', async () => {
     await delivery();
     expect(host.textContent).toContain('estimated 1 business day after dispatch');
-    expect(host.textContent).not.toContain('pick up orders before 4:30 PM');
+    expect(host.textContent).not.toContain('At 2 PM or later, pickup starts tomorrow');
     expect(host.textContent).toContain('Plano pickup point is closest');
     expect(host.textContent).toContain('Save $6.99 with free pickup');
     expect(calls('/api/payments/create-session')).toHaveLength(0);
@@ -387,7 +438,7 @@ describe('nearby delivery pickup switch', () => {
     const requests = calls('/api/payments/create-session');
     expect(requests).toHaveLength(2);
     expect(JSON.parse(String(requests[1][1]?.body)).fulfillment).toMatchObject({ type: 'pickup', locationId: 'irving-ravibabu', customerName: 'Nearby Test' });
-    expect(host.textContent).toContain('pick up orders before 4:30 PM');
+    expect(host.textContent).toContain('At 2 PM or later, pickup starts tomorrow');
     expect(host.textContent).not.toContain('Pick up for free →');
     await click('Back');
     await click('Back');
@@ -410,7 +461,7 @@ describe('nearby delivery pickup switch', () => {
   it.each([['77002', 'TX'], ['90001', 'CA'], ['99999', 'TX']])('does not offer a pickup switch for %s %s', async (zip, state) => {
     await delivery(zip, state);
     expect(host.textContent).not.toContain('Pick up for free →');
-    expect(host.textContent).not.toContain('pick up orders before 4:30 PM');
+    expect(host.textContent).not.toContain('At 2 PM or later, pickup starts tomorrow');
     if (state === 'CA') expect(host.textContent).not.toContain('1 business day');
     await click('Continue to payment');
     expect(host.textContent).toContain('Step 4');
@@ -419,15 +470,15 @@ describe('nearby delivery pickup switch', () => {
 });
 
 
-it.each([0, 15, 16])('sets Bobbatlu pickup dates from %s available pieces', async stock => {
+it.each([0, 15, 16, 100])('requires next-day Bobbatlu pickup even with %s available pieces', async stock => {
   bobbatluStock = stock;
   useCartStore.getState().addItem(getProductById('sweet-bobbatlu')!, 1, 16);
   await render();
   await click('Continue');
   const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
   await act(async () => pickup!.click());
-  expect(host.querySelector('input[type="date"]')?.getAttribute('min')).toBe(stock >= 16 ? '2026-09-08' : '2026-09-09');
-  expect(host.textContent?.includes('Please allow 1 day for preparation')).toBe(stock < 16);
+  expect(host.querySelector('input[type="date"]')?.getAttribute('min')).toBe('2026-09-09');
+  expect(host.textContent).toContain('Please select tomorrow or a later date for pickup.');
 });
 
 it.each([[1,'6.99','2.14','28.13'],[2,'5.99','3.63','47.62'],[3,'4.99','5.11','67.10']])(

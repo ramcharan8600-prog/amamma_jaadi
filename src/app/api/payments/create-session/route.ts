@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
-import { PRODUCTS, getTotalPieces, getBobbatluPieces, BOBBATLU_PRODUCT_ID } from '@/data/products';
+import { PRODUCTS, getTotalPieces, BOBBATLU_PRODUCT_ID } from '@/data/products';
 import { validateCart } from '@/lib/cart-validation';
-import { getPickupDateError } from '@/lib/pickup-date';
+import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import {
   calculateOrderTotals,
   getDeliveryMinimumSubtotal,
@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
     let shippingMethod: 'standard' | 'ground' | 'expedited' | undefined;
 
     if (fulfillmentType === 'pickup') {
-      const needsPreparation = getBobbatluPieces(cart.items) > (stock[BOBBATLU_PRODUCT_ID] ?? 0);
-      const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), new Date(), needsPreparation);
+      const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), new Date(),
+        requiresNextDayPickup(cart.items));
       if (dateError) return fail(dateError, 400);
     }
 

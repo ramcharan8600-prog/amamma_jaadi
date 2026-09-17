@@ -35,13 +35,14 @@ export function getTodayString(): string {
   return toBusinessDateString(new Date());
 }
 
-export function isSameDayPickupAllowed(totalPieces: number): boolean {
-  return totalPieces <= 150;
+export function isSameDayPickupAllowed(totalPieces: number, hasNextDayProduct = false): boolean {
+  const { today, min } = getPickupDateBounds(totalPieces, new Date(), hasNextDayProduct);
+  return min === today;
 }
 
-/** Returns minimum date allowed for pickup based on order size */
-export function getMinPickupDate(totalPieces: number): string {
-  return getPickupDateBounds(totalPieces).min;
+/** Returns the minimum pickup date under the shared scheduling rules. */
+export function getMinPickupDate(totalPieces: number, hasNextDayProduct = false): string {
+  return getPickupDateBounds(totalPieces, new Date(), hasNextDayProduct).min;
 }
 
 /** Minimum event date is 1-2 days from now */

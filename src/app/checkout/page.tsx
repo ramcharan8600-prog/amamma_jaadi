@@ -27,7 +27,7 @@ import {
 import { useStock, invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
-import { getPickupDateBounds, getPickupDateError } from '@/lib/pickup-date';
+import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, requiresNextDayPickup } from '@/lib/pickup-date';
 import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
 import {
   calculateOrderTotals,
@@ -399,18 +399,24 @@ export default function CheckoutPage() {
   const bobbatluPieces = mounted ? getBobbatluPieces(items) : 0;
   const { count: bobbatluStock } = useStock(bobbatluPieces > 0 ? BOBBATLU_PRODUCT_ID : null);
   const bobbatluNeedsPreparation = bobbatluPieces > (bobbatluStock ?? 0);
-  const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, bobbatluNeedsPreparation);
-  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, bobbatluNeedsPreparation);
+  const hasNextDayProduct = requiresNextDayPickup(items);
+  const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, hasNextDayProduct);
+  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
-  // Refresh an open date picker after midnight and when returning to the tab.
+  // Refresh at the Central-time cutoff or midnight, and when returning to the tab.
   useEffect(() => {
     if (step !== 'details' || fulfillmentType !== 'pickup') return;
-    const refresh = () => setPickupNow(new Date());
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = () => {
+      clearTimeout(timer);
+      const now = new Date();
+      setPickupNow(now);
+      timer = setTimeout(refresh, getNextPickupRefreshDelay(now));
+    };
     refresh();
-    const timer = setInterval(refresh, 60_000);
     window.addEventListener('focus', refresh);
     return () => {
-      clearInterval(timer);
+      clearTimeout(timer);
       window.removeEventListener('focus', refresh);
     };
   }, [step, fulfillmentType]);
@@ -549,7 +555,7 @@ export default function CheckoutPage() {
     const now = new Date();
     setPickupNow(now);
     setPickupDateTouched(true);
-    const dateError = getPickupDateError(pickupDate, totalPieces, now, bobbatluNeedsPreparation);
+    const dateError = getPickupDateError(pickupDate, totalPieces, now, hasNextDayProduct);
     if (dateError) {
       setSubmitError(dateError);
       return;
@@ -809,10 +815,9 @@ export default function CheckoutPage() {
         <Clock size={20} className="text-brand-gold shrink-0 mt-0.5" />
         <div className="font-body text-sm text-brand-charcoal/80">
           <p>
-            We request you to place your <strong className="font-bold text-brand-charcoal">same day</strong>{' '}
-            pick up orders before 4:30 PM.
+            Place eligible <strong className="font-bold text-brand-charcoal">same-day pickup</strong>{' '}
+            orders before 2 PM Central. At 2 PM or later, pickup starts tomorrow.
           </p>
-          <p>This ensures the boxes are ready at respective pick up locations.</p>
         </div>
       </div>}
 
@@ -975,7 +980,7 @@ export default function CheckoutPage() {
               <MapPin size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
               <h3 className="font-display text-xl font-semibold text-brand-charcoal">Pickup</h3>
               <p className="font-body text-sm text-brand-charcoal/60 mt-1">
-                <strong className="font-bold text-brand-charcoal">FREE</strong> - order ready to pick up same day, or schedule for a later date.
+                <strong className="font-bold text-brand-charcoal">FREE</strong> — same-day pickup on eligible orders placed before 2 PM Central, or schedule for a later date.
                 <br />
                 Pick-up from our partner locations in{' '}
                 <strong className="font-semibold text-[1.1em] leading-[inherit] text-brand-charcoal">Frisco</strong>,{' '}
@@ -1017,8 +1022,8 @@ export default function CheckoutPage() {
             <p className="font-body text-sm text-brand-charcoal/60">Pickup details</p>
           </div>
 
-          {bobbatluNeedsPreparation && (
-            <p className="font-body text-sm text-amber-800">Bobbatlu for this order is made fresh to order. Please allow 1 day for preparation.</p>
+          {hasNextDayProduct && (
+            <p className="font-body text-sm text-amber-800">Your order contains Bobbatlu or Kova (needs 1 day prep time). Please select tomorrow or a later date for pickup.</p>
           )}
 
           <div>
@@ -1077,7 +1082,7 @@ export default function CheckoutPage() {
             <div className="bg-[#93C572] border border-[#93C572] rounded-xl p-4">
               <p className="font-body text-sm text-brand-charcoal">
                 Please pick up your orders between{' '}
-                <span className="font-semibold">6:30 PM and 1:30 AM</span> at the selected pickup
+                <span className="font-semibold">6:30 PM and 12:45 AM</span> at the selected pickup
                 location.
               </p>
             </div>

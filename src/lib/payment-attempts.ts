@@ -2,9 +2,8 @@ import { preparePaymentReceipt, paymentDate, type PaymentDateFields } from '@/li
 import type { D1Database } from '@cloudflare/workers-types';
 import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { validateCart } from '@/lib/cart-validation';
-import { getTotalPieces, getBobbatluPieces, BOBBATLU_PRODUCT_ID } from '@/data/products';
-import { getStockMap } from '@/lib/inventory';
-import { getPickupDateError } from '@/lib/pickup-date';
+import { getTotalPieces } from '@/data/products';
+import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { calculateOrderTotals, getDeliveryMinimumShortfall, isSupportedDeliveryState, normalizeStateCode } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
@@ -84,7 +83,7 @@ function reviewReply(): PaymentReply {
 }
 
 /** Old unattempted sessions must not preserve a pre-fix price/quantity exploit. */
-async function validateUnattemptedSession(session: Record<string, unknown>, db: D1Database) {
+function validateUnattemptedSession(session: Record<string, unknown>) {
   try {
     const cart = validateCart(typeof session.cart_data === 'string' ? JSON.parse(session.cart_data) : session.cart_data);
     if (!cart.ok) return null;
@@ -94,12 +93,10 @@ async function validateUnattemptedSession(session: Record<string, unknown>, db: 
         (fulfillment.type !== 'pickup' && fulfillment.type !== 'delivery')) return null;
     const delivery = fulfillment?.type === 'delivery';
     // Recheck only before the FIRST charge, including sessions opened before
-    // midnight or this fix. Never interrupt an existing payment's recovery.
+    // the 2 PM cutoff, midnight or this fix. Never interrupt an existing payment's recovery.
     if (!delivery) {
-      const requested = getBobbatluPieces(cart.items);
-      const stock = requested > 0 ? await getStockMap(db) : {};
       if (getPickupDateError(fulfillment.date, getTotalPieces(cart.items), new Date(),
-        requested > (stock[BOBBATLU_PRODUCT_ID] ?? 0))) return null;
+        requiresNextDayPickup(cart.items))) return null;
     }
     const state = normalizeStateCode(fulfillment.state);
     if (delivery && (!isSupportedDeliveryState(state) ||
@@ -224,7 +221,7 @@ export async function runPaymentAttempt(
 
   if (!attempt) {
     if (!input.sourceId) return { ...pendingPaymentReply('MISSING_PAYMENT_DETAILS'), httpStatus: 400 };
-    const canonicalItems = await validateUnattemptedSession(session, db);
+    const canonicalItems = validateUnattemptedSession(session);
     if (!canonicalItems) {
       await db.prepare(
         `UPDATE payment_sessions SET payment_status = 'expired'

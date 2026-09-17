@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPickupDateBounds, getPickupDateError } from './pickup-date';
+import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, requiresNextDayPickup } from './pickup-date';
 
 const now = new Date('2026-09-08T18:00:00Z');
 
@@ -28,7 +28,7 @@ describe('pickup date validation in Dallas time', () => {
   });
 
   it('uses Dallas midnight, not UTC or the customer timezone', () => {
-    expect(getPickupDateError('2026-09-08', 16, new Date('2026-09-09T04:59:59Z'))).toBeNull();
+    expect(getPickupDateBounds(16, new Date('2026-09-09T04:59:59Z'))).toMatchObject({ today: '2026-09-08', min: '2026-09-09' });
     expect(getPickupDateError('2026-09-08', 16, new Date('2026-09-09T05:00:00Z'))).toContain('past');
   });
 
@@ -44,5 +44,53 @@ describe('pickup date validation in Dallas time', () => {
     expect(getPickupDateError('2028-02-29', 16, new Date('2028-02-01T18:00:00Z'))).toBeNull();
     expect(getPickupDateError('2000-02-29', 16, new Date('2000-02-01T18:00:00Z'))).toBeNull();
     expect(getPickupDateError('2100-02-29', 16, new Date('2100-02-01T18:00:00Z'))).toContain('valid');
+  });
+});
+
+describe('same-day pickup cutoff and product restrictions', () => {
+  it.each([
+    ['2026-09-17T18:59:59.999Z', '2026-09-17'],
+    ['2026-09-17T19:00:00.000Z', '2026-09-18'],
+    ['2026-01-17T19:59:59.999Z', '2026-01-17'],
+    ['2026-01-17T20:00:00.000Z', '2026-01-18'],
+    ['2026-03-08T18:59:59.999Z', '2026-03-08'],
+    ['2026-03-08T19:00:00.000Z', '2026-03-09'],
+    ['2026-11-01T19:59:59.999Z', '2026-11-01'],
+    ['2026-11-01T20:00:00.000Z', '2026-11-02'],
+    ['2026-12-31T20:00:00.000Z', '2027-01-01'],
+  ])('starts pickup at %s with minimum %s', (instant, min) => {
+    const time = new Date(instant);
+    const bounds = getPickupDateBounds(16, time);
+    expect(bounds.min).toBe(min);
+    expect(getPickupDateError(min, 16, time)).toBeNull();
+    if (bounds.today !== min) expect(getPickupDateError(bounds.today, 16, time)).toContain('2 PM Central');
+  });
+
+  it.each(['sweet-bobbatlu', 'sweet-kova'])('requires tomorrow for %s alone and in mixed carts before the cutoff', productId => {
+    for (const items of [[{ productId }], [{ productId: 'pickle-chicken' }, { productId }]]) {
+      const hasNextDayProduct = requiresNextDayPickup(items);
+      expect(hasNextDayProduct).toBe(true);
+      expect(getPickupDateBounds(16, now, hasNextDayProduct).min).toBe('2026-09-09');
+      expect(getPickupDateError('2026-09-08', 16, now, hasNextDayProduct)).toContain('Bobbatlu or Kova');
+      expect(getPickupDateError('2026-09-09', 16, now, hasNextDayProduct)).toBeNull();
+    }
+  });
+
+  it('does not impose the product restriction on other sweets, pickles, or gift boxes', () => {
+    expect(requiresNextDayPickup([
+      { productId: 'sweet-malpuri' }, { productId: 'sweet-malai-khaja' },
+      { productId: 'pickle-chicken' }, { productId: 'gift-box-sweet-memories' },
+    ])).toBe(false);
+  });
+
+  it.each([
+    ['2026-09-17T18:59:59.999Z', 1],
+    ['2026-09-17T19:00:00Z', 10 * 60 * 60_000],
+    ['2026-09-18T04:59:59Z', 1000],
+    ['2026-09-18T05:00:00Z', 14 * 60 * 60_000],
+    ['2026-03-08T06:00:00Z', 13 * 60 * 60_000],
+    ['2026-11-01T05:00:00Z', 15 * 60 * 60_000],
+  ])('refreshes at the next cutoff or midnight from %s without polling', (instant, delay) => {
+    expect(getNextPickupRefreshDelay(new Date(instant))).toBe(delay);
   });
 });

@@ -28,7 +28,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'Are your sweets freshly made?',
     answer:
-      'Yes. Guntur Malpuri and Nellore Malai Khaja are baked fresh every day. Bobbatlu is available from ready stock; when your order exceeds available stock, please allow 1 day for preparation. Kova is made to order and requires at least 2 days’ notice.',
+      'Yes. Guntur Malpuri and Nellore Malai Khaja are baked fresh every day. Bobbatlu is available from ready stock; when your order exceeds available stock, please allow 1 day for preparation. Kova is made to order; allow 2 days for delivery preparation. Pickup orders containing Bobbatlu or Kova can be scheduled from the next day. Other eligible orders offer same-day pickup when placed before 2 PM Central.',
   },
   {
     question: 'Do you cater sweets for weddings, parties and corporate events?',
@@ -48,6 +48,6 @@ export const FAQS: FaqItem[] = [
   {
     question: 'Where can I pick up my order?',
     answer:
-      'We have partner pickup locations across DFW in Plano, Irving, and Frisco. You choose your location at checkout, and orders can be collected between 6:30 PM and 1:30 AM.',
+      'We have partner pickup locations across DFW in Plano, Irving, and Frisco. You choose your location at checkout, and orders can be collected between 6:30 PM and 12:45 AM.',
   },
 ];

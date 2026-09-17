@@ -100,7 +100,7 @@ export function getLocalBusinessSchema() {
       '@type': 'OpeningHoursSpecification',
       dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
       opens: '18:30',
-      closes: '01:30',
+      closes: '00:45',
     },
     sameAs: [
       'https://www.instagram.com/AMAMMA_JAADI',

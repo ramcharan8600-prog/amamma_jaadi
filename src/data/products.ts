@@ -129,7 +129,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/products/Pala kova.jpg',
     quantityOptions: [16, 25, 50],
     inStock: true,
-    prepNotice: 'Baked fresh to order — please place this order at least 2 days in advance.',
+    prepNotice: 'Made fresh to order — pickup available from tomorrow. Allow 2 days for delivery preparation.',
     tags: ['traditional', 'andhra', 'milk-based'],
   },
 

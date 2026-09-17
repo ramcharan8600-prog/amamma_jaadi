@@ -22,8 +22,21 @@ function pickupDate(daysAhead = 0): string {
   return date.toISOString().slice(0, 10);
 }
 
-function pickupFulfillment(date: unknown = pickupDate()) {
+function pickupFulfillment(date: unknown = pickupDate(1)) {
   return { type: 'pickup', date, locationId: 'plano-biryanify' };
+}
+
+/** Freeze pickup calendar time while recovery leases use SQLite's real clock. */
+function setPickupClock(instant: string) {
+  const replayClock = Date.now();
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(instant));
+  vi.spyOn(Date, 'now').mockReturnValue(replayClock);
+}
+
+function setSessionPickupDate(date: string) {
+  fixture.sqlite.prepare('UPDATE payment_sessions SET fulfillment_data = ?')
+    .run(JSON.stringify(pickupFulfillment(date)));
 }
 
 function addSession(id = 'test-session') {
@@ -57,6 +70,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
   fixture.sqlite.close();
 });
 
@@ -104,7 +118,7 @@ describe('durable payment recovery using real SQLite transactions', () => {
     expect(fixture.sqlite.prepare('SELECT payment_status FROM payment_sessions').get()?.payment_status).toBe('expired');
   });
 
-  it.each([0, 90])('allows an initial pickup payment scheduled %i days ahead', async daysAhead => {
+  it.each([1, 90])('allows an initial pickup payment scheduled %i days ahead', async daysAhead => {
     const date = pickupDate(daysAhead);
     fixture.sqlite.prepare('UPDATE payment_sessions SET fulfillment_data = ?')
       .run(JSON.stringify(pickupFulfillment(date)));
@@ -376,16 +390,150 @@ describe('durable payment recovery using real SQLite transactions', () => {
 });
 
 
-it('rechecks Bobbatlu ready pieces before a first same-day charge', async () => {
-  fixture.sqlite.prepare("UPDATE payment_sessions SET cart_data=?, total_amount=48 WHERE id='test-session'")
-    .run(JSON.stringify([{ productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 16, lineTotal: 48 }]));
-  fixture.sqlite.exec("UPDATE inventory SET stock_count=15 WHERE product_id='sweet-bobbatlu'");
-  const execute = vi.fn();
-  expect(await runPaymentAttempt(fixture.db,
-    { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
-    .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
-  expect(execute).not.toHaveBeenCalled();
-  expect(attempt()).toBeUndefined();
+describe.each([
+  ['CDT', '2026-07-15T18:59:59Z', '2026-07-15T19:00:00Z', '2026-07-15'],
+  ['CST', '2026-01-15T19:59:59Z', '2026-01-15T20:00:00Z', '2026-01-15'],
+] as const)('2 PM pickup cutoff in %s', (_season, beforeCutoff, cutoff, today) => {
+  it('allows a first same-day charge at 13:59:59', async () => {
+    setPickupClock(beforeCutoff);
+    setSessionPickupDate(today);
+    const execute = vi.fn(async () => ({ paymentId: 'payment-before-cutoff', status: 'COMPLETED' }));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it('expires an untouched same-day session crossing 14:00 without charging', async () => {
+    setPickupClock(beforeCutoff);
+    setSessionPickupDate(today);
+    const execute = vi.fn();
+    vi.setSystemTime(new Date(cutoff));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+    expect(execute).not.toHaveBeenCalled();
+    expect(finalize).not.toHaveBeenCalled();
+    expect(attempt()).toBeUndefined();
+    expect(fixture.sqlite.prepare('SELECT payment_status FROM payment_sessions').get()?.payment_status).toBe('expired');
+  });
+
+  it('replays an uncertain payment across 14:00 with its original token and key', async () => {
+    setPickupClock(beforeCutoff);
+    setSessionPickupDate(today);
+    const execute = vi.fn().mockRejectedValueOnce(new SquarePaymentError('PAYMENT_RESPONSE_UNKNOWN'))
+      .mockResolvedValue({ paymentId: 'payment-across-cutoff', status: 'COMPLETED' });
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize }))
+      .toMatchObject({ status: 'unknown', canStartNewSession: false });
+    vi.setSystemTime(new Date(cutoff));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', retry: true }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED', canStartNewSession: false });
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute.mock.calls[1][0]).toEqual(execute.mock.calls[0][0]);
+    expect(fixture.sqlite.prepare('SELECT COUNT(*) AS count FROM payment_attempts').get()?.count).toBe(1);
+    expect(finalize.mock.calls[0][1].fulfillment_data?.date).toBe(today);
+  });
+
+  it('lets a submitted payment finish after 14:00 without a second charge', async () => {
+    setPickupClock(beforeCutoff);
+    setSessionPickupDate(today);
+    let release!: () => void;
+    const barrier = new Promise<void>(resolve => { release = resolve; });
+    let started!: () => void;
+    const entered = new Promise<void>(resolve => { started = resolve; });
+    const execute = vi.fn(async () => {
+      started();
+      await barrier;
+      return { paymentId: 'payment-submitted-before-cutoff', status: 'COMPLETED' };
+    });
+    const first = runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize });
+    await entered;
+    vi.setSystemTime(new Date(cutoff));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize }))
+      .toMatchObject({ status: 'processing', canStartNewSession: false });
+    expect(execute).toHaveBeenCalledTimes(1);
+    release();
+    expect(await first).toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+  });
+
+  it('finalizes an accepted payment after 14:00 without charging again', async () => {
+    setPickupClock(beforeCutoff);
+    setSessionPickupDate(today);
+    const execute = vi.fn(async () => ({ paymentId: 'payment-accepted-before-cutoff', status: 'COMPLETED' }));
+    finalize.mockRejectedValueOnce(new Error('D1 order transaction failed'));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'ORDER_FINALIZING', canStartNewSession: false });
+    expect(attempt()).toMatchObject({ state: 'completed', request_json: null });
+    vi.setSystemTime(new Date(cutoff));
+    expect(await getPaymentAttemptStatus(fixture.db, 'test-session', { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED', canStartNewSession: false });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(finalize).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('next-day product rules before a first charge', () => {
+  it.each([
+    ['sweet-bobbatlu', 0, false, 48],
+    ['sweet-bobbatlu', 100, false, 48],
+    ['sweet-kova', 100, false, 32],
+    ['sweet-bobbatlu', 100, true, 88],
+    ['sweet-kova', 100, true, 72],
+  ] as const)('rejects same-day %s with stock %i and mixed cart %s', async (productId, stock, mixed, total) => {
+    setPickupClock('2026-07-15T18:59:59Z');
+    setSessionPickupDate('2026-07-15');
+    fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, total_amount = ?')
+      .run(JSON.stringify([
+        { productId, quantity: 1, selectedTier: 16, product: { id: 'sweet-malpuri', category: 'pickles' } },
+        ...(mixed ? [{ productId: 'sweet-malpuri', quantity: 1, selectedTier: 16 }] : []),
+      ]), total);
+    fixture.sqlite.prepare('INSERT OR REPLACE INTO inventory (product_id, stock_count) VALUES (?, ?)')
+      .run(productId, stock);
+    const execute = vi.fn();
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+    expect(execute).not.toHaveBeenCalled();
+    expect(finalize).not.toHaveBeenCalled();
+    expect(attempt()).toBeUndefined();
+  });
+
+  it.each([
+    ['sweet-bobbatlu', 48],
+    ['sweet-kova', 32],
+  ] as const)('accepts next-day %s without a pickup inventory lookup', async (productId, total) => {
+    setPickupClock('2026-07-15T18:59:59Z');
+    setSessionPickupDate('2026-07-16');
+    fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, total_amount = ?')
+      .run(JSON.stringify([{ productId, quantity: 1, selectedTier: 16 }]), total);
+    const prepare = vi.spyOn(fixture.db, 'prepare');
+    const execute = vi.fn(async () => ({ paymentId: 'payment-next-day', status: 'COMPLETED' }));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(prepare.mock.calls.some(([sql]) => /\bFROM inventory\b/i.test(sql))).toBe(false);
+  });
+
+  it.each([
+    ['sweet-bobbatlu', 54.99],
+    ['sweet-kova', 38.99],
+  ] as const)('keeps delivery %s chargeable after the pickup cutoff', async (productId, total) => {
+    setPickupClock('2026-07-15T19:00:00Z');
+    fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, fulfillment_data = ?, shipping = 6.99, total_amount = ?')
+      .run(JSON.stringify([{ productId, quantity: 1, selectedTier: 16 }]),
+        JSON.stringify({ type: 'delivery', state: 'TX', date: '2026-07-15' }), total);
+    const execute = vi.fn(async () => ({ paymentId: 'payment-delivery', status: 'COMPLETED' }));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
 });
 
 it.each([[1,6.99,2.14,28.13],[2,5.99,3.63,47.62],[3,4.99,5.11,67.10]])(
