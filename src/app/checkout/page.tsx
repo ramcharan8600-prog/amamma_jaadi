@@ -811,12 +811,12 @@ export default function CheckoutPage() {
       </div>
 
       {/* Pickup instructions only apply to customers who selected pickup. */}
-      {fulfillmentType === 'pickup' && (step === 'details' || step === 'payment') && <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-4 mb-6 flex items-start gap-3">
+      {fulfillmentType === 'pickup' && step === 'payment' && <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-4 mb-6 flex items-start gap-3">
         <Clock size={20} className="text-brand-gold shrink-0 mt-0.5" />
         <div className="font-body text-sm text-brand-charcoal/80">
           <p>
             Place eligible <strong className="font-bold text-brand-charcoal">same-day pickup</strong>{' '}
-            orders before 2 PM Central. At 2 PM or later, pickup starts tomorrow.
+            orders on or before 1:30 PM Central. After 1:30 PM, pickup starts tomorrow.
           </p>
         </div>
       </div>}
@@ -980,7 +980,7 @@ export default function CheckoutPage() {
               <MapPin size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
               <h3 className="font-display text-xl font-semibold text-brand-charcoal">Pickup</h3>
               <p className="font-body text-sm text-brand-charcoal/60 mt-1">
-                <strong className="font-bold text-brand-charcoal">FREE</strong> — same-day pickup on eligible orders placed before 2 PM Central, or schedule for a later date.
+                <strong className="font-bold text-brand-charcoal">FREE</strong> — same-day pickup on eligible orders placed on or before 1:30 PM Central, or schedule for a later date.
                 <br />
                 Pick-up from our partner locations in{' '}
                 <strong className="font-semibold text-[1.1em] leading-[inherit] text-brand-charcoal">Frisco</strong>,{' '}

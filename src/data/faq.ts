@@ -28,7 +28,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'Are your sweets freshly made?',
     answer:
-      'Yes. Guntur Malpuri and Nellore Malai Khaja are baked fresh every day. Bobbatlu is available from ready stock; when your order exceeds available stock, please allow 1 day for preparation. Kova is made to order; allow 2 days for delivery preparation. Pickup orders containing Bobbatlu or Kova can be scheduled from the next day. Other eligible orders offer same-day pickup when placed before 2 PM Central.',
+      'Yes. Guntur Malpuri and Nellore Malai Khaja are baked fresh every day. Bobbatlu is available from ready stock; when your order exceeds available stock, please allow 1 day for preparation. Kova is made to order; allow 2 days for delivery preparation. Pickup orders containing Bobbatlu or Kova can be scheduled from the next day. Other eligible orders offer same-day pickup when placed on or before 1:30 PM Central.',
   },
   {
     question: 'Do you cater sweets for weddings, parties and corporate events?',

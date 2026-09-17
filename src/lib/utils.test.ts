@@ -18,7 +18,7 @@ describe('formatCurrency', () => {
 describe('pickup business rules', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-09-17T18:59:59Z'));
+    vi.setSystemTime(new Date('2026-09-17T18:29:59Z'));
   });
   afterEach(() => vi.useRealTimers());
 
@@ -35,10 +35,10 @@ describe('pickup business rules', () => {
     expect(getMinPickupDate(200) > getTodayString()).toBe(true);
   });
 
-  it('uses tomorrow at the cutoff or when the cart has a next-day product', () => {
+  it('uses tomorrow after the cutoff or when the cart has a next-day product', () => {
     expect(isSameDayPickupAllowed(16, true)).toBe(false);
     expect(getMinPickupDate(16, true)).toBe('2026-09-18');
-    vi.setSystemTime(new Date('2026-09-17T19:00:00Z'));
+    vi.setSystemTime(new Date('2026-09-17T18:30:00.001Z'));
     expect(isSameDayPickupAllowed(16)).toBe(false);
     expect(getMinPickupDate(16)).toBe('2026-09-18');
   });

@@ -93,7 +93,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
         (fulfillment.type !== 'pickup' && fulfillment.type !== 'delivery')) return null;
     const delivery = fulfillment?.type === 'delivery';
     // Recheck only before the FIRST charge, including sessions opened before
-    // the 2 PM cutoff, midnight or this fix. Never interrupt an existing payment's recovery.
+    // the 1:30 PM cutoff, midnight or this fix. Never interrupt an existing payment's recovery.
     if (!delivery) {
       if (getPickupDateError(fulfillment.date, getTotalPieces(cart.items), new Date(),
         requiresNextDayPickup(cart.items))) return null;

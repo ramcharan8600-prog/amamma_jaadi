@@ -84,18 +84,20 @@ describe('create-session validates pickup dates before storing a payable session
   });
 
   it.each([
-    ['CDT before cutoff', '2026-07-15T18:59:59Z', '2026-07-15', '2026-07-16', 201],
-    ['CDT at cutoff', '2026-07-15T19:00:00Z', '2026-07-15', '2026-07-16', 400],
-    ['CDT after cutoff', '2026-07-15T19:00:01Z', '2026-07-15', '2026-07-16', 400],
-    ['CST before cutoff', '2026-01-15T19:59:59Z', '2026-01-15', '2026-01-16', 201],
-    ['CST at cutoff', '2026-01-15T20:00:00Z', '2026-01-15', '2026-01-16', 400],
-    ['CST after cutoff', '2026-01-15T20:00:01Z', '2026-01-15', '2026-01-16', 400],
+    ['CDT before cutoff', '2026-07-15T18:29:59.999Z', '2026-07-15', '2026-07-16', 201],
+    ['CDT exactly at cutoff', '2026-07-15T18:30:00.000Z', '2026-07-15', '2026-07-16', 201],
+    ['CDT one millisecond after cutoff', '2026-07-15T18:30:00.001Z', '2026-07-15', '2026-07-16', 400],
+    ['CDT one second after cutoff', '2026-07-15T18:30:01Z', '2026-07-15', '2026-07-16', 400],
+    ['CST before cutoff', '2026-01-15T19:29:59.999Z', '2026-01-15', '2026-01-16', 201],
+    ['CST exactly at cutoff', '2026-01-15T19:30:00.000Z', '2026-01-15', '2026-01-16', 201],
+    ['CST one millisecond after cutoff', '2026-01-15T19:30:00.001Z', '2026-01-15', '2026-01-16', 400],
+    ['CST one second after cutoff', '2026-01-15T19:30:01Z', '2026-01-15', '2026-01-16', 400],
   ] as const)('enforces same-day pickup at %s', async (_label, now, today, tomorrow, status) => {
     vi.setSystemTime(new Date(now));
     const response = await post(checkout([sweet], { ...pickup, date: today }));
     expect(response.status).toBe(status);
     if (status === 400) {
-      expect((await response.json()).error).toMatch(/2\s*PM|tomorrow/i);
+      expect((await response.json()).error).toMatch(/1:30\s*PM|tomorrow/i);
       expect(mocks.inserts).toHaveLength(0);
     }
     expect((await post(checkout([sweet], { ...pickup, date: tomorrow }))).status).toBe(201);
@@ -313,7 +315,7 @@ describe('Bobbatlu and Kova require next-day pickup regardless of stock', () => 
     expect((await post(checkout(items, { ...pickup, date: '2026-09-09' }))).status).toBe(201);
   });
 
-  it.each([bobbatlu, kova])('keeps delivery available for $productId after 2 PM', async item => {
+  it.each([bobbatlu, kova])('keeps delivery available for $productId after 1:30 PM', async item => {
     vi.setSystemTime(new Date('2026-09-08T19:00:00Z'));
     expect((await post(checkout([item], { ...delivery('TX'), date: '2026-09-08' }))).status).toBe(201);
     expect(JSON.parse(mocks.inserts[0][5] as string)).not.toHaveProperty('date');

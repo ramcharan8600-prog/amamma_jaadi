@@ -49,21 +49,24 @@ describe('pickup date validation in Dallas time', () => {
 
 describe('same-day pickup cutoff and product restrictions', () => {
   it.each([
-    ['2026-09-17T18:59:59.999Z', '2026-09-17'],
-    ['2026-09-17T19:00:00.000Z', '2026-09-18'],
-    ['2026-01-17T19:59:59.999Z', '2026-01-17'],
-    ['2026-01-17T20:00:00.000Z', '2026-01-18'],
-    ['2026-03-08T18:59:59.999Z', '2026-03-08'],
-    ['2026-03-08T19:00:00.000Z', '2026-03-09'],
-    ['2026-11-01T19:59:59.999Z', '2026-11-01'],
-    ['2026-11-01T20:00:00.000Z', '2026-11-02'],
-    ['2026-12-31T20:00:00.000Z', '2027-01-01'],
+    ['2026-09-17T18:29:59.999Z', '2026-09-17'],
+    ['2026-09-17T18:30:00.000Z', '2026-09-17'],
+    ['2026-09-17T18:30:00.001Z', '2026-09-18'],
+    ['2026-01-17T19:29:59.999Z', '2026-01-17'],
+    ['2026-01-17T19:30:00.000Z', '2026-01-17'],
+    ['2026-01-17T19:30:00.001Z', '2026-01-18'],
+    ['2026-03-08T18:30:00.000Z', '2026-03-08'],
+    ['2026-03-08T18:30:00.001Z', '2026-03-09'],
+    ['2026-11-01T19:30:00.000Z', '2026-11-01'],
+    ['2026-11-01T19:30:00.001Z', '2026-11-02'],
+    ['2026-12-31T19:30:00.000Z', '2026-12-31'],
+    ['2026-12-31T19:30:00.001Z', '2027-01-01'],
   ])('starts pickup at %s with minimum %s', (instant, min) => {
     const time = new Date(instant);
     const bounds = getPickupDateBounds(16, time);
     expect(bounds.min).toBe(min);
     expect(getPickupDateError(min, 16, time)).toBeNull();
-    if (bounds.today !== min) expect(getPickupDateError(bounds.today, 16, time)).toContain('2 PM Central');
+    if (bounds.today !== min) expect(getPickupDateError(bounds.today, 16, time)).toContain('1:30 PM Central');
   });
 
   it.each(['sweet-bobbatlu', 'sweet-kova'])('requires tomorrow for %s alone and in mixed carts before the cutoff', productId => {
@@ -84,12 +87,13 @@ describe('same-day pickup cutoff and product restrictions', () => {
   });
 
   it.each([
-    ['2026-09-17T18:59:59.999Z', 1],
-    ['2026-09-17T19:00:00Z', 10 * 60 * 60_000],
+    ['2026-09-17T18:29:59.999Z', 2],
+    ['2026-09-17T18:30:00.000Z', 1],
+    ['2026-09-17T18:30:00.001Z', (10 * 60 + 30) * 60_000 - 1],
     ['2026-09-18T04:59:59Z', 1000],
-    ['2026-09-18T05:00:00Z', 14 * 60 * 60_000],
-    ['2026-03-08T06:00:00Z', 13 * 60 * 60_000],
-    ['2026-11-01T05:00:00Z', 15 * 60 * 60_000],
+    ['2026-09-18T05:00:00Z', (13 * 60 + 30) * 60_000 + 1],
+    ['2026-03-08T06:00:00Z', (12 * 60 + 30) * 60_000 + 1],
+    ['2026-11-01T05:00:00Z', (14 * 60 + 30) * 60_000 + 1],
   ])('refreshes at the next cutoff or midnight from %s without polling', (instant, delay) => {
     expect(getNextPickupRefreshDelay(new Date(instant))).toBe(delay);
   });
