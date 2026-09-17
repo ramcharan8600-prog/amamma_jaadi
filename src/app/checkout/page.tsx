@@ -1079,8 +1079,8 @@ export default function CheckoutPage() {
           </p>
 
           {pickupLocationId && (
-            <div className="bg-brand-maroon/10 border border-brand-maroon/20 rounded-xl p-4">
-              <p className="font-body text-sm text-brand-maroon">
+            <div className="bg-[#F7F0DF] border border-[#DDC795] rounded-xl p-4">
+              <p className="font-body text-sm text-[#5A4524]">
                 Please pick up your orders between{' '}
                 <span className="font-semibold">6:30 PM and 12:45 AM</span> at the selected pickup
                 location.
