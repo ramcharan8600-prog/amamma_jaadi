@@ -188,6 +188,11 @@ describe('pricing — pickup and general', () => {
   it('identifies the standard shipping service consistently', () => {
     expect(shippingMethodLabel('standard')).toBe('UPS 2nd Day Air');
     expect(shippingMethodLabel(undefined)).toBe('UPS 2nd Day Air');
+    expect(shippingMethodLabel('standard', true)).toBe('Standard shipping');
+    expect(shippingMethodLabel(undefined, true)).toBe('Standard shipping');
+    expect(shippingMethodLabel(null, true)).toBe('Standard shipping');
+    expect(shippingMethodLabel('ground', true)).toBe('Ground — estimated 2–5 business days in transit');
+    expect(shippingMethodLabel('expedited', true)).toBe('Expedited — estimated 2 business days in transit');
   });
 
   it('does NOT charge shipping for pickup, even below $60', () => {

@@ -195,6 +195,9 @@ export async function createOrderFromSession(
     subtotal: lines.reduce((sum, line) => sum + Math.round(line.lineTotal * 100), 0) / 100,
     tax: session.tax ?? 0, shipping: session.shipping ?? 0,
     customerName: session.customer_name, phone: session.phone_number, items: emailItems,
+    // Match the purchased cart used for shipping; complimentary display rows
+    // must not change the service label between checkout and its confirmation.
+    picklesOnly: lines.length > 0 && lines.every((line) => getProductById(line.productId)?.category === 'pickles'),
     fulfillmentType: fulfillment.type as 'pickup' | 'delivery',
     pickupDate: fulfillment.date,
     pickupLocation: pickup ? `${pickup.name} — ${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip}` : undefined,

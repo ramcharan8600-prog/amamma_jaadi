@@ -121,10 +121,10 @@ export function getShippingZone(state: string | undefined | null): ShippingZone 
   return 'far';
 }
 
-export function shippingMethodLabel(method: DeliveryShippingMethod | null | undefined): string {
+export function shippingMethodLabel(method: DeliveryShippingMethod | null | undefined, picklesOnly = false): string {
   if (method === 'expedited') return 'Expedited — estimated 2 business days in transit';
   if (method === 'ground') return 'Ground — estimated 2–5 business days in transit';
-  return 'UPS 2nd Day Air';
+  return picklesOnly ? 'Standard shipping' : 'UPS 2nd Day Air';
 }
 
 /** Pickle-only carts have no minimum; other far-state orders require $80. */

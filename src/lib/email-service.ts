@@ -14,7 +14,16 @@ import { formatPickupDate } from '@/lib/date';
 import { SALES_TAX_LABEL, shippingMethodLabel } from '@/lib/pricing';
 import { enqueueEmail, isEmailOutboxConfigured, type EmailOutboxPayload } from '@/lib/email-outbox';
 import { ORDER_CONFIRMATION_BCC } from '@/lib/email-recipients';
+import { PRODUCTS } from '@/data/products';
 import type { DeliveryShippingMethod } from '@/types';
+
+const PICKLE_PRODUCT_NAMES = new Set(
+  PRODUCTS.filter((product) => product.category === 'pickles').map((product) => product.name.trim().toLowerCase())
+);
+
+function containsOnlyPickles(items: ReadonlyArray<{ name: string }>): boolean {
+  return items.length > 0 && items.every((item) => PICKLE_PRODUCT_NAMES.has(item.name.trim().toLowerCase()));
+}
 
 /**
  * Owner inboxes for new-order notifications (comma-separated env value).
@@ -102,6 +111,7 @@ function totalsFooterRows(params: {
   shipping?: number;
   fulfillmentType: 'pickup' | 'delivery';
   shippingMethod?: DeliveryShippingMethod;
+  picklesOnly?: boolean;
 }): string {
   if (params.subtotal == null) return '';
 
@@ -121,7 +131,7 @@ function totalsFooterRows(params: {
   if (params.fulfillmentType === 'delivery') {
     const fee = Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free';
     rows.push(
-      `<tr><td colspan="2" style="${cell}">${escapeHtml(shippingMethodLabel(params.shippingMethod))}</td>
+      `<tr><td colspan="2" style="${cell}">${escapeHtml(shippingMethodLabel(params.shippingMethod, params.picklesOnly))}</td>
        <td style="text-align:right; ${cell}">${fee}</td></tr>`
     );
   }
@@ -147,6 +157,8 @@ export interface OrderConfirmationParams {
   items: Array<{ name: string; quantity: number; price: number }>;
   fulfillmentType: 'pickup' | 'delivery';
   shippingMethod?: DeliveryShippingMethod;
+  /** Trusted paid-cart classification; older callers fall back to catalog names. */
+  picklesOnly?: boolean;
   /** Pickup date (YYYY-MM-DD) — shown for pickup orders. */
   pickupDate?: string;
   /** Pickup location (name + address) — shown for pickup orders. */
@@ -157,6 +169,7 @@ export interface OrderConfirmationParams {
 
 /** Render before the order transaction so its durable email intent commits with it. */
 export function buildOrderConfirmationEmail(params: OrderConfirmationParams): EmailOutboxPayload {
+  const picklesOnly = params.picklesOnly ?? containsOnlyPickles(params.items);
   const itemsHtml = params.items
     .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
     .join('');
@@ -174,7 +187,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
     <div style="background: #FFF8F0; padding: 14px 16px; border-radius: 8px; margin: 16px 0;">
       <p style="margin: 0 0 6px; font-weight: bold; color: #7B1F1F;">Delivery</p>
       ${params.deliveryAddress ? `<p style="margin: 0 0 6px; color: #444; white-space: pre-line;">${escapeHtml(params.deliveryAddress)}</p>` : ''}
-      <p style="margin: 0 0 6px; color: #444;"><strong>Method:</strong> ${escapeHtml(shippingMethodLabel(params.shippingMethod))}</p>
+      <p style="margin: 0 0 6px; color: #444;"><strong>Method:</strong> ${escapeHtml(shippingMethodLabel(params.shippingMethod, picklesOnly))}</p>
       <p style="margin: 0; color: #666;">We&apos;ll share tracking details for your delivery shortly.</p>
     </div>`;
 
@@ -196,7 +209,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
       </tr></thead>
       <tbody>${itemsHtml}</tbody>
       <tfoot>
-        ${totalsFooterRows(params)}
+        ${totalsFooterRows({ ...params, picklesOnly })}
         <tr style="border-top: 2px solid #7B1F1F;">
           <td colspan="2" style="padding:12px 0; font-weight:bold;">Total</td>
           <td style="text-align:right; font-weight:bold; color:#7B1F1F;">$${params.total.toFixed(2)}</td>
@@ -239,6 +252,8 @@ export interface OwnerOrderAlertParams {
   items: Array<{ name: string; quantity: number; price: number }>;
   fulfillmentType: 'pickup' | 'delivery';
   shippingMethod?: DeliveryShippingMethod;
+  /** Trusted paid-cart classification; older callers fall back to catalog names. */
+  picklesOnly?: boolean;
   pickupDate?: string;
   pickupLocation?: string;
   deliveryAddress?: string;
@@ -248,6 +263,7 @@ export function buildOwnerOrderAlertEmail(params: OwnerOrderAlertParams): EmailO
   const ownerEmails = getOwnerEmails();
   if (ownerEmails.length === 0) return null;
 
+  const picklesOnly = params.picklesOnly ?? containsOnlyPickles(params.items);
   const itemsHtml = params.items
     .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
     .join('');
@@ -255,7 +271,7 @@ export function buildOwnerOrderAlertEmail(params: OwnerOrderAlertParams): EmailO
   const fulfillmentHtml =
     params.fulfillmentType === 'pickup'
       ? `<p style="margin: 2px 0;"><strong>Pickup:</strong> ${escapeHtml(params.pickupDate ? formatPickupDate(params.pickupDate) : '')}${params.pickupLocation ? ` — ${escapeHtml(params.pickupLocation)}` : ''}</p>`
-      : `<p style="margin: 2px 0;"><strong>Delivery to:</strong></p><p style="margin: 2px 0; white-space: pre-line; color: #444;">${escapeHtml(params.deliveryAddress || '(no address)')}</p><p style="margin: 6px 0 2px;"><strong>Shipping method:</strong> ${escapeHtml(shippingMethodLabel(params.shippingMethod))}</p>`;
+      : `<p style="margin: 2px 0;"><strong>Delivery to:</strong></p><p style="margin: 2px 0; white-space: pre-line; color: #444;">${escapeHtml(params.deliveryAddress || '(no address)')}</p><p style="margin: 6px 0 2px;"><strong>Shipping method:</strong> ${escapeHtml(shippingMethodLabel(params.shippingMethod, picklesOnly))}</p>`;
 
   const html = baseTemplate(`
     <h2 style="color: #7B1F1F;">New Order — ${params.orderNumber}</h2>
@@ -281,7 +297,7 @@ export function buildOwnerOrderAlertEmail(params: OwnerOrderAlertParams): EmailO
                <td style="text-align:right; padding:2px 0; color:#666;">$${Number(params.tax).toFixed(2)}</td></tr>
                ${
                  params.fulfillmentType === 'delivery'
-                   ? `<tr><td colspan="2" style="padding:2px 0 10px; color:#666;">${escapeHtml(shippingMethodLabel(params.shippingMethod))}</td>
+                   ? `<tr><td colspan="2" style="padding:2px 0 10px; color:#666;">${escapeHtml(shippingMethodLabel(params.shippingMethod, picklesOnly))}</td>
                       <td style="text-align:right; padding:2px 0 10px; color:#666;">${Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free'}</td></tr>`
                    : ''
                }`

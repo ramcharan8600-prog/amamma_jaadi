@@ -1190,8 +1190,9 @@ export default function CheckoutPage() {
               <p className="font-body text-sm text-green-800">Kova Bobbatlu for this order needs 1 day for preparation before dispatch.</p>
             )}
             <p className="font-body text-sm text-green-800">
-              We use UPS 2nd Day Air for out-of-state orders for faster delivery from Dallas to
-              your destination. Packages typically arrive within 2 business days after dispatch.
+              {picklesOnly
+                ? 'Pickle-only orders use Standard shipping. Tracking details will be emailed when your order ships.'
+                : 'We use UPS 2nd Day Air for out-of-state orders containing sweets. Packages typically arrive within 2 business days after dispatch.'}
             </p>
           </div>
 
@@ -1351,7 +1352,7 @@ export default function CheckoutPage() {
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                <span>{deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod)}</span>
+                <span>{deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod, picklesOnly)}</span>
                 <span>{totals.shipping > 0 ? formatCurrency(totals.shipping) : 'Free'}</span>
               </div>
               {nearbyPickup && (
@@ -1425,7 +1426,7 @@ export default function CheckoutPage() {
             </div>
             {fulfillment?.type === 'delivery' && (
               <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
-                <span>{fulfillment?.type === 'delivery' && fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod)}</span>
+                <span>{fulfillment?.type === 'delivery' && fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod, picklesOnly)}</span>
                 <span>{sessionInfo.shipping > 0 ? formatCurrency(sessionInfo.shipping) : 'Free'}</span>
               </div>
             )}

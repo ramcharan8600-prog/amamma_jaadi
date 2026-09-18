@@ -39,6 +39,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
     return Response.json({
       sessionId: createdSessions === 1 ? firstSession : nextSession,
       subtotal: 40, tax: 0, shipping: 0, totalAmount: 40,
+      shippingMethod: 'standard',
       squareEnabled: true, squareAppId: 'test-app', squareLocationId: 'test-location',
       squareEnvironment: 'sandbox',
     }, { status: 201 });
@@ -638,11 +639,17 @@ describe('nationwide pickle-only delivery', () => {
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, quantity);
     await enterDeliveryDetails(state);
     expect(host.textContent).not.toContain('A minimum product subtotal');
+    expect(host.textContent).toContain('Standard shipping');
+    expect(host.textContent).not.toContain('UPS 2nd Day Air');
+    expect(host.textContent).not.toContain('within 2 business days');
     expect(host.textContent).toContain(`$${shipping}`);
     expect(host.textContent).toContain(`$${tax}`);
     expect(host.textContent).toContain(`$${total}`);
     expect(button('Continue to payment').disabled).toBe(false);
     await click('Continue to payment');
+    expect(host.textContent).toContain('Step 4');
+    expect(host.textContent).toContain('Standard shipping');
+    expect(host.textContent).not.toContain('UPS 2nd Day Air');
     expect(calls('/api/payments/create-session')).toHaveLength(1);
     expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body))).toMatchObject({
       fulfillment: { type: 'delivery', state },
@@ -660,5 +667,26 @@ describe('nationwide pickle-only delivery', () => {
     await click('Continue to payment');
     expect(calls('/api/payments/create-session')).toHaveLength(0);
     expect(tokenize).not.toHaveBeenCalled();
+  });
+
+  it('keeps the Texas shipping estimate for pickle-only orders', async () => {
+    useCartStore.getState().addItem(getProductById('pickle-chicken')!, 1);
+    await enterDeliveryDetails('TX');
+    expect(host.textContent).toContain('Shipping (estimated 1 business day after dispatch)');
+    await click('Continue to payment');
+    expect(host.textContent).toContain('Shipping (estimated 1 business day after dispatch)');
+  });
+
+  it.each([false, true])('retains UPS shipping when sweets are included (mixed: %s)', async mixed => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    if (mixed) useCartStore.getState().addItem(getProductById('pickle-chicken')!, 1);
+    await enterDeliveryDetails('NY');
+    expect(host.textContent).toContain('UPS 2nd Day Air');
+    expect(host.textContent).not.toContain('Standard shipping');
+    expect(host.textContent).toContain('$11.99');
+    await click('Continue to payment');
+    expect(host.textContent).toContain('Step 4');
+    expect(host.textContent).toContain('UPS 2nd Day Air');
+    expect(host.textContent).not.toContain('Standard shipping');
   });
 });

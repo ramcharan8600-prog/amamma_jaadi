@@ -10,7 +10,7 @@ import { getFaqSchema } from '@/lib/seo';
 export const metadata: Metadata = {
   title: 'Our Story, Areas We Serve & FAQs',
   description:
-    'The story behind Amamma Jaadi — authentic Andhra sweets in Dallas, TX, with DFW pickup and UPS shipping across the contiguous United States.',
+    'The story behind Amamma Jaadi — authentic Andhra sweets in Dallas, TX, with DFW pickup and shipping across the contiguous United States.',
   alternates: { canonical: 'https://amammajaadi.com/about' },
   openGraph: {
     url: 'https://amammajaadi.com/about',
@@ -172,8 +172,9 @@ export default function AboutPage() {
           </div>
           <p className="font-body text-brand-charcoal/70 leading-relaxed">
             We also ship across Texas — including {WIDER_TEXAS_CITIES.join(', ')} — and throughout
-            the contiguous United States and Washington, DC. Out-of-state orders are dispatched
-            from Dallas using UPS 2nd Day Air. Delivery charges apply per destination.
+            the contiguous United States and Washington, DC. Out-of-state orders containing
+            sweets are dispatched from Dallas using UPS 2nd Day Air. Pickle-only orders shipped
+            outside Texas use Standard shipping. Delivery charges apply per destination.
           </p>
         </div>
       </section>

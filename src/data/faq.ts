@@ -18,7 +18,7 @@ export const FAQS: FaqItem[] = [
     question: 'Which areas do you deliver desi sweets to?',
     answer: `Free pickup is available at our partner locations across DFW, including ${DFW_CITIES.join(
       ', '
-    )}. We ship throughout Texas, the contiguous United States, and Washington, DC. Out-of-state orders are dispatched from Dallas using UPS 2nd Day Air.`,
+    )}. We ship throughout Texas, the contiguous United States, and Washington, DC. Out-of-state orders containing sweets are dispatched from Dallas using UPS 2nd Day Air. Pickle-only orders shipped outside Texas use Standard shipping.`,
   },
   {
     question: 'What South Indian sweets do you make?',
@@ -43,7 +43,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'Pickle-only orders have no minimum order value. Shipping is $6.99 for one jar, $5.99 for two jars, and $4.99 for three or more jars throughout the contiguous United States and Washington, DC. Orders containing sweets, including mixed orders, follow these regional rates: $6.99 within Texas; $11.99 below $60 or $8.99 at $60 or more to Alabama, Arkansas, Colorado, Louisiana, New Mexico, and Oklahoma; and a flat $11.99 with an $80 minimum merchandise subtotal to all other contiguous states and Washington, DC. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. We use UPS 2nd Day Air for out-of-state orders for faster delivery from Dallas to your destination. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
+      'Pickle-only orders have no minimum order value. Shipping is $6.99 for one jar, $5.99 for two jars, and $4.99 for three or more jars throughout the contiguous United States and Washington, DC. Orders containing sweets, including mixed orders, follow these regional rates: $6.99 within Texas; $11.99 below $60 or $8.99 at $60 or more to Alabama, Arkansas, Colorado, Louisiana, New Mexico, and Oklahoma; and a flat $11.99 with an $80 minimum merchandise subtotal to all other contiguous states and Washington, DC. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. Out-of-state orders containing sweets use UPS 2nd Day Air from Dallas. Pickle-only orders shipped outside Texas use Standard shipping. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
   },
   {
     question: 'Where can I pick up my order?',
