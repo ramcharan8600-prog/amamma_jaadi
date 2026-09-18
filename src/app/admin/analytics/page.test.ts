@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-09-16T18:00:00Z'));
   vi.stubGlobal('fetch', fetchMock);
   orderResponse = async () => Response.json({ orders });
-  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries(orders, year) });
+  revenueResponse = async year => Response.json({ year, pickleSalesByState: [], ...getSalesTimeSeries(orders, year) });
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -119,7 +119,7 @@ it('excludes owner-confirmed production tests from every sales total and chart',
 
 it('distinguishes empty order history from a failed request and displays zero buckets', async () => {
   orderResponse = async () => Response.json({ orders: [] });
-  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries([], year) });
+  revenueResponse = async year => Response.json({ year, pickleSalesByState: [], ...getSalesTimeSeries([], year) });
   await unlock();
   expect(host.textContent).toContain('No paid orders to display yet.');
   expect(chart('Weekly Revenue').querySelectorAll('li')).toHaveLength(27);
@@ -129,7 +129,7 @@ it('distinguishes empty order history from a failed request and displays zero bu
 });
 
 it('switches both revenue charts between the six selectable years without reloading other analytics', async () => {
-  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries([
+  revenueResponse = async year => Response.json({ year, pickleSalesByState: [], ...getSalesTimeSeries([
     ...orders, { ...orders[0], created_at: '2027-01-02 18:00:00', total_price: 207, refunded_amount: 0 },
   ], year) });
   await unlock();
@@ -162,31 +162,31 @@ it('ignores a slow response for a previously selected year', async () => {
   let resolvePrevious!: (response: Response) => void;
   revenueResponse = async year => year === 2027
     ? new Promise<Response>(resolve => { resolvePrevious = resolve; })
-    : Response.json({ year, ...getSalesTimeSeries([], year) });
+    : Response.json({ year, pickleSalesByState: [], ...getSalesTimeSeries([], year) });
   await unlock();
   const selector = host.querySelector<HTMLSelectElement>('#revenue-year')!;
   await act(async () => {
     selector.value = '2027'; selector.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  expect(host.textContent).toContain('Loading 2027 revenue');
+  expect(host.textContent).toContain('Loading 2027 charts');
   expect(host.querySelector('ul[aria-label="Monthly Revenue"]')).toBeNull();
   await act(async () => {
     selector.value = '2028'; selector.dispatchEvent(new Event('change', { bubbles: true }));
   });
-  await act(async () => resolvePrevious(Response.json({ year: 2027, ...getSalesTimeSeries(orders, 2027) })));
+  await act(async () => resolvePrevious(Response.json({ year: 2027, pickleSalesByState: [], ...getSalesTimeSeries(orders, 2027) })));
   expect(chart('Monthly Revenue').textContent).toContain('Jan 28');
   expect(chart('Monthly Revenue').textContent).not.toContain('Jan 27');
-  expect(host.textContent).not.toContain('Loading 2027 revenue');
+  expect(host.textContent).not.toContain('Loading 2027 charts');
 });
 
 it('lets a failed yearly revenue request retry without hiding the product charts', async () => {
   revenueResponse = async () => Response.json({ error: 'Unavailable' }, { status: 500 });
   await unlock();
-  expect(host.querySelector('[role="alert"]')?.textContent).toContain('Unable to load revenue for this year');
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('Unable to load annual charts');
   expect(chart('Pickle Sales by Product')).toBeTruthy();
   expect(host.querySelector('ul[aria-label="Monthly Revenue"]')).toBeNull();
-  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries(orders, year) });
-  await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Retry revenue')!.click());
+  revenueResponse = async year => Response.json({ year, pickleSalesByState: [], ...getSalesTimeSeries(orders, year) });
+  await act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === 'Retry annual charts')!.click());
   expect(chart('Monthly Revenue').textContent).toContain('$130.00');
   expect(host.querySelector('[role="alert"]')).toBeNull();
 });
@@ -248,4 +248,50 @@ it('counts jars in paid and partially refunded mixed orders without counting tie
   expect(heights[2]).toBe(128);
   expect(heights[1]).toBeCloseTo(128 / 3);
   expect(heights[3]).toBeCloseTo(128 / 3);
+});
+
+it('uses complete annual state totals and filters products without another request', async () => {
+  orderResponse = async () => Response.json({ orders: [] });
+  revenueResponse = async year => Response.json({
+    year, ...getSalesTimeSeries([], year),
+    pickleSalesByState: year === 2026 ? [{
+      stateCode: 'MI', stateName: 'Michigan', jars: 302,
+      products: [
+        { productId: 'pickle-chicken', productName: 'Chicken Pickle', jars: 300 },
+        { productId: 'pickle-mutton', productName: 'Mutton Pickle', jars: 2 },
+      ],
+    }] : [{
+      stateCode: 'TX', stateName: 'Texas', jars: 4,
+      products: [{ productId: 'pickle-chicken', productName: 'Chicken Pickle', jars: 4 }],
+    }],
+  });
+  await unlock();
+  expect(chart('Pickle Jars Sold by State').textContent).toContain('Michigan');
+  expect(chart('Pickle Jars Sold by State').textContent).toContain('302');
+  const requests = fetchMock.mock.calls.length;
+  const product = host.querySelector<HTMLSelectElement>('#pickle-state-product')!;
+  await act(async () => {
+    product.value = 'pickle-mutton';
+    product.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(chart('Pickle Jars Sold by State').textContent).toContain('2');
+  expect(chart('Pickle Jars Sold by State').textContent).not.toContain('302');
+  expect(fetchMock.mock.calls).toHaveLength(requests);
+  const year = host.querySelector<HTMLSelectElement>('#revenue-year')!;
+  await act(async () => {
+    year.value = '2027';
+    year.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(chart('Pickle Jars Sold by State').textContent).toContain('Texas');
+  expect(chart('Pickle Jars Sold by State').textContent).not.toContain('Michigan');
+  expect(host.querySelector<HTMLSelectElement>('#pickle-state-product')!.value).toBe('all');
+  expect(fetchMock.mock.calls).toHaveLength(requests + 1);
+});
+
+it('reports an incomplete annual response instead of inventing zero state sales', async () => {
+  revenueResponse = async year => Response.json({ year, ...getSalesTimeSeries(orders, year) });
+  await unlock();
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('Unable to load annual charts');
+  expect(host.querySelector('ul[aria-label="Pickle Jars Sold by State"]')).toBeNull();
+  expect(chart('Pickle Sales by Product')).toBeTruthy();
 });

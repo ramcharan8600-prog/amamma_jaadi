@@ -17,6 +17,8 @@ import { PRODUCTS } from '@/data/products';
 import { getSalesTimeSeries, REVENUE_YEARS } from '@/lib/sales-analytics';
 import { toBusinessDateString } from '@/lib/date';
 import type { OrderRecord } from '@/types';
+import type { PickleStateSalesRow } from '@/lib/pickle-state-sales';
+import PickleStateSalesChart from './PickleStateSalesChart';
 
 /**
  * Resolve a product's category from the catalog by name (order_items store the
@@ -100,6 +102,7 @@ export default function AnalyticsPage() {
     year: number;
     weeklyRevenue: ReturnType<typeof getSalesTimeSeries>['weeklyRevenue'];
     monthlyRevenue: ReturnType<typeof getSalesTimeSeries>['monthlyRevenue'];
+    pickleSalesByState: PickleStateSalesRow[];
   } | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [revenueError, setRevenueError] = useState('');
@@ -176,12 +179,12 @@ export default function AnalyticsPage() {
         });
         if (!response.ok) throw new Error('Revenue request failed');
         const data = await response.json();
-        if (data.year !== revenueYear || !Array.isArray(data.weeklyRevenue) || !Array.isArray(data.monthlyRevenue)) {
+        if (data.year !== revenueYear || !Array.isArray(data.weeklyRevenue) || !Array.isArray(data.monthlyRevenue) || !Array.isArray(data.pickleSalesByState)) {
           throw new Error('Invalid revenue response');
         }
         if (!controller.signal.aborted) setRevenueSeries(data);
       } catch {
-        if (!controller.signal.aborted) setRevenueError('Unable to load revenue for this year. Please try again.');
+        if (!controller.signal.aborted) setRevenueError('Unable to load annual charts. Please try again.');
       } finally {
         if (!controller.signal.aborted) setRevenueLoading(false);
       }
@@ -396,18 +399,18 @@ export default function AnalyticsPage() {
       <div className="space-y-6 mb-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <label htmlFor="revenue-year" className="font-body text-sm font-medium text-brand-charcoal">
-            Revenue year
+            Chart year
             <select id="revenue-year" className="input-field block mt-2 w-36" value={revenueYear}
               onChange={event => setRevenueYear(Number(event.target.value))}>
               {REVENUE_YEARS.map(year => <option key={year} value={year}>{year}</option>)}
             </select>
           </label>
-          <p className="font-body text-xs text-brand-charcoal/60">2026 starts in July. Later years show January–December.</p>
+          <p className="font-body text-xs text-brand-charcoal/60">Applies to weekly revenue, monthly revenue and pickle jars by state.<br />2026 starts in July. Later years show January–December.</p>
         </div>
-        {revenueLoading && <p role="status" className="font-body text-sm text-brand-charcoal/60">Loading {revenueYear} revenue…</p>}
+        {revenueLoading && <p role="status" className="font-body text-sm text-brand-charcoal/60">Loading {revenueYear} charts…</p>}
         {revenueError && <div className="space-y-3">
           <p role="alert" className="font-body text-sm text-red-700">{revenueError}</p>
-          <button className="btn-secondary text-sm" onClick={() => setRevenueAttempt(attempt => attempt + 1)}>Retry revenue</button>
+          <button className="btn-secondary text-sm" onClick={() => setRevenueAttempt(attempt => attempt + 1)}>Retry annual charts</button>
         </div>}
         {revenueSeries?.year === revenueYear && <>
         {/* Weekly Revenue */}
@@ -439,6 +442,10 @@ export default function AnalyticsPage() {
           formatValue={value => `${value} ${value === 1 ? 'jar' : 'jars'}`}
           barClassName="bg-brand-green/80" wrapLabels />
       </div>
+
+      {revenueSeries?.year === revenueYear && <div className="mb-8">
+        <PickleStateSalesChart key={revenueYear} year={revenueYear} data={revenueSeries.pickleSalesByState} />
+      </div>}
 
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
         {/* Day of Week */}
