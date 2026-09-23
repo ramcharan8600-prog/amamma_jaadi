@@ -279,7 +279,7 @@ export default function CouponsPage() {
               </>
             )}
           </div>
-          {newType === 'free_delivery' && <p className="font-body text-xs text-brand-charcoal/70">At the minimum: free shipping in Texas. Pickle-only orders ship for $3.99 elsewhere; other orders get $4 off nearby-state shipping or $3 off far-state shipping. Existing destination minimums still apply.</p>}
+          {newType === 'free_delivery' && <p className="font-body text-xs text-brand-charcoal/70">At the minimum: free shipping within Texas. Texas delivery adds a maintenance fee of $1.99 for pickle-only carts or $0.99 for sweets and mixed carts. Other states pay regular shipping. This shipping offer adds no complimentary pieces. Far-state sweets and mixed orders still require an $80 cart.</p>}
           {formError && (
             <p className="font-body text-sm text-red-600">{formError}</p>
           )}
@@ -353,6 +353,7 @@ export default function CouponsPage() {
             Influencer Performance
           </h3>
           <p className="font-body text-xs text-brand-charcoal/60 mb-3">The shipping offer requires this merchandise subtotal before tax and shipping. Updated minimums apply when customers continue to payment.</p>
+          <p className="font-body text-xs text-brand-charcoal/60 mb-3">Texas: free shipping, with a $1.99 maintenance fee for pickle-only delivery or $0.99 for sweets and mixed delivery. Other states: regular shipping. This shipping offer adds no complimentary pieces.</p>
           {rowError && <p role="alert" className="font-body text-sm text-red-600 mb-3">{rowError}</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-left">

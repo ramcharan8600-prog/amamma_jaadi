@@ -46,6 +46,7 @@ import {
 } from '@/lib/pricing';
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
+import MaintenanceFee from '@/components/checkout/MaintenanceFee';
 import {
   claimPendingPayment, classifyPaymentOutcome, forgetPendingPayment, PENDING_PAYMENT_KEY,
   readPendingPayment, requestPaymentStatus, type PendingPayment,
@@ -105,6 +106,7 @@ export default function CheckoutPage() {
     subtotal: number;
     tax: number;
     shipping: number;
+    maintenanceFee?: number;
     shippingQuote?: ShippingQuote;
     shippingMethod: DeliveryShippingMethod;
     total: number;
@@ -536,6 +538,7 @@ export default function CheckoutPage() {
         tax: Number(data.tax ?? 0),
         shipping: Number(data.shipping ?? 0),
         shippingQuote: data.shippingQuote,
+        maintenanceFee: Number(data.maintenanceFee ?? 0),
         shippingMethod:
           data.shippingMethod === 'expedited'
             ? 'expedited'
@@ -838,8 +841,10 @@ export default function CheckoutPage() {
                   ? couponMinimumMessage(appliedCoupon.minSubtotal)
                   : !deliveryState
                     ? `Select your delivery state to see the shipping offer. Minimum cart value: ${formatCurrency(appliedCoupon.minSubtotal)} before tax and shipping.`
-                    : appliedCoupon.shippingPolicy !== 'regional_v1' || deliveryState === 'TX'
+                    : !appliedCoupon.shippingPolicy || deliveryState === 'TX'
                       ? 'Free delivery on this order.'
+                      : ['texas_v2', 'texas_v3'].includes(appliedCoupon.shippingPolicy)
+                        ? 'This coupon offers free shipping within Texas only. Regular shipping rates apply to your state.'
                       : picklesOnly
                         ? 'Pickle-only shipping is $3.99 with this coupon.'
                         : `${formatCurrency(getShippingZone(deliveryState) === 'nearby' ? 4 : 3)} off shipping with this coupon.`}
@@ -1388,6 +1393,7 @@ export default function CheckoutPage() {
               </div>
               <ShippingCharge label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod, picklesOnly)}
                 shipping={totals.shipping} quote={shippingQuote} />
+              <MaintenanceFee amount={totals.maintenanceFee} />
               {nearbyPickup && (
                 <div className="font-body text-xs text-green-800 space-y-1 py-2">
                   <p className="font-bold">
@@ -1461,6 +1467,7 @@ export default function CheckoutPage() {
               <ShippingCharge label={fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod, picklesOnly)}
                 shipping={sessionInfo.shipping} quote={sessionInfo.shippingQuote} />
             )}
+            <MaintenanceFee amount={sessionInfo.maintenanceFee} />
             <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
               <span>{SALES_TAX_LABEL}</span>
               <span>{formatCurrency(sessionInfo.tax)}</span>

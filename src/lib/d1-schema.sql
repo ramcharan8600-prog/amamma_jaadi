@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS orders (
     CHECK (shipping_method IN ('standard', 'ground', 'expedited')),
   total_price REAL NOT NULL,
   tax REAL DEFAULT 0,
+  maintenance_fee REAL NOT NULL DEFAULT 0 CHECK (maintenance_fee >= 0),
   square_payment_id TEXT UNIQUE,       -- webhook idempotency: one order per payment
   status TEXT NOT NULL DEFAULT 'confirmed',
   payment_status TEXT NOT NULL DEFAULT 'pending',
@@ -51,6 +52,8 @@ CREATE TABLE IF NOT EXISTS payment_sessions (
   fulfillment_data TEXT,               -- JSON string
   total_amount REAL NOT NULL,          -- tax-inclusive charged total (incl shipping)
   tax REAL DEFAULT 0,
+  maintenance_fee REAL NOT NULL DEFAULT 0 CHECK (maintenance_fee >= 0),
+  pricing_policy TEXT NOT NULL DEFAULT 'legacy',
   shipping REAL NOT NULL DEFAULT 0,    -- flat delivery fee (0 for pickup / free shipping)
   coupon_code TEXT,                         -- influencer coupon used (NULL if none)
   coupon_snapshot TEXT,                    -- server-validated benefit at checkout

@@ -117,20 +117,22 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
           !session.coupon_code || coupon.code !== session.coupon_code) return null;
       if (coupon.type === 'free_delivery') {
         if (!delivery || !isValidCouponMinimum(coupon.minSubtotal) || cart.subtotal < coupon.minSubtotal) return null;
-        if (coupon.shippingPolicy !== undefined && coupon.shippingPolicy !== 'regional_v1') return null;
+        if (coupon.shippingPolicy !== undefined && coupon.shippingPolicy !== 'regional_v1' && coupon.shippingPolicy !== 'texas_v2' && coupon.shippingPolicy !== 'texas_v3') return null;
         shippingCoupon = coupon;
       } else if (coupon.type !== 'complimentary' || typeof coupon.bonusItem !== 'string' ||
           !coupon.bonusItem.trim() || !Number.isSafeInteger(coupon.bonusQty) || coupon.bonusQty < 1) return null;
     }
     const expected = calculateOrderTotals(cart.subtotal, {
       shippingCoupon,
+      legacyPickleRates: !['texas_v2', 'texas_v3'].includes(String(session.pricing_policy)),
       picklesOnly,
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       taxableSubtotal: cart.taxableSubtotal, fulfillmentType: delivery ? 'delivery' : 'pickup',
       deliveryState: delivery ? state : undefined,
     });
     for (const [stored, current] of [[session.total_amount, expected.total],
-      [session.tax ?? 0, expected.tax], [session.shipping ?? 0, expected.shipping]]) {
+      [session.tax ?? 0, expected.tax], [session.shipping ?? 0, expected.shipping],
+      [session.maintenance_fee ?? 0, expected.maintenanceFee ?? 0]]) {
       if (typeof stored !== 'number' || !Number.isFinite(stored) ||
           Math.round(stored * 100) !== Math.round(Number(current) * 100)) return null;
     }

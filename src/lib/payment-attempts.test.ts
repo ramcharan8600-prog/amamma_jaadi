@@ -722,3 +722,14 @@ it.each([['TX', 0, 77.94], ['OK', 3.99, 81.93], ['NY', 3.99, 81.93]])('charges t
   expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
   expect(finalize.mock.calls[0][1]).toMatchObject({ shipping, coupon_snapshot: coupon });
 });
+
+it.each([['TX', 0, 80.09], ['OK', 6.99, 84.93], ['NY', 6.99, 84.93]])('charges the updated regional pickle quote in %s', async (state, shipping, total) => {
+  const coupon = { code: 'REGION70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' };
+  fixture.sqlite.prepare(`UPDATE payment_sessions SET cart_data=?, fulfillment_data=?, coupon_code=?, coupon_snapshot=?, shipping=?, tax=?, maintenance_fee=?, pricing_policy='texas_v3', total_amount=?`).run(
+    JSON.stringify([{ productId: 'pickle-chicken', quantity: 4 }]), JSON.stringify({ type: 'delivery', state }),
+    coupon.code, JSON.stringify(coupon), shipping, state === 'TX' ? 6.10 : 5.94, state === 'TX' ? 1.99 : 0, total);
+  const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(async () => ({ paymentId: 'PAY-REGIONAL-GIFT', status: 'COMPLETED' }));
+  expect(await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize })).toMatchObject({ success: true });
+  expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
+  expect(finalize.mock.calls[0][1]).toMatchObject({ shipping, coupon_snapshot: coupon });
+});

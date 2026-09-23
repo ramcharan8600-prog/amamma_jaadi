@@ -19,6 +19,7 @@ import {
   SHIPPING_FAR,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod } from '@/types';
+import type { ShippingCouponPolicy } from '@/lib/coupons';
 
 /**
  * Texas sales tax rate.
@@ -144,6 +145,7 @@ export interface OrderTotals {
   subtotal: number;
   tax: number;
   shipping: number;
+  maintenanceFee?: number;
   total: number;
 }
 
@@ -154,7 +156,9 @@ export interface ShippingOptions {
   deliveryState?: string;
   shippingMethod?: DeliveryShippingMethod;
   freeDelivery?: boolean;
-  shippingCoupon?: { minSubtotal: number; shippingPolicy?: 'regional_v1' };
+  /** Only for quotes saved before the flat pickle rate was introduced. */
+  legacyPickleRates?: boolean;
+  shippingCoupon?: { minSubtotal: number; shippingPolicy?: ShippingCouponPolicy };
 }
 
 export interface ShippingQuote {
@@ -163,6 +167,7 @@ export interface ShippingQuote {
   referenceShipping: number;
   quantitySavings: number;
   couponSavings: number;
+  maintenanceFee?: number;
 }
 
 /** One quote for the checkout display, session amount, tax, and first charge. */
@@ -172,8 +177,9 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   if (opts.fulfillmentType === 'delivery') {
     if (opts.picklesOnly) {
       const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
-      regularShipping = jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
-        : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE;
+      const legacy = opts.legacyPickleRates || (opts.shippingCoupon && !['texas_v2', 'texas_v3'].includes(opts.shippingCoupon.shippingPolicy ?? ''));
+      regularShipping = legacy ? jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
+        : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE : SHIPPING_PICKLES_SINGLE;
     } else if (zone === 'texas') {
       regularShipping = SHIPPING_TX;
     } else if (zone === 'nearby') {
@@ -197,7 +203,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   if (opts.freeDelivery) shipping = 0;
   // The pickle reference is the base fee, not the fee after jar-count savings.
   // Keep both savings separate so checkout never overstates the coupon saving.
-  const referenceShipping = eligible && coupon.shippingPolicy === 'regional_v1' && opts.picklesOnly
+  const referenceShipping = eligible && opts.picklesOnly &&
+    coupon.shippingPolicy === 'regional_v1'
     ? SHIPPING_PICKLES_SINGLE : regularShipping;
   return {
     shipping,
@@ -205,14 +212,15 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     referenceShipping,
     quantitySavings: roundMoney(referenceShipping - regularShipping),
     couponSavings: roundMoney(regularShipping - shipping),
+    ...(eligible && zone === 'texas' && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
+      ? { maintenanceFee: opts.picklesOnly ? 1.99 : 0.99 } : {}),
   };
 }
 
 /**
  * Break a subtotal into subtotal + tax + shipping + total.
  *
- * Pickle-only, all supported states, no minimum: $6.99 for one jar,
- * $5.99 for two jars, $4.99 for three or more jars.
+ * Pickle-only, all supported states, no minimum: $6.99 for any number of jars.
  * Texas sweets and mixed carts: $6.99.
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
@@ -230,11 +238,12 @@ export function calculateOrderTotals(
     Math.min(safeSubtotal, Math.max(0, Number(opts.taxableSubtotal ?? safeSubtotal) || 0))
   );
 
-  const { shipping } = calculateShippingQuote(safeSubtotal, opts);
+  const { shipping, maintenanceFee = 0 } = calculateShippingQuote(safeSubtotal, opts);
 
   const taxableShipping = opts.fulfillmentType === 'delivery' && isTexas(opts.deliveryState) && taxable > 0
-    ? shipping : 0;
+    ? shipping + maintenanceFee : 0;
   const tax = roundMoney((taxable + taxableShipping) * SALES_TAX_RATE);
 
-  return { subtotal: safeSubtotal, tax, shipping, total: roundMoney(safeSubtotal + tax + shipping) };
+  return { subtotal: safeSubtotal, tax, shipping, ...(maintenanceFee > 0 ? { maintenanceFee } : {}),
+    total: roundMoney(safeSubtotal + tax + shipping + maintenanceFee) };
 }

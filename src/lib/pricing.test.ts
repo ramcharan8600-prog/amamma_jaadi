@@ -263,15 +263,15 @@ describe('approved Texas mixed-cart policy', () => {
   });
   it('preserves the out-of-state tax base with the new pickle rate', () => {
     expect(calculateOrderTotals(95, {fulfillmentType: 'delivery', deliveryState: 'CA', taxableSubtotal: 95, picklesOnly: true, pickleJarCount: 5}))
-      .toEqual({subtotal: 95, shipping: 4.99, tax: 7.84, total: 107.83});
+      .toEqual({subtotal: 95, shipping: 6.99, tax: 7.84, total: 109.83});
   });
 });
 
 
 describe('Texas pickle shipping by total jars', () => {
   it.each([
-    [1, 19, 6.99, 2.14, 28.13], [2, 38, 5.99, 3.63, 47.62],
-    [3, 57, 4.99, 5.11, 67.10], [4, 76, 4.99, 6.68, 87.67],
+    [1, 19, 6.99, 2.14, 28.13], [2, 38, 6.99, 3.71, 48.70],
+    [3, 57, 6.99, 5.28, 69.27], [4, 76, 6.99, 6.85, 89.84],
   ])('%s jars: taxes merchandise plus the correct shipping fee', (pickleJarCount, subtotal, shipping, tax, total) => {
     expect(calculateOrderTotals(subtotal, {fulfillmentType:'delivery', deliveryState:'TX',
       taxableSubtotal:subtotal, picklesOnly:true, pickleJarCount})).toEqual({subtotal,shipping,tax,total});
@@ -286,8 +286,8 @@ describe('Texas pickle shipping by total jars', () => {
 });
 
 describe('pickle-only nationwide rates and minimum exemption', () => {
-  it.each(DELIVERY_STATE_OPTIONS)('$code uses jar-count rates with no minimum', ({ code }) => {
-    for (const [pickleJarCount, shipping] of [[1, 6.99], [2, 5.99], [3, 4.99], [10, 4.99]]) {
+  it.each(DELIVERY_STATE_OPTIONS)('$code uses a flat pickle rate with no minimum', ({ code }) => {
+    for (const [pickleJarCount, shipping] of [[1, 6.99], [2, 6.99], [3, 6.99], [10, 6.99]]) {
       const subtotal = 19 * pickleJarCount;
       expect(calculateOrderTotals(subtotal, {
         fulfillmentType: 'delivery', deliveryState: code, taxableSubtotal: subtotal,
@@ -311,7 +311,7 @@ describe('regional shipping coupons', () => {
     expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: String(deliveryState), shippingCoupon, taxableSubtotal: 0 }).shipping).toBe(shipping);
   });
   it.each(['TX', 'OK', 'CA'])('does not discount a cart one cent below the minimum in %s', deliveryState => {
-    const opts = { fulfillmentType: 'delivery' as const, deliveryState, picklesOnly: true, pickleJarCount: 4 };
+    const opts = { fulfillmentType: 'delivery' as const, deliveryState, picklesOnly: true, pickleJarCount: 4, legacyPickleRates: true };
     expect(calculateOrderTotals(69.99, { ...opts, shippingCoupon })).toEqual(calculateOrderTotals(69.99, opts));
   });
   it.each(['TX', 'OK', 'CA'])('separates pickle quantity savings from coupon savings in %s', deliveryState => {

@@ -9,6 +9,9 @@ import { createOrderFromSession, mapSessionRow, type PaymentSessionRow } from '@
 import { recoverPendingEmailOutbox } from '@/lib/email-outbox';
 import type { Queue } from '@cloudflare/workers-types';
 import type { EmailQueueMessage } from '@/lib/email-outbox';
+import { buildTaxSnapshot } from '@/lib/tax-records';
+import { getProductById } from '@/data/products';
+import type { CartItem } from '@/types';
 
 const schema = readFileSync(new URL('./d1-schema.sql', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('./migrations/008-order-finalization.sql', import.meta.url), 'utf8');
@@ -377,3 +380,55 @@ it('preserves the complimentary pieces promised in the session after coupon chan
       .toMatchObject({ product_name: 'Malpuri (Complimentary)', quantity: 3 });
   } finally { sqlite.close(); }
 });
+
+it('persists and reconciles the separate maintenance fee through the paid order and confirmation once', async () => {
+  const { db, sqlite, session } = setup({
+    cart_data: [{ productId: 'pickle-chicken', quantity: 4, lineTotal: 72 }],
+    coupon_snapshot: { code: 'TESTBONUS', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' },
+    fulfillment_data: { type: 'delivery', state: 'TX', shippingMethod: 'standard' },
+    total_amount: 80.09, tax: 6.10, shipping: 0, maintenance_fee: 1.99,
+  });
+  try {
+    const items = [{ productId: 'pickle-chicken', product: getProductById('pickle-chicken')!, quantity: 4, lineTotal: 72 }] as CartItem[];
+    const snapshot = buildTaxSnapshot(items, { subtotal: 72, tax: 6.10, shipping: 0, maintenanceFee: 1.99, total: 80.09 },
+      { type: 'delivery', state: 'TX' }, 'sandbox');
+    expect(snapshot).toMatchObject({ merchandiseCents: 7200, shippingCents: 199, maintenanceFeeCents: 199, taxCents: 610, totalCents: 8009 });
+    sqlite.prepare('INSERT INTO payment_tax_quotes(session_id,snapshot_json) VALUES (?,?)').run(session.id, JSON.stringify(snapshot));
+    sqlite.exec("UPDATE influencer_coupons SET active=0, min_subtotal=100");
+    const result = await createOrderFromSession(db, session, 'PAY-MAINTENANCE');
+    expect(await createOrderFromSession(db, session, 'PAY-MAINTENANCE')).toEqual({ ...result, duplicate: true });
+    expect(sqlite.prepare('SELECT total_price,maintenance_fee FROM orders').get()).toEqual({ total_price: 80.09, maintenance_fee: 1.99 });
+    expect(sqlite.prepare('SELECT shipping_cents,taxable_shipping_cents,total_cents FROM order_tax_records').get())
+      .toEqual({ shipping_cents: 199, taxable_shipping_cents: 199, total_cents: 8009 });
+    const html = String(sqlite.prepare('SELECT html FROM email_outbox').get()?.html);
+    expect(html.match(/Maintenance fee/g)).toHaveLength(1);
+    expect(html).toContain('$1.99');
+    expect(html).toContain('$80.09');
+    expect(html).toContain('Free');
+    expect(html).not.toContain('complimentary');
+    expect(count(sqlite, 'orders')).toBe(1);
+    expect(count(sqlite, 'email_outbox')).toBe(1);
+    expect(sqlite.prepare('SELECT times_used FROM influencer_coupons').get()?.times_used).toBe(1);
+  } finally { sqlite.close(); }
+});
+
+it.each([['TX', 0, false], ['OK', 8.99, false], ['NY', 11.99, false]] as const)(
+  'finalizes sweets in %s with the appropriate maintenance label and no complimentary pieces', async (state, shipping, gift) => {
+    const { db, sqlite, session } = setup({
+      cart_data: [{ productId: 'sweet-malpuri', quantity: 2, selectedTier: 16, lineTotal: 80 }],
+      coupon_snapshot: { code: 'TESTBONUS', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' },
+      fulfillment_data: { type: 'delivery', state, shippingMethod: 'standard' },
+      total_amount: 80 + shipping + (state === 'TX' ? 0.99 : 0), tax: 0, shipping, maintenance_fee: state === 'TX' ? 0.99 : 0,
+    });
+    try {
+      sqlite.exec("UPDATE influencer_coupons SET active=0, min_subtotal=100, bonus_item='Malpuri', bonus_qty=9");
+      await createOrderFromSession(db, session, 'PAY-SWEETS-COUPON');
+      await createOrderFromSession(db, session, 'PAY-SWEETS-COUPON');
+      const gifts = sqlite.prepare('SELECT product_name,quantity FROM order_items WHERE line_total=0').all();
+      expect(gifts).toEqual(gift ? [{ product_name: 'Malai Khaja (Complimentary)', quantity: 2 }] : []);
+      const html = String(sqlite.prepare('SELECT html FROM email_outbox').get()?.html);
+      expect(html.includes('Maintenance fee')).toBe(state === 'TX');
+      expect(html.includes('2 complimentary Malai Khaja (FREE)')).toBe(gift);
+      expect(sqlite.prepare('SELECT times_used FROM influencer_coupons').get()?.times_used).toBe(1);
+    } finally { sqlite.close(); }
+  });
