@@ -4,7 +4,7 @@ import { getPickupLocationById, isProductTaxExempt } from '@/data/products';
 import { SALES_TAX_RATE, isTexas, type OrderTotals } from '@/lib/pricing';
 import type { CartItem } from '@/types';
 
-export const TAX_POLICY_VERSION = '2026-09-16-pickle-nationwide-v4';
+export const TAX_POLICY_VERSION = '2026-09-23-texas-coupon-v5';
 export const toCents = (value: number) => Math.round(value * 100);
 
 export interface TaxSnapshot {
@@ -18,7 +18,9 @@ export interface TaxSnapshot {
   merchandiseCents: number;
   taxableMerchandiseCents: number;
   exemptMerchandiseCents: number;
+  /** Total delivery charges, including any maintenance fee, for tax/refund reconciliation. */
   shippingCents: number;
+  maintenanceFeeCents?: number;
   taxableShippingCents: number;
   taxCents: number;
   totalCents: number;
@@ -49,7 +51,7 @@ export function buildTaxSnapshot(
   const text = (value: unknown) => typeof value === 'string' ? value : '';
   const state = pickup?.state ?? text(fulfillment.state);
   const taxableShippingCents = fulfillment.type === 'delivery' && isTexas(state) && taxableMerchandiseCents > 0
-    ? toCents(totals.shipping) : 0;
+    ? toCents(totals.shipping + (totals.maintenanceFee ?? 0)) : 0;
   const outsideTexas = fulfillment.type === 'delivery' && !isTexas(state);
   const mixed = taxableMerchandiseCents > 0 && taxableMerchandiseCents < merchandiseCents;
   const reviewReason = outsideTexas ? 'Out-of-state sourcing and product taxability require review.'
@@ -61,7 +63,8 @@ export function buildTaxSnapshot(
     shippingTaxRule: outsideTexas ? 'legacy_out_of_state' : taxableShippingCents > 0 ? 'full_shipping' : 'none',
     reviewReason, merchandiseCents, taxableMerchandiseCents,
     exemptMerchandiseCents: merchandiseCents - taxableMerchandiseCents,
-    shippingCents: toCents(totals.shipping), taxableShippingCents,
+    ...(totals.maintenanceFee ? { maintenanceFeeCents: toCents(totals.maintenanceFee) } : {}),
+    shippingCents: toCents(totals.shipping + (totals.maintenanceFee ?? 0)), taxableShippingCents,
     taxCents: toCents(totals.tax), totalCents: toCents(totals.total),
     destination: { state, city: pickup?.city ?? text(fulfillment.city), zip: pickup?.zip ?? text(fulfillment.zip), country: 'USA' },
     // Includes pickup address as it existed when the customer ordered.
@@ -95,14 +98,15 @@ export function preparePaymentReceipt(db: D1Database, sessionId: string, payment
 
 /** Guarded by the same atomic finalization claim as the order and email. */
 export async function prepareOrderTaxRecord(db: D1Database, sessionId: string, attemptId: string,
-  totals: { total: number; tax: number; shipping: number }): Promise<D1PreparedStatement | null> {
+  totals: { total: number; tax: number; shipping: number; maintenanceFee?: number }): Promise<D1PreparedStatement | null> {
   const quote = await db.prepare('SELECT snapshot_json FROM payment_tax_quotes WHERE session_id = ?')
     .bind(sessionId).first<{ snapshot_json: string }>();
   // Legacy sessions have no historical classification. Reports flag them.
   if (!quote) return null;
   const s: TaxSnapshot = JSON.parse(quote.snapshot_json);
   if (s.version !== 1 || s.totalCents !== toCents(totals.total) || s.taxCents !== toCents(totals.tax) ||
-      s.shippingCents !== toCents(totals.shipping) ||
+      (s.maintenanceFeeCents ?? 0) !== toCents(totals.maintenanceFee ?? 0) ||
+      s.shippingCents !== toCents(totals.shipping + (totals.maintenanceFee ?? 0)) ||
       s.merchandiseCents + s.shippingCents + s.taxCents !== s.totalCents ||
       s.taxableMerchandiseCents + s.exemptMerchandiseCents !== s.merchandiseCents) {
     throw new Error('Tax snapshot does not reconcile to the paid receipt');

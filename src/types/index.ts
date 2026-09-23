@@ -143,6 +143,7 @@ export interface OrderRecord {
   shipping_method: DeliveryShippingMethod | null;
   total_price: number;
   tax?: number;
+  maintenance_fee?: number;
   status: string;
   payment_status: string;
   /** Owner-confirmed production tests remain visible in history, outside reporting totals. */

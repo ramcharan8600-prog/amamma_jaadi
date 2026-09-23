@@ -109,6 +109,7 @@ function totalsFooterRows(params: {
   subtotal?: number;
   tax?: number;
   shipping?: number;
+  maintenanceFee?: number;
   fulfillmentType: 'pickup' | 'delivery';
   shippingMethod?: DeliveryShippingMethod;
   picklesOnly?: boolean;
@@ -136,6 +137,11 @@ function totalsFooterRows(params: {
     );
   }
 
+  if (Number(params.maintenanceFee) > 0) {
+    rows.push(`<tr><td colspan="2" style="${cell}">Maintenance fee</td>
+      <td style="text-align:right; ${cell}">$${Number(params.maintenanceFee).toFixed(2)}</td></tr>`);
+  }
+
   // Breathing room before the Total rule.
   return rows.join('') + '<tr><td colspan="3" style="padding-bottom:8px;"></td></tr>';
 }
@@ -154,6 +160,7 @@ export interface OrderConfirmationParams {
   tax?: number;
   /** Delivery fee charged (0 / omitted = free or pickup). */
   shipping?: number;
+  maintenanceFee?: number;
   items: Array<{ name: string; quantity: number; price: number }>;
   fulfillmentType: 'pickup' | 'delivery';
   shippingMethod?: DeliveryShippingMethod;
@@ -246,6 +253,7 @@ export interface OwnerOrderAlertParams {
   subtotal?: number;
   tax?: number;
   shipping?: number;
+  maintenanceFee?: number;
   customerName: string;
   phone: string;
   customerEmail: string | null;
@@ -289,20 +297,7 @@ export function buildOwnerOrderAlertEmail(params: OwnerOrderAlertParams): EmailO
       </tr></thead>
       <tbody>${itemsHtml}</tbody>
       <tfoot>
-        ${
-          params.tax != null && params.subtotal != null
-            ? `<tr><td colspan="2" style="padding:10px 0 2px; color:#666;">Subtotal</td>
-               <td style="text-align:right; padding:10px 0 2px; color:#666;">$${Number(params.subtotal).toFixed(2)}</td></tr>
-               <tr><td colspan="2" style="padding:2px 0; color:#666;">${SALES_TAX_LABEL}</td>
-               <td style="text-align:right; padding:2px 0; color:#666;">$${Number(params.tax).toFixed(2)}</td></tr>
-               ${
-                 params.fulfillmentType === 'delivery'
-                   ? `<tr><td colspan="2" style="padding:2px 0 10px; color:#666;">${escapeHtml(shippingMethodLabel(params.shippingMethod, picklesOnly))}</td>
-                      <td style="text-align:right; padding:2px 0 10px; color:#666;">${Number(params.shipping) > 0 ? `$${Number(params.shipping).toFixed(2)}` : 'Free'}</td></tr>`
-                   : ''
-               }`
-            : ''
-        }
+        ${totalsFooterRows({ ...params, picklesOnly })}
         <tr style="border-top: 2px solid #7B1F1F;">
           <td colspan="2" style="padding:12px 0; font-weight:bold;">Total (paid)</td>
           <td style="text-align:right; font-weight:bold; color:#7B1F1F;">$${params.total.toFixed(2)}</td>

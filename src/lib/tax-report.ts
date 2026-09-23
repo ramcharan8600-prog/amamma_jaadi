@@ -226,7 +226,7 @@ export function taxReportCsv(report: TaxReport, view: 'transactions' | 'items' |
   }
   return csv([['Event', 'Event ID', 'Order', 'Square payment ID', 'Date (Central)', 'Timestamp (UTC)', 'Date source',
     'Environment', 'Fulfillment', 'Payment status', 'State', 'City', 'ZIP', 'Merchandise (USD)', 'Taxable merchandise (USD)',
-    'Exempt merchandise (USD)', 'Shipping (USD)', 'Taxable shipping (USD)', 'Tax (USD)', 'Total (USD)',
+    'Exempt merchandise (USD)', 'Shipping and fees (USD)', 'Taxable shipping and fees (USD)', 'Tax (USD)', 'Total (USD)',
     'Configured rate (%)', 'Shipping tax rule', 'Policy version', 'Review notes', 'Refund allocation note'],
   ...report.rows.map(row => {
     const signed = (amount: number | null) => amount == null ? null : dollars(amount * (row.event_type === 'refund' ? -1 : 1));

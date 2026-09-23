@@ -11,7 +11,7 @@ import type { TaxReport, TaxReportRow } from '@/lib/tax-report';
 const money = (cents: number | null) => cents == null ? '—' : formatCurrency(cents / 100);
 const allocationFields = [
   ['taxableMerchandiseCents', 'Taxable products refunded'], ['exemptMerchandiseCents', 'Exempt products refunded'],
-  ['shippingCents', 'Shipping refunded'], ['taxableShippingCents', 'Taxable portion of that shipping'],
+  ['shippingCents', 'Shipping and fees refunded'], ['taxableShippingCents', 'Taxable portion of those charges'],
   ['taxCents', 'Sales tax refunded'],
 ] as const;
 
@@ -107,14 +107,14 @@ export default function TaxRecordsPage() {
         <div className="card p-4"><h2 className="font-semibold mb-3">Recorded sales breakdown</h2>
           <dl className="space-y-2 text-sm">{[
             ['Taxable products', s.taxableMerchandiseCents], ['Exempt products', s.exemptMerchandiseCents],
-            ['Shipping charged', s.shippingCents], ['Taxable portion of shipping', s.taxableShippingCents],
+            ['Shipping and fees charged', s.shippingCents], ['Taxable portion of shipping and fees', s.taxableShippingCents],
             ['Customer payments including tax', s.grossReceiptsCents], ['Customer refunds including tax', s.refundCents],
           ].map(([label, amount]) => <div key={label} className="flex justify-between gap-3"><dt>{label}</dt><dd>{money(Number(amount))}</dd></div>)}</dl>
         </div>
       </div>
       <h2 className="font-semibold mb-3">Transactions · Q{quarter} {year}</h2>
       <div className="overflow-x-auto"><table className="w-full text-left text-xs">
-        <thead><tr className="border-b">{['Date', 'Order / event', 'State', 'Taxable products', 'Exempt products', 'Shipping', 'Taxable shipping', 'Tax', 'Total', 'Review'].map(label => <th key={label} className="p-2 whitespace-nowrap">{label}</th>)}</tr></thead>
+        <thead><tr className="border-b">{['Date', 'Order / event', 'State', 'Taxable products', 'Exempt products', 'Shipping and fees', 'Taxable shipping and fees', 'Tax', 'Total', 'Review'].map(label => <th key={label} className="p-2 whitespace-nowrap">{label}</th>)}</tr></thead>
         <tbody>{report.rows.map(row => <tr key={`${row.event_type}-${row.event_id}`} className="border-b align-top">
           <td className="p-2 whitespace-nowrap">{d1TimestampToBusinessDate(row.occurred_at)}</td>
           <td className="p-2 whitespace-nowrap">{row.order_number}<br />{row.event_type === 'sale' ? 'Sale' : 'Refund'}</td>

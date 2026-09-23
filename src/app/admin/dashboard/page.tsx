@@ -676,6 +676,7 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="py-3 px-2 font-body text-xs font-medium">
                       {formatCurrency(order.total_price)}
+                      {(order.maintenance_fee ?? 0) > 0 && <div className="font-normal text-brand-charcoal/60">Includes maintenance fee: {formatCurrency(order.maintenance_fee!)}</div>}
                     </td>
                     <td className="py-3 px-2 font-body text-xs font-medium">
                       {formatCurrency(order.tax ?? 0)}

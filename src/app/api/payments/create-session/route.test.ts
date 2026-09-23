@@ -358,17 +358,17 @@ describe('Bobbatlu and Kova require next-day pickup regardless of stock', () => 
 
 describe('pickle-only shipping counts canonical jar quantities', () => {
   it.each([
-    {items:[{productId:'pickle-gongura-chicken',quantity:2}], subtotal:38,shipping:5.99,tax:3.63,totalAmount:47.62},
-    {items:[{productId:'pickle-gongura-chicken',quantity:3}], subtotal:57,shipping:4.99,tax:5.11,totalAmount:67.10},
-    {items:[{productId:'pickle-gongura-chicken',quantity:1},{productId:'pickle-chicken',quantity:1}],subtotal:37,shipping:5.99,tax:3.55,totalAmount:46.54},
-    {items:[{productId:'pickle-gongura-chicken',quantity:1},{productId:'pickle-gongura-chicken',quantity:1}],subtotal:38,shipping:5.99,tax:3.63,totalAmount:47.62},
+    {items:[{productId:'pickle-gongura-chicken',quantity:2}], subtotal:38,shipping:6.99,tax:3.71,totalAmount:48.70},
+    {items:[{productId:'pickle-gongura-chicken',quantity:3}], subtotal:57,shipping:6.99,tax:5.28,totalAmount:69.27},
+    {items:[{productId:'pickle-gongura-chicken',quantity:1},{productId:'pickle-chicken',quantity:1}],subtotal:37,shipping:6.99,tax:3.63,totalAmount:47.62},
+    {items:[{productId:'pickle-gongura-chicken',quantity:1},{productId:'pickle-gongura-chicken',quantity:1}],subtotal:38,shipping:6.99,tax:3.71,totalAmount:48.70},
   ])('stores $shipping shipping for $subtotal of jars', async ({items,...expected}) => {
     const response=await post({...checkout(items,delivery('TX')),pickleJarCount:1,picklesOnly:false,shipping:0});
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject(expected);
     expect(JSON.parse(mocks.inserts[1][1] as string)).toMatchObject({
       shippingCents:Math.round(expected.shipping*100),taxableShippingCents:Math.round(expected.shipping*100),taxCents:Math.round(expected.tax*100),
-      policyVersion:'2026-09-16-pickle-nationwide-v4',
+      policyVersion:'2026-09-23-texas-coupon-v5',
     });
   });
   it('ignores a forged jar count and mixed-order flag', async () => {
@@ -382,16 +382,16 @@ describe('pickle-only shipping counts canonical jar quantities', () => {
 describe('pickle-only orders have no destination minimum', () => {
   it.each([
     ['NY', 1, 19, 6.99, 1.57, 27.56],
-    ['CA', 2, 38, 5.99, 3.14, 47.13],
-    ['WA', 3, 57, 4.99, 4.70, 66.69],
-    ['OK', 4, 76, 4.99, 6.27, 87.26],
+    ['CA', 2, 38, 6.99, 3.14, 48.13],
+    ['WA', 3, 57, 6.99, 4.70, 68.69],
+    ['OK', 4, 76, 6.99, 6.27, 89.26],
   ] as const)('quotes %s %s jars below $80', async (state, quantity, subtotal, shipping, tax, totalAmount) => {
     const response = await post(checkout([{ productId: 'pickle-gongura-chicken', quantity }], delivery(state)));
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ subtotal, shipping, tax, totalAmount });
     expect(JSON.parse(mocks.inserts[1][1] as string)).toMatchObject({
       shippingCents: Math.round(shipping * 100), taxableShippingCents: 0,
-      taxCents: Math.round(tax * 100), policyVersion: '2026-09-16-pickle-nationwide-v4',
+      taxCents: Math.round(tax * 100), policyVersion: '2026-09-23-texas-coupon-v5',
     });
   });
   it('keeps the $80 minimum on mixed carts even with forged category and flags', async () => {
@@ -413,21 +413,21 @@ describe('pickle-only orders have no destination minimum', () => {
 
 describe('authoritative coupon benefits at payment', () => {
   const free = { code: 'SHIP', active: 1, coupon_type: 'free_delivery' as const, bonus_item: '', bonus_qty: 0, min_subtotal: 19 };
-  it.each([['TX', 0, 20.57], ['OK', 3.99, 24.56], ['NY', 3.99, 24.56]])('quotes eligible pickle shipping in %s', async (state, shipping, total) => {
+  it.each([['TX', 0, 22.72], ['OK', 6.99, 27.56], ['NY', 6.99, 27.56]])('quotes eligible pickle shipping in %s', async (state, shipping, total) => {
     mocks.coupon.mockResolvedValue(free);
     const response = await post({ ...checkout([{ productId: 'pickle-gongura-chicken', quantity: 1 }], delivery(String(state))), couponCode: 'ship' });
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 19, shipping, tax: 1.57, totalAmount: total });
-    expect(JSON.parse(mocks.inserts[0][11] as string)).toEqual({ code: 'SHIP', type: 'free_delivery', minSubtotal: 19, shippingPolicy: 'regional_v1' });
-    expect(JSON.parse(mocks.inserts[1][1] as string)).toMatchObject({ shippingCents: Math.round(Number(shipping) * 100), taxableShippingCents: 0, taxCents: 157 });
+    expect(await response.json()).toMatchObject({ subtotal: 19, shipping, tax: state === 'TX' ? 1.73 : 1.57, maintenanceFee: state === 'TX' ? 1.99 : 0, totalAmount: total });
+    expect(JSON.parse(mocks.inserts[0][11] as string)).toEqual({ code: 'SHIP', type: 'free_delivery', minSubtotal: 19, shippingPolicy: 'texas_v3' });
+    expect(JSON.parse(mocks.inserts[1][1] as string)).toMatchObject({ shippingCents: state === 'TX' ? 199 : 699, taxableShippingCents: state === 'TX' ? 199 : 0, taxCents: state === 'TX' ? 173 : 157 });
   });
 
-  it.each([['TX', 0, 77.94], ['OK', 3.99, 81.93], ['NY', 3.99, 81.93]])('honors the admin minimum for four pickle jars in %s', async (state, shipping, total) => {
+  it.each([['TX', 0, 80.09], ['OK', 6.99, 84.93], ['NY', 6.99, 84.93]])('honors the admin minimum for four pickle jars in %s', async (state, shipping, total) => {
     mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
     const response = await post({ ...checkout([{ productId: 'pickle-chicken', quantity: 4 }], delivery(String(state))), couponCode: 'ship' });
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 72, shipping, tax: 5.94, totalAmount: total,
-      shippingQuote: { referenceShipping: 6.99, regularShipping: 4.99, quantitySavings: 2, couponSavings: state === 'TX' ? 4.99 : 1 } });
+    expect(await response.json()).toMatchObject({ subtotal: 72, shipping, tax: state === 'TX' ? 6.10 : 5.94, maintenanceFee: state === 'TX' ? 1.99 : 0, totalAmount: total,
+      shippingQuote: { referenceShipping: 6.99, regularShipping: 6.99, quantitySavings: 0, couponSavings: state === 'TX' ? 6.99 : 0 } });
   });
 
   it.each([1, 2, 3])('rejects %s pickle jars below a $70 minimum', async quantity => {
@@ -438,18 +438,18 @@ describe('authoritative coupon benefits at payment', () => {
     expect(mocks.inserts).toHaveLength(0);
   });
 
-  it.each([['TX', 0], ['OK', 4.99], ['NY', 8.99]])('discounts mixed carts using the destination in %s', async (state, shipping) => {
+  it.each([['TX', 0], ['OK', 8.99], ['NY', 11.99]])('charges mixed carts using the destination in %s', async (state, shipping) => {
     mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
     const response = await post({ ...checkout([sweet, { productId: 'pickle-mutton', quantity: 2 }], delivery(String(state))), couponCode: 'SHIP' });
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 82, shipping, tax: 3.47 });
+    expect(await response.json()).toMatchObject({ subtotal: 82, shipping, tax: state === 'TX' ? 3.55 : 3.47, maintenanceFee: state === 'TX' ? 0.99 : 0 });
   });
 
   it.each(['TX', 'OK'])('accepts an exact $70 sweets/gift cart in %s', async state => {
     mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
     const response = await post({ ...checkout([sweet, gift], delivery(state)), couponCode: 'SHIP' });
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 70, shipping: state === 'TX' ? 0 : 4.99 });
+    expect(await response.json()).toMatchObject({ subtotal: 70, shipping: state === 'TX' ? 0 : 8.99 });
   });
 
   it('rejects one cent below minimum despite inflated client totals and forged benefit', async () => {

@@ -599,7 +599,7 @@ describe('Bobbatlu variant delivery preparation', () => {
   });
 });
 
-it.each([[1,'6.99','2.14','28.13'],[2,'5.99','3.63','47.62'],[3,'4.99','5.11','67.10']])(
+it.each([[1,'6.99','2.14','28.13'],[2,'6.99','3.71','48.70'],[3,'6.99','5.28','69.27']])(
   'displays the correct shipping and tax for %s pickle jars',async(quantity,shipping,tax,total)=>{
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!,Number(quantity));
     await render();await click('Continue');
@@ -635,9 +635,9 @@ describe('nationwide pickle-only delivery', () => {
 
   it.each([
     ['NY', 1, '6.99', '1.57', '27.56'],
-    ['NY', 2, '5.99', '3.14', '47.13'],
-    ['NY', 3, '4.99', '4.70', '66.69'],
-    ['OK', 3, '4.99', '4.70', '66.69'],
+    ['NY', 2, '6.99', '3.14', '48.13'],
+    ['NY', 3, '6.99', '4.70', '68.69'],
+    ['OK', 3, '6.99', '4.70', '68.69'],
   ] as const)('allows %s delivery of %s jars below $80', async (state, quantity, shipping, tax, total) => {
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, quantity);
     await enterDeliveryDetails(state);
@@ -707,6 +707,40 @@ describe('coupon benefits in checkout', () => {
     await act(async () => choice!.click());
     await input('#delivery-state', 'TX');
   }
+  it('shows the correct maintenance fee only for qualifying Texas delivery', async () => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    useCartStore.getState().addItem(getProductById('pickle-chicken')!, 4);
+    await apply();
+    expect(host.textContent).not.toContain('Maintenance fee');
+    await delivery();
+    expect(host.textContent).toContain('Maintenance fee');
+    expect(host.textContent).toContain('$1.99');
+    expect(host.textContent).toContain('$80.09');
+    expect(host.querySelector('s')?.textContent).toBe('$6.99');
+    for (const state of ['OK', 'NY']) {
+      await input('#delivery-state', state);
+      expect(host.textContent).not.toContain('Maintenance fee');
+      expect(host.querySelector('s')).toBeNull();
+      expect(host.textContent).toContain('$84.93');
+      expect(host.textContent).not.toContain('Coupon savings:');
+    }
+    await input('#delivery-state', 'TX');
+    await act(async () => useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16));
+    expect(host.textContent).toContain('Maintenance fee');
+    expect(host.textContent).toContain('$0.99');
+    expect(host.textContent).not.toContain('$1.99');
+    expect(host.textContent).toContain('Free delivery on this order.');
+    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 16));
+    expect(host.textContent).toContain('Maintenance fee');
+    await act(async () => useCartStore.getState().updateQuantity('pickle-chicken', 3));
+    expect(host.textContent).toContain('This coupon requires a minimum cart value of $70.00');
+    expect(host.textContent).not.toContain('Maintenance fee');
+    expect(button('Continue to payment').disabled).toBe(true);
+    await act(async () => useCartStore.getState().updateQuantity('pickle-chicken', 4));
+    await click('Remove promo code');
+    expect(host.textContent).not.toContain('Maintenance fee');
+    expect(host.querySelector('s')).toBeNull();
+  });
   it('waives delivery at the minimum and restores fee and tax when items are removed', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
@@ -741,7 +775,7 @@ describe('coupon benefits in checkout', () => {
     }
     await click('Remove promo code');
     expect(host.querySelector('s')).toBeNull();
-    expect(host.textContent).toContain('$82.93');
+    expect(host.textContent).toContain('$84.93');
   });
   it('shows different regional discounts for a qualifying mixed cart', async () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'regional_v1' });

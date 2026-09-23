@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
       shippingMethod,
       shippingCoupon: benefit?.type === 'free_delivery' ? benefit : undefined,
     };
-    const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, pricingOptions);
+    const { subtotal, tax, shipping, maintenanceFee = 0, total } = calculateOrderTotals(serverTotal, pricingOptions);
     const shippingQuote = calculateShippingQuote(serverTotal, pricingOptions);
 
     if (
@@ -218,15 +218,15 @@ export async function POST(request: NextRequest) {
     const idempotencyKey = `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     const squarePublic = getSquarePublicConfig();
-    const taxSnapshot = buildTaxSnapshot(cart.items, { subtotal, tax, shipping, total },
+    const taxSnapshot = buildTaxSnapshot(cart.items, { subtotal, tax, shipping, maintenanceFee, total },
       fulfillment ?? { type: fulfillmentType }, squarePublic.environment);
     const db = getDb();
     // The payable session and its immutable tax quote must commit together.
     await db.batch([db.prepare(
         `INSERT INTO payment_sessions
           (id, customer_name, email, phone_number, cart_data, fulfillment_data,
-           total_amount, tax, shipping, coupon_code, payment_status, idempotency_key, coupon_snapshot)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+           total_amount, tax, shipping, coupon_code, payment_status, idempotency_key, coupon_snapshot, maintenance_fee, pricing_policy)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, 'texas_v3')`
       )
       .bind(
         sessionId,
@@ -240,7 +240,8 @@ export async function POST(request: NextRequest) {
         shipping,
         benefit?.code ?? null,
         idempotencyKey,
-        benefit ? JSON.stringify(benefit) : null
+        benefit ? JSON.stringify(benefit) : null,
+        maintenanceFee
       ),
       db.prepare('INSERT INTO payment_tax_quotes (session_id, snapshot_json) VALUES (?, ?)')
         .bind(sessionId, JSON.stringify(taxSnapshot)),
@@ -255,6 +256,7 @@ export async function POST(request: NextRequest) {
       tax,
       shipping,
       shippingQuote,
+      maintenanceFee,
       shippingMethod: shippingMethod || null,
       totalAmount: total,
       coupon: benefit,

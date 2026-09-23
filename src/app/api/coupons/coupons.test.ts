@@ -44,7 +44,7 @@ describe('coupon administration and validation', () => {
     await create(request(free));
     const accepted = await validate(request({ code: ' s h i p ', items }));
     expect(accepted.status).toBe(200);
-    expect(await accepted.json()).toMatchObject({ code: 'SHIP', type: 'free_delivery', minSubtotal: 40 });
+    expect(await accepted.json()).toMatchObject({ code: 'SHIP', type: 'free_delivery', minSubtotal: 40, shippingPolicy: 'texas_v3' });
     await update(request({ code: 'SHIP', minSubtotal: 40.01 }));
     const rejected = await validate(request({ code: 'SHIP', subtotal: 999, items: items.map(item => ({ ...item, lineTotal: 999 })) }));
     expect(rejected.status).toBe(400);

@@ -19,6 +19,7 @@ export interface PaymentSessionRow {
   total_amount: number;
   tax: number | null;
   shipping: number | null;
+  maintenance_fee?: number;
   coupon_code: string | null;
   coupon_snapshot?: CouponBenefit | null;
 }
@@ -80,6 +81,7 @@ export function mapSessionRow(raw: Record<string, unknown>): PaymentSessionRow {
     total_amount: Number(raw.total_amount ?? 0),
     tax: raw.tax == null ? 0 : Number(raw.tax),
     shipping: raw.shipping == null ? 0 : Number(raw.shipping),
+    maintenance_fee: Number(raw.maintenance_fee ?? 0),
     coupon_code: (raw.coupon_code as string) ?? null,
     coupon_snapshot: parseJson<CouponBenefit>(raw.coupon_snapshot),
   };
@@ -130,7 +132,7 @@ function canonicalPaidLines(session: PaymentSessionRow): CanonicalLine[] {
   });
   const merchandise = lines.reduce((total, line) => total + cents(line.lineTotal, 'cart amount'), 0);
   const total = cents(session.total_amount, 'payment total');
-  if (total <= 0 || merchandise + cents(session.tax ?? 0, 'tax') + cents(session.shipping ?? 0, 'shipping') !== total) {
+  if (total <= 0 || merchandise + cents(session.tax ?? 0, 'tax') + cents(session.shipping ?? 0, 'shipping') + cents(session.maintenance_fee ?? 0, 'maintenance fee') !== total) {
     throw new Error('Paid session cart does not match charged total; manual review required');
   }
   return lines;
@@ -190,6 +192,7 @@ export async function createOrderFromSession(
   if (session.coupon_code && (!coupon || coupon.code !== session.coupon_code)) {
     throw new Error('Paid session coupon cannot be resolved; manual review required');
   }
+  const subtotal = lines.reduce((sum, line) => sum + Math.round(line.lineTotal * 100), 0) / 100;
   const bonus = coupon?.type === 'complimentary' ? coupon : null;
   const orderId = existing?.id ?? newId();
   const orderNumber = existing?.order_number ?? await generateOrderNumber(db);
@@ -200,8 +203,8 @@ export async function createOrderFromSession(
   if (bonus) emailItems.push({ name: `${bonus.bonusQty} complimentary ${bonus.bonusItem} (FREE)`, quantity: 1, price: 0 });
   const emailParams = {
     orderNumber, squarePaymentId, total: session.total_amount,
-    subtotal: lines.reduce((sum, line) => sum + Math.round(line.lineTotal * 100), 0) / 100,
-    tax: session.tax ?? 0, shipping: session.shipping ?? 0,
+    subtotal,
+    tax: session.tax ?? 0, shipping: session.shipping ?? 0, maintenanceFee: session.maintenance_fee ?? 0,
     customerName: session.customer_name, phone: session.phone_number, items: emailItems,
     // Match the purchased cart used for shipping; complimentary display rows
     // must not change the service label between checkout and its confirmation.
@@ -224,13 +227,13 @@ export async function createOrderFromSession(
       `INSERT INTO orders
         (id, order_number, customer_name, phone_number, email, order_type,
          pickup_date, pickup_location, delivery_address, shipping_method,
-         total_price, tax, square_payment_id, coupon_code, status, payment_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')
+         total_price, tax, square_payment_id, coupon_code, maintenance_fee, status, payment_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')
        ON CONFLICT(square_payment_id) DO NOTHING`
     ).bind(orderId, orderNumber, session.customer_name, session.phone_number, session.email,
       fulfillment.type, fulfillment.date ?? null, fulfillment.locationId ?? null,
       buildDeliveryAddress(fulfillment), fulfillment.type === 'delivery' ? fulfillment.shippingMethod ?? 'standard' : null,
-      session.total_amount, session.tax ?? 0, squarePaymentId, session.coupon_code),
+      session.total_amount, session.tax ?? 0, squarePaymentId, session.coupon_code, session.maintenance_fee ?? 0),
     db.prepare(
       `INSERT INTO order_finalizations (order_id, payment_session_id, attempt_id, legacy_repair)
        SELECT id, ?, ?, CASE WHEN id = ? AND ? = 0 THEN 0 ELSE 1 END
@@ -240,7 +243,7 @@ export async function createOrderFromSession(
     db.prepare(`DELETE FROM order_items WHERE order_id = ${resolvedId}`).bind(attemptId),
   ];
   const taxRecord = await prepareOrderTaxRecord(db, session.id, attemptId, {
-    total: session.total_amount, tax: session.tax ?? 0, shipping: session.shipping ?? 0,
+    total: session.total_amount, tax: session.tax ?? 0, shipping: session.shipping ?? 0, maintenanceFee: session.maintenance_fee ?? 0,
   });
   if (taxRecord) statements.push(taxRecord);
   for (const line of lines) {
