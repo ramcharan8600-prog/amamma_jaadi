@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculateOrderTotals,
+  calculateShippingQuote,
   DELIVERY_STATE_OPTIONS,
   roundMoney,
   isTexas,
@@ -300,5 +301,32 @@ describe('pickle-only nationwide rates and minimum exemption', () => {
     expect(getDeliveryMinimumSubtotal('NY', false)).toBe(80);
     expect(getDeliveryMinimumShortfall(59, 'NY', false)).toBe(21);
     expect(getDeliveryMinimumShortfall(80, 'NY', false)).toBe(0);
+  });
+});
+
+
+describe('regional shipping coupons', () => {
+  const shippingCoupon = { minSubtotal: 70, shippingPolicy: 'regional_v1' as const };
+  it.each([['TX', 0], ['OK', 4.99], ['CA', 8.99]])('applies regional savings in %s', (deliveryState, shipping) => {
+    expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: String(deliveryState), shippingCoupon, taxableSubtotal: 0 }).shipping).toBe(shipping);
+  });
+  it.each(['TX', 'OK', 'CA'])('does not discount a cart one cent below the minimum in %s', deliveryState => {
+    const opts = { fulfillmentType: 'delivery' as const, deliveryState, picklesOnly: true, pickleJarCount: 4 };
+    expect(calculateOrderTotals(69.99, { ...opts, shippingCoupon })).toEqual(calculateOrderTotals(69.99, opts));
+  });
+  it.each(['TX', 'OK', 'CA'])('separates pickle quantity savings from coupon savings in %s', deliveryState => {
+    const quote = calculateShippingQuote(72, { fulfillmentType: 'delivery', deliveryState, picklesOnly: true, pickleJarCount: 4, shippingCoupon });
+    expect(quote).toEqual({ shipping: deliveryState === 'TX' ? 0 : 3.99, regularShipping: 4.99, referenceShipping: 6.99,
+      quantitySavings: 2, couponSavings: deliveryState === 'TX' ? 4.99 : 1 });
+  });
+  it('honors legacy free-delivery snapshots outside Texas', () => {
+    expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: 'CA', shippingCoupon: { minSubtotal: 70 } }).shipping).toBe(0);
+  });
+  it('uses the configured minimum rather than a fixed $70', () => {
+    expect(calculateOrderTotals(70, { fulfillmentType: 'delivery', deliveryState: 'TX', shippingCoupon: { ...shippingCoupon, minSubtotal: 70.01 } }).shipping).toBe(6.99);
+    expect(calculateOrderTotals(70, { fulfillmentType: 'delivery', deliveryState: 'TX', shippingCoupon }).shipping).toBe(0);
+  });
+  it('keeps pickup free with no coupon savings', () => {
+    expect(calculateShippingQuote(80, { fulfillmentType: 'pickup', shippingCoupon }).couponSavings).toBe(0);
   });
 });

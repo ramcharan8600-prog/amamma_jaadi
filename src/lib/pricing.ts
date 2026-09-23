@@ -147,6 +147,67 @@ export interface OrderTotals {
   total: number;
 }
 
+export interface ShippingOptions {
+  fulfillmentType?: 'pickup' | 'delivery';
+  picklesOnly?: boolean;
+  pickleJarCount?: number;
+  deliveryState?: string;
+  shippingMethod?: DeliveryShippingMethod;
+  freeDelivery?: boolean;
+  shippingCoupon?: { minSubtotal: number; shippingPolicy?: 'regional_v1' };
+}
+
+export interface ShippingQuote {
+  shipping: number;
+  regularShipping: number;
+  referenceShipping: number;
+  quantitySavings: number;
+  couponSavings: number;
+}
+
+/** One quote for the checkout display, session amount, tax, and first charge. */
+export function calculateShippingQuote(subtotal: number, opts: ShippingOptions = {}): ShippingQuote {
+  let regularShipping = 0;
+  const zone = getShippingZone(opts.deliveryState);
+  if (opts.fulfillmentType === 'delivery') {
+    if (opts.picklesOnly) {
+      const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
+      regularShipping = jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
+        : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE;
+    } else if (zone === 'texas') {
+      regularShipping = SHIPPING_TX;
+    } else if (zone === 'nearby') {
+      regularShipping = subtotal >= STANDARD_SHIPPING_THRESHOLD ? SHIPPING_NEARBY_ABOVE : SHIPPING_NEARBY_BELOW;
+    } else {
+      regularShipping = SHIPPING_FAR;
+    }
+  }
+  const coupon = opts.shippingCoupon;
+  const eligible = opts.fulfillmentType === 'delivery' && !!coupon &&
+    Number.isFinite(coupon.minSubtotal) && coupon.minSubtotal >= 0 && subtotal >= coupon.minSubtotal;
+  let shipping = regularShipping;
+  if (eligible) {
+    // Unversioned snapshots retain the free delivery promised before this policy.
+    if (coupon.shippingPolicy === undefined || zone === 'texas') shipping = 0;
+    else if (coupon.shippingPolicy === 'regional_v1') {
+      shipping = opts.picklesOnly ? Math.min(regularShipping, 3.99)
+        : roundMoney(Math.max(0, regularShipping - (zone === 'nearby' ? 4 : 3)));
+    }
+  }
+  if (opts.freeDelivery) shipping = 0;
+  // The pickle reference is the base fee, not the fee after jar-count savings.
+  // Keep both savings separate so checkout never overstates the coupon saving.
+  const referenceShipping = eligible && coupon.shippingPolicy === 'regional_v1' && opts.picklesOnly
+    ? SHIPPING_PICKLES_SINGLE : regularShipping;
+  return {
+    shipping,
+    regularShipping,
+    referenceShipping,
+    quantitySavings: roundMoney(referenceShipping - regularShipping),
+    couponSavings: roundMoney(regularShipping - shipping),
+  };
+}
+
 /**
  * Break a subtotal into subtotal + tax + shipping + total.
  *
@@ -162,41 +223,14 @@ export interface OrderTotals {
  */
 export function calculateOrderTotals(
   subtotal: number,
-  opts: {
-    fulfillmentType?: 'pickup' | 'delivery';
-    taxableSubtotal?: number;
-    picklesOnly?: boolean;
-    pickleJarCount?: number;
-    deliveryState?: string;
-    shippingMethod?: DeliveryShippingMethod;
-    freeDelivery?: boolean;
-  } = {}
+  opts: ShippingOptions & { taxableSubtotal?: number } = {}
 ): OrderTotals {
   const safeSubtotal = roundMoney(Math.max(0, Number(subtotal) || 0));
   const taxable = roundMoney(
     Math.min(safeSubtotal, Math.max(0, Number(opts.taxableSubtotal ?? safeSubtotal) || 0))
   );
 
-  let shipping = 0;
-  if (opts.fulfillmentType === 'delivery') {
-    const zone = getShippingZone(opts.deliveryState);
-    if (opts.picklesOnly) {
-      const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
-      shipping = jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
-        : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE;
-    } else if (zone === 'texas') {
-      shipping = SHIPPING_TX;
-    } else if (zone === 'nearby') {
-      shipping = safeSubtotal >= STANDARD_SHIPPING_THRESHOLD
-        ? SHIPPING_NEARBY_ABOVE
-        : SHIPPING_NEARBY_BELOW;
-    } else {
-      shipping = SHIPPING_FAR;
-    }
-  }
-
-  // Waive the fee before calculating tax so a free fee is never taxed.
-  if (opts.freeDelivery) shipping = 0;
+  const { shipping } = calculateShippingQuote(safeSubtotal, opts);
 
   const taxableShipping = opts.fulfillmentType === 'delivery' && isTexas(opts.deliveryState) && taxable > 0
     ? shipping : 0;

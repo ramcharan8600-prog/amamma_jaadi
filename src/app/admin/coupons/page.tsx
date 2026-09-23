@@ -252,7 +252,7 @@ export default function CouponsPage() {
               <label htmlFor="coupon-benefit" className="label-text">Coupon benefit</label>
               <select id="coupon-benefit" value={newType} onChange={e => setNewType(e.target.value as CouponType)} className="input-field">
                 <option value="complimentary">Complimentary pieces</option>
-                <option value="free_delivery">Free delivery</option>
+                <option value="free_delivery">Shipping offer — free in Texas</option>
               </select>
             </div>
             {newType === 'free_delivery' ? (
@@ -260,7 +260,7 @@ export default function CouponsPage() {
                 <label htmlFor="coupon-minimum" className="label-text">Minimum cart value ($)</label>
                 <input id="coupon-minimum" type="number" min="0" step="0.01" value={newMinimum}
                   onChange={e => setNewMinimum(e.target.value)} className="input-field" />
-                <p className="font-body text-xs text-brand-charcoal/60 mt-1">Merchandise subtotal before tax and delivery. Enter 0 for no minimum.</p>
+                <p className="font-body text-xs text-brand-charcoal/60 mt-1">Merchandise subtotal before tax and shipping. Enter 0 for no minimum.</p>
               </div>
             ) : (
               <>
@@ -279,6 +279,7 @@ export default function CouponsPage() {
               </>
             )}
           </div>
+          {newType === 'free_delivery' && <p className="font-body text-xs text-brand-charcoal/70">At the minimum: free shipping in Texas. Pickle-only orders ship for $3.99 elsewhere; other orders get $4 off nearby-state shipping or $3 off far-state shipping. Existing destination minimums still apply.</p>}
           {formError && (
             <p className="font-body text-sm text-red-600">{formError}</p>
           )}
@@ -351,7 +352,7 @@ export default function CouponsPage() {
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Influencer Performance
           </h3>
-          <p className="font-body text-xs text-brand-charcoal/60 mb-3">Free delivery requires this merchandise subtotal before tax and delivery. Updated minimums apply when customers continue to payment.</p>
+          <p className="font-body text-xs text-brand-charcoal/60 mb-3">The shipping offer requires this merchandise subtotal before tax and shipping. Updated minimums apply when customers continue to payment.</p>
           {rowError && <p role="alert" className="font-body text-sm text-red-600 mb-3">{rowError}</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -382,7 +383,7 @@ export default function CouponsPage() {
                         {coupon.influencer_name}
                       </td>
                       <td className="py-3 px-2 font-body text-xs text-brand-charcoal/60">
-                        {coupon.coupon_type === 'free_delivery' ? 'Free delivery' : `${coupon.bonus_qty}× ${coupon.bonus_item}`}
+                        {coupon.coupon_type === 'free_delivery' ? 'Shipping offer' : `${coupon.bonus_qty}× ${coupon.bonus_item}`}
                       </td>
                       <td className="py-3 px-2 font-body text-xs">
                         {coupon.coupon_type === 'free_delivery' ? (

@@ -6,7 +6,7 @@ import { isValidPhone } from '@/lib/contact-validation';
 import { isValidCouponMinimum } from '@/lib/coupons';
 import { getTotalPieces } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
-import { calculateOrderTotals, getDeliveryMinimumShortfall, isSupportedDeliveryState, normalizeStateCode } from '@/lib/pricing';
+import { calculateOrderTotals, getDeliveryMinimumShortfall, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
   executeSquarePaymentRequest,
@@ -111,18 +111,19 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     // Re-reading the current coupon would change an already accepted quote.
     const coupon = typeof session.coupon_snapshot === 'string'
       ? JSON.parse(session.coupon_snapshot) : session.coupon_snapshot;
-    let freeDelivery = false;
+    let shippingCoupon: ShippingOptions['shippingCoupon'];
     if (coupon != null) {
       if (typeof coupon !== 'object' || Array.isArray(coupon) ||
           !session.coupon_code || coupon.code !== session.coupon_code) return null;
       if (coupon.type === 'free_delivery') {
         if (!delivery || !isValidCouponMinimum(coupon.minSubtotal) || cart.subtotal < coupon.minSubtotal) return null;
-        freeDelivery = true;
+        if (coupon.shippingPolicy !== undefined && coupon.shippingPolicy !== 'regional_v1') return null;
+        shippingCoupon = coupon;
       } else if (coupon.type !== 'complimentary' || typeof coupon.bonusItem !== 'string' ||
           !coupon.bonusItem.trim() || !Number.isSafeInteger(coupon.bonusQty) || coupon.bonusQty < 1) return null;
     }
     const expected = calculateOrderTotals(cart.subtotal, {
-      freeDelivery,
+      shippingCoupon,
       picklesOnly,
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       taxableSubtotal: cart.taxableSubtotal, fulfillmentType: delivery ? 'delivery' : 'pickup',

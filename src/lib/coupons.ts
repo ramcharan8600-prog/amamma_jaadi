@@ -2,7 +2,7 @@ export type CouponType = 'complimentary' | 'free_delivery';
 
 export type CouponBenefit =
   | { code: string; type: 'complimentary'; bonusItem: string; bonusQty: number }
-  | { code: string; type: 'free_delivery'; minSubtotal: number };
+  | { code: string; type: 'free_delivery'; minSubtotal: number; shippingPolicy?: 'regional_v1' };
 
 export interface CouponRow {
   code: string;
@@ -16,7 +16,7 @@ export interface CouponRow {
 /** Read only trusted database rows; never accept a benefit from checkout input. */
 export function couponBenefit(coupon: CouponRow): CouponBenefit | null {
   if (coupon.coupon_type === 'free_delivery' && isValidCouponMinimum(coupon.min_subtotal)) {
-    return { code: coupon.code, type: 'free_delivery', minSubtotal: coupon.min_subtotal };
+    return { code: coupon.code, type: 'free_delivery', minSubtotal: coupon.min_subtotal, shippingPolicy: 'regional_v1' };
   }
   if (coupon.coupon_type === 'complimentary' && coupon.bonus_item?.trim() &&
       Number.isSafeInteger(coupon.bonus_qty) && coupon.bonus_qty > 0) {
@@ -33,6 +33,10 @@ export function isValidCouponMinimum(value: unknown): value is number {
 
 export function couponBenefitLabel(coupon: CouponBenefit): string {
   return coupon.type === 'free_delivery'
-    ? 'Free delivery'
+    ? coupon.shippingPolicy === 'regional_v1' ? 'Shipping offer' : 'Free delivery'
     : `${coupon.bonusQty} complimentary ${coupon.bonusItem} pcs`;
+}
+
+export function couponMinimumMessage(minimum: number): string {
+  return `This coupon requires a minimum cart value of $${minimum.toFixed(2)} before tax and shipping.`;
 }

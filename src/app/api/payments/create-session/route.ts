@@ -6,6 +6,8 @@ import { validateCart } from '@/lib/cart-validation';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import {
   calculateOrderTotals,
+  calculateShippingQuote,
+  type ShippingOptions,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
   isSupportedDeliveryState,
@@ -17,7 +19,7 @@ import { sanitize } from '@/lib/sanitize';
 import { validateRequiredContact } from '@/lib/contact-validation';
 import { buildTaxSnapshot } from '@/lib/tax-records';
 import { ok, fail } from '@/lib/api';
-import { couponBenefit, type CouponBenefit, type CouponRow } from '@/lib/coupons';
+import { couponBenefit, couponMinimumMessage, type CouponBenefit, type CouponRow } from '@/lib/coupons';
 
 /**
  * POST /api/payments/create-session
@@ -183,22 +185,24 @@ export async function POST(request: NextRequest) {
       if (benefit.type === 'free_delivery') {
         if (fulfillmentType !== 'delivery') return fail('This promo code is only valid for delivery orders.', 400);
         if (serverTotal < benefit.minSubtotal) {
-          return fail(`This code requires a minimum cart value of $${benefit.minSubtotal.toFixed(2)} before tax and delivery.`, 400);
+          return fail(couponMinimumMessage(benefit.minSubtotal), 400);
         }
       }
     }
 
     // Price merchandise and shipping, then tax the applicable base. Same helper
     // the checkout UI uses, so the amount shown always matches the amount charged.
-    const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, {
+    const pricingOptions: ShippingOptions & { taxableSubtotal: number } = {
       fulfillmentType,
       taxableSubtotal: taxableTotal,
       picklesOnly,
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       deliveryState,
       shippingMethod,
-      freeDelivery: benefit?.type === 'free_delivery',
-    });
+      shippingCoupon: benefit?.type === 'free_delivery' ? benefit : undefined,
+    };
+    const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, pricingOptions);
+    const shippingQuote = calculateShippingQuote(serverTotal, pricingOptions);
 
     if (
       !Number.isFinite(subtotal) || subtotal <= 0 ||
@@ -250,6 +254,7 @@ export async function POST(request: NextRequest) {
       subtotal,
       tax,
       shipping,
+      shippingQuote,
       shippingMethod: shippingMethod || null,
       totalAmount: total,
       coupon: benefit,

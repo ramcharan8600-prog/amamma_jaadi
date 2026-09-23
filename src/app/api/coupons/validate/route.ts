@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { ok, fail } from '@/lib/api';
-import { couponBenefit, type CouponRow } from '@/lib/coupons';
+import { couponBenefit, couponMinimumMessage, type CouponRow } from '@/lib/coupons';
 import { validateCart } from '@/lib/cart-validation';
 
 /**
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       const cart = validateCart(body.items);
       if (!cart.ok) return fail(cart.error, cart.status);
       if (cart.subtotal < benefit.minSubtotal) {
-        return fail(`This code requires a minimum cart value of $${benefit.minSubtotal.toFixed(2)} before tax and delivery.`, 400);
+        return fail(couponMinimumMessage(benefit.minSubtotal), 400);
       }
     }
     return ok(benefit);
