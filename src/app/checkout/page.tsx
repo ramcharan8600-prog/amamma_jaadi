@@ -28,6 +28,7 @@ import {
 import { useStock, invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
+import { couponBenefitLabel, type CouponBenefit } from '@/lib/coupons';
 import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, requiresNextDayPickup } from '@/lib/pickup-date';
 import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
 import {
@@ -109,11 +110,7 @@ export default function CheckoutPage() {
   const [promoCode, setPromoCode] = useState('');
   const [promoMsg, setPromoMsg] = useState('');
   const [promoApplying, setPromoApplying] = useState(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<{
-    code: string;
-    bonusItem: string;
-    bonusQty: number;
-  } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponBenefit | null>(null);
   const [cardReady, setCardReady] = useState(false);
   const [applePayReady, setApplePayReady] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -350,6 +347,7 @@ export default function CheckoutPage() {
   const totals = useMemo(
     () => calculateOrderTotals(subtotal, {
       taxableSubtotal,
+      freeDelivery: appliedCoupon?.type === 'free_delivery' && subtotal >= appliedCoupon.minSubtotal,
       picklesOnly,
       pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
@@ -359,7 +357,7 @@ export default function CheckoutPage() {
           ? 'standard'
           : undefined,
     }),
-    [subtotal, taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly]
+    [subtotal, taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, appliedCoupon]
   );
   const nearbyPickup = getNearbyPickup(deliveryState, deliveryZip);
   const pickupLocations = nearbyPickup
@@ -511,7 +509,8 @@ export default function CheckoutPage() {
           phone: details.phone,
           tax: 0,
           total: subtotal, // reference only — server recomputes authoritatively
-          couponCode: appliedCoupon?.code || null,
+          couponCode: appliedCoupon?.type === 'free_delivery' && details.type === 'pickup'
+            ? null : appliedCoupon?.code || null,
         }),
       });
       if (!res.ok) {
@@ -519,6 +518,7 @@ export default function CheckoutPage() {
         return { error: err.error || 'We could not start checkout. Please try again.' };
       }
       const data = await res.json();
+      setAppliedCoupon(data.coupon ?? null);
       // Recorded for telemetry so a browser-side failure can be tied back to
       // its payment_sessions row.
       sessionIdRef.current = data.sessionId || '';
@@ -778,6 +778,7 @@ export default function CheckoutPage() {
     isSupportedDeliveryState(deliveryState) &&
     /^\d{5}(?:-\d{4})?$/.test(deliveryZip.trim()) &&
     deliveryMinimumShortfall === 0 &&
+    !(appliedCoupon?.type === 'free_delivery' && subtotal < appliedCoupon.minSubtotal) &&
     !stateRestrictedItem
   );
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === step);
@@ -816,6 +817,23 @@ export default function CheckoutPage() {
           );
         })}
       </div>
+
+      {appliedCoupon && (
+        <div role="status" className="card p-4 mb-6 font-body text-sm space-y-2">
+          <p className="font-semibold text-brand-maroon">{appliedCoupon.code}: {couponBenefitLabel(appliedCoupon)}</p>
+          {appliedCoupon.type === 'free_delivery' && (
+            <p className="text-brand-charcoal/70">
+              {fulfillmentType === 'pickup'
+                ? 'This code applies to delivery orders only. Pickup is already free.'
+                : subtotal < appliedCoupon.minSubtotal
+                  ? `Code not applied. Add ${formatCurrency(appliedCoupon.minSubtotal - subtotal)} more to reach the ${formatCurrency(appliedCoupon.minSubtotal)} minimum cart value.`
+                  : `Free delivery on this order. Minimum cart value: ${formatCurrency(appliedCoupon.minSubtotal)} before tax and delivery.`}
+            </p>
+          )}
+          {step !== 'payment' && <button type="button" disabled={submitting || paying} className="underline text-brand-charcoal/60"
+            onClick={() => { setAppliedCoupon(null); setPromoCode(''); setPromoMsg(''); }}>Remove promo code</button>}
+        </div>
+      )}
 
       {/* Pickup instructions only apply to customers who selected pickup. */}
       {fulfillmentType === 'pickup' && step === 'payment' && <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-4 mb-6 flex items-start gap-3">
@@ -900,6 +918,7 @@ export default function CheckoutPage() {
               <input
                 type="text"
                 value={promoCode}
+                disabled={promoApplying}
                 onChange={(e) => {
                   setPromoCode(e.target.value);
                   setPromoMsg('');
@@ -918,18 +937,19 @@ export default function CheckoutPage() {
                     const res = await fetch('/api/coupons/validate', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ code: promoCode }),
+                      body: JSON.stringify({ code: promoCode, items }),
                     });
                     const data = await res.json();
                     if (res.ok && data.code) {
                       setPromoCode(data.code);
-                      setAppliedCoupon({ code: data.code, bonusItem: data.bonusItem, bonusQty: data.bonusQty });
-                      setPromoMsg(`Code applied! ${data.bonusQty} complimentary ${data.bonusItem} will be added to your order.`);
+                      setAppliedCoupon(data as CouponBenefit);
+                      setPromoMsg('');
                     } else {
                       setAppliedCoupon(null);
                       setPromoMsg(data.error || "That promo code isn't valid.");
                     }
                   } catch {
+                    setAppliedCoupon(null);
                     setPromoMsg('Could not verify code. Please try again.');
                   }
                   setPromoApplying(false);
@@ -951,7 +971,7 @@ export default function CheckoutPage() {
             <Link href="/" className="btn-secondary flex-1 text-center">
               + Add more items
             </Link>
-            <button onClick={() => setStep('method')} className="btn-primary flex-1">
+            <button disabled={promoApplying} onClick={() => setStep('method')} className="btn-primary flex-1">
               Continue
             </button>
           </div>

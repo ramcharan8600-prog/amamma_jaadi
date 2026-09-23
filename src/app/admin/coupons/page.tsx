@@ -13,10 +13,13 @@ import {
   Gift,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { isValidCouponMinimum, type CouponType } from '@/lib/coupons';
 
 interface Coupon {
   code: string;
   influencer_name: string;
+  coupon_type: CouponType;
+  min_subtotal: number;
   bonus_item: string;
   bonus_qty: number;
   times_used: number;
@@ -45,6 +48,11 @@ export default function CouponsPage() {
   const [showForm, setShowForm] = useState(false);
   const [newCode, setNewCode] = useState('');
   const [newInfluencer, setNewInfluencer] = useState('');
+  const [newType, setNewType] = useState<CouponType>('complimentary');
+  const [newMinimum, setNewMinimum] = useState('0');
+  const [minimumEdits, setMinimumEdits] = useState<Record<string, string>>({});
+  const [savingMinimum, setSavingMinimum] = useState<string | null>(null);
+  const [rowError, setRowError] = useState('');
   const [newBonusItem, setNewBonusItem] = useState('Malai Khaja');
   const [newBonusQty, setNewBonusQty] = useState(2);
   const [formError, setFormError] = useState('');
@@ -100,7 +108,11 @@ export default function CouponsPage() {
   const handleCreate = async () => {
     setFormError('');
     if (!newCode.trim() || !newInfluencer.trim()) {
-      setFormError('Code and influencer name are required.');
+      setFormError('Code and influencer or campaign name are required.');
+      return;
+    }
+    if (newType === 'free_delivery' && (!newMinimum.trim() || !isValidCouponMinimum(Number(newMinimum)))) {
+      setFormError('Enter a minimum cart value of $0 or more, with up to two decimal places.');
       return;
     }
     setCreating(true);
@@ -113,6 +125,8 @@ export default function CouponsPage() {
           influencerName: newInfluencer,
           bonusItem: newBonusItem,
           bonusQty: newBonusQty,
+          type: newType,
+          minSubtotal: newType === 'free_delivery' ? Number(newMinimum) : 0,
         }),
       });
       if (res.ok) {
@@ -120,6 +134,8 @@ export default function CouponsPage() {
         setNewInfluencer('');
         setNewBonusItem('Malai Khaja');
         setNewBonusQty(2);
+        setNewType('complimentary');
+        setNewMinimum('0');
         setShowForm(false);
         await fetchData();
       } else {
@@ -145,6 +161,32 @@ export default function CouponsPage() {
     }
   };
 
+  const handleMinimumSave = async (coupon: Coupon) => {
+    const value = minimumEdits[coupon.code] ?? String(coupon.min_subtotal);
+    setRowError('');
+    if (!value.trim() || !isValidCouponMinimum(Number(value))) {
+      setRowError(`${coupon.code}: enter a minimum cart value of $0 or more, with up to two decimal places.`);
+      return;
+    }
+    setSavingMinimum(coupon.code);
+    try {
+      const res = await fetch('/api/coupons/admin', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: coupon.code, minSubtotal: Number(value) }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || 'Could not save the minimum cart value.');
+      }
+      setCoupons(previous => previous.map(row => row.code === coupon.code ? { ...row, min_subtotal: Number(value) } : row));
+      setMinimumEdits(previous => { const next = { ...previous }; delete next[coupon.code]; return next; });
+    } catch (error) {
+      setRowError(error instanceof Error ? error.message : 'Could not save the minimum cart value.');
+    } finally {
+      setSavingMinimum(null);
+    }
+  };
+
   if (!authed) {
     return (
       <div className="section-padding py-16 text-center">
@@ -165,10 +207,10 @@ export default function CouponsPage() {
         </Link>
         <div className="flex-1">
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-charcoal">
-            Influencer Coupons
+            Coupons
           </h1>
           <p className="font-body text-sm text-brand-charcoal/50">
-            Manage coupon codes and track influencer performance
+            Choose coupon benefits and track campaign performance
           </p>
         </div>
         <button
@@ -197,7 +239,7 @@ export default function CouponsPage() {
               />
             </div>
             <div>
-              <label className="label-text">Influencer Name</label>
+              <label className="label-text">Influencer / Campaign Name</label>
               <input
                 type="text"
                 value={newInfluencer}
@@ -207,27 +249,35 @@ export default function CouponsPage() {
               />
             </div>
             <div>
-              <label className="label-text">Bonus Item</label>
-              <select
-                value={newBonusItem}
-                onChange={(e) => setNewBonusItem(e.target.value)}
-                className="input-field"
-              >
-                <option value="Malai Khaja">Malai Khaja</option>
-                <option value="Malpuri">Malpuri</option>
+              <label htmlFor="coupon-benefit" className="label-text">Coupon benefit</label>
+              <select id="coupon-benefit" value={newType} onChange={e => setNewType(e.target.value as CouponType)} className="input-field">
+                <option value="complimentary">Complimentary pieces</option>
+                <option value="free_delivery">Free delivery</option>
               </select>
             </div>
-            <div>
-              <label className="label-text">Bonus Quantity</label>
-              <input
-                type="number"
-                min={1}
-                max={10}
-                value={newBonusQty}
-                onChange={(e) => setNewBonusQty(Number(e.target.value) || 2)}
-                className="input-field"
-              />
-            </div>
+            {newType === 'free_delivery' ? (
+              <div>
+                <label htmlFor="coupon-minimum" className="label-text">Minimum cart value ($)</label>
+                <input id="coupon-minimum" type="number" min="0" step="0.01" value={newMinimum}
+                  onChange={e => setNewMinimum(e.target.value)} className="input-field" />
+                <p className="font-body text-xs text-brand-charcoal/60 mt-1">Merchandise subtotal before tax and delivery. Enter 0 for no minimum.</p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label htmlFor="coupon-bonus-item" className="label-text">Complimentary item</label>
+                  <select id="coupon-bonus-item" value={newBonusItem} onChange={e => setNewBonusItem(e.target.value)} className="input-field">
+                    <option value="Malai Khaja">Malai Khaja</option>
+                    <option value="Malpuri">Malpuri</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="coupon-bonus-qty" className="label-text">Complimentary pieces</label>
+                  <input id="coupon-bonus-qty" type="number" min={1} max={10} step={1} value={newBonusQty}
+                    onChange={e => setNewBonusQty(Number(e.target.value))} className="input-field" />
+                </div>
+              </>
+            )}
           </div>
           {formError && (
             <p className="font-body text-sm text-red-600">{formError}</p>
@@ -301,11 +351,13 @@ export default function CouponsPage() {
           <h3 className="font-display text-base font-semibold text-brand-charcoal mb-4">
             Influencer Performance
           </h3>
+          <p className="font-body text-xs text-brand-charcoal/60 mb-3">Free delivery requires this merchandise subtotal before tax and delivery. Updated minimums apply when customers continue to payment.</p>
+          {rowError && <p role="alert" className="font-body text-sm text-red-600 mb-3">{rowError}</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-brand-cream-dark">
-                  {['Code', 'Influencer', 'Bonus', 'Orders', 'Revenue', 'Pickup', 'Delivery', 'Status'].map((h) => (
+                  {['Code', 'Influencer / Campaign', 'Benefit', 'Minimum cart value', 'Orders', 'Revenue', 'Pickup', 'Delivery', 'Status'].map((h) => (
                     <th
                       key={h}
                       className="font-body text-xs font-semibold text-brand-charcoal/50 uppercase tracking-wider py-3 px-2"
@@ -330,7 +382,23 @@ export default function CouponsPage() {
                         {coupon.influencer_name}
                       </td>
                       <td className="py-3 px-2 font-body text-xs text-brand-charcoal/60">
-                        {coupon.bonus_qty}× {coupon.bonus_item}
+                        {coupon.coupon_type === 'free_delivery' ? 'Free delivery' : `${coupon.bonus_qty}× ${coupon.bonus_item}`}
+                      </td>
+                      <td className="py-3 px-2 font-body text-xs">
+                        {coupon.coupon_type === 'free_delivery' ? (
+                          <div className="flex items-center gap-2">
+                            <span>$</span>
+                            <input type="number" min="0" step="0.01" aria-label={`Minimum cart value for ${coupon.code}`}
+                              className="input-field w-24" disabled={savingMinimum === coupon.code}
+                              value={minimumEdits[coupon.code] ?? String(coupon.min_subtotal)}
+                              onChange={e => setMinimumEdits(previous => ({ ...previous, [coupon.code]: e.target.value }))} />
+                            <button type="button" className="btn-secondary text-xs" aria-label={`Save minimum for ${coupon.code}`}
+                              disabled={savingMinimum !== null || minimumEdits[coupon.code] === undefined}
+                              onClick={() => handleMinimumSave(coupon)}>
+                              {savingMinimum === coupon.code ? 'Saving…' : 'Save'}
+                            </button>
+                          </div>
+                        ) : '—'}
                       </td>
                       <td className="py-3 px-2 font-body text-sm font-medium">
                         {stats ? Number(stats.order_count) : 0}

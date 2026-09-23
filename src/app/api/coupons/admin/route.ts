@@ -3,10 +3,13 @@ import { cookies } from 'next/headers';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 import { ok, fail } from '@/lib/api';
+import { isValidCouponMinimum, type CouponType } from '@/lib/coupons';
 
 interface CouponRow {
   code: string;
   influencer_name: string;
+  coupon_type: CouponType;
+  min_subtotal: number;
   bonus_item: string;
   bonus_qty: number;
   times_used: number;
@@ -61,22 +64,35 @@ export async function POST(request: NextRequest) {
   if (!(await requireAdmin())) return fail('Unauthorized', 401);
   if (!isDbConfigured()) return fail('Database not configured', 503);
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return fail('Invalid coupon request.', 400);
   const code = String(body.code || '').trim().replace(/\s+/g, '').toUpperCase();
   const influencerName = String(body.influencerName || '').trim();
-  const bonusItem = String(body.bonusItem || 'Malai Khaja').trim();
-  const bonusQty = Math.max(1, Math.floor(Number(body.bonusQty) || 2));
+  const couponType = body.type ?? 'complimentary';
+  if (couponType !== 'complimentary' && couponType !== 'free_delivery') {
+    return fail('Select complimentary pieces or free delivery.', 400);
+  }
+  const bonusItem = couponType === 'complimentary' ? String(body.bonusItem ?? 'Malai Khaja').trim() : '';
+  const bonusQty = couponType === 'complimentary' ? Number(body.bonusQty ?? 2) : 0;
+  const minSubtotal = couponType === 'free_delivery' ? body.minSubtotal : 0;
+  if (!isValidCouponMinimum(minSubtotal)) {
+    return fail('Enter a minimum cart value of $0 or more, with up to two decimal places.', 400);
+  }
+  if (couponType === 'complimentary' && (!['Malai Khaja', 'Malpuri'].includes(bonusItem) ||
+      !Number.isSafeInteger(bonusQty) || bonusQty < 1 || bonusQty > 10)) {
+    return fail('Select a complimentary item and a whole quantity from 1 to 10.', 400);
+  }
 
   if (!code || code.length < 2) return fail('Code must be at least 2 characters.', 400);
-  if (!influencerName) return fail('Influencer name is required.', 400);
+  if (!influencerName) return fail('Influencer or campaign name is required.', 400);
 
   try {
     await getDb()
       .prepare(
-        `INSERT INTO influencer_coupons (code, influencer_name, bonus_item, bonus_qty)
-         VALUES (?, ?, ?, ?)`
+        `INSERT INTO influencer_coupons (code, influencer_name, bonus_item, bonus_qty, coupon_type, min_subtotal)
+         VALUES (?, ?, ?, ?, ?, ?)`
       )
-      .bind(code, influencerName, bonusItem, bonusQty)
+      .bind(code, influencerName, bonusItem, bonusQty, couponType, minSubtotal)
       .run();
     return ok({ code }, 201);
   } catch (e) {
@@ -89,17 +105,33 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PATCH /api/coupons/admin — toggle active status.
+ * PATCH /api/coupons/admin — toggle status or adjust a free-delivery minimum.
  */
 export async function PATCH(request: NextRequest) {
   if (!(await requireAdmin())) return fail('Unauthorized', 401);
   if (!isDbConfigured()) return fail('Database not configured', 503);
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return fail('Invalid coupon request.', 400);
   const code = String(body.code || '').trim().toUpperCase();
-  const active = body.active ? 1 : 0;
 
   if (!code) return fail('Coupon code is required.', 400);
+
+  const coupon = await getDb().prepare('SELECT coupon_type FROM influencer_coupons WHERE code = ?')
+    .bind(code).first<{ coupon_type: CouponType }>();
+  if (!coupon) return fail('Coupon not found.', 404);
+
+  if ('minSubtotal' in body) {
+    if (coupon.coupon_type !== 'free_delivery') return fail('Only free-delivery coupons have a minimum cart value.', 400);
+    if (!isValidCouponMinimum(body.minSubtotal)) {
+      return fail('Enter a minimum cart value of $0 or more, with up to two decimal places.', 400);
+    }
+    await getDb().prepare('UPDATE influencer_coupons SET min_subtotal = ? WHERE code = ?')
+      .bind(body.minSubtotal, code).run();
+    return ok({ code, minSubtotal: body.minSubtotal });
+  }
+  if (![true, false, 0, 1].includes(body.active)) return fail('Select an active status.', 400);
+  const active = body.active ? 1 : 0;
 
   await getDb()
     .prepare('UPDATE influencer_coupons SET active = ? WHERE code = ?')

@@ -5,7 +5,7 @@ import { createTestD1 } from '@/lib/test-utils/d1';
 const { queue } = vi.hoisted(() => ({ queue: { send: vi.fn(async () => undefined) } }));
 vi.mock('@opennextjs/cloudflare', () => ({ getCloudflareContext: () => ({ env: { EMAIL_QUEUE: queue } }) }));
 
-import { createOrderFromSession, type PaymentSessionRow } from '@/lib/order-service';
+import { createOrderFromSession, mapSessionRow, type PaymentSessionRow } from '@/lib/order-service';
 import { recoverPendingEmailOutbox } from '@/lib/email-outbox';
 import type { Queue } from '@cloudflare/workers-types';
 import type { EmailQueueMessage } from '@/lib/email-outbox';
@@ -340,4 +340,40 @@ it.each([null, 'TESTBONUS'])('records Standard shipping in a pickle-only confirm
   } finally {
     sqlite.close();
   }
+});
+
+
+it('finalizes free delivery without adding bonus pieces and counts usage only once', async () => {
+  const snapshot = { code: 'TESTBONUS', type: 'free_delivery' as const, minSubtotal: 30 };
+  const { db, sqlite, session } = setup({
+    coupon_snapshot: snapshot,
+    fulfillment_data: { type: 'delivery', state: 'TX', shippingMethod: 'standard' },
+    tax: 2.97, shipping: 0, total_amount: 38.97,
+  });
+  try {
+    // Admin edits after the payment session do not alter the promise already quoted.
+    sqlite.exec("UPDATE influencer_coupons SET active=0, coupon_type='free_delivery', min_subtotal=100, bonus_qty=0, bonus_item=''");
+    expect(mapSessionRow({ ...session, coupon_snapshot: JSON.stringify(snapshot) }).coupon_snapshot).toEqual(snapshot);
+    await createOrderFromSession(db, session, 'PAY-FREE-DELIVERY');
+    await createOrderFromSession(db, session, 'PAY-FREE-DELIVERY');
+    expect(count(sqlite, 'order_items')).toBe(1);
+    expect(sqlite.prepare('SELECT total_price, coupon_code FROM orders').get()).toMatchObject({ total_price: 38.97, coupon_code: 'TESTBONUS' });
+    expect(sqlite.prepare('SELECT times_used FROM influencer_coupons').get()?.times_used).toBe(1);
+    const html = String(sqlite.prepare('SELECT html FROM email_outbox').get()?.html);
+    expect(html).toContain('Free');
+    expect(html).not.toContain('complimentary');
+    expect(html).toContain('$38.97');
+  } finally { sqlite.close(); }
+});
+
+it('preserves the complimentary pieces promised in the session after coupon changes', async () => {
+  const { db, sqlite, session } = setup({
+    coupon_snapshot: { code: 'TESTBONUS', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 },
+  });
+  try {
+    sqlite.exec('UPDATE influencer_coupons SET active=0, bonus_qty=8');
+    await createOrderFromSession(db, session, 'PAY-BONUS-SNAPSHOT');
+    expect(sqlite.prepare('SELECT product_name, quantity FROM order_items WHERE line_total=0').get())
+      .toMatchObject({ product_name: 'Malpuri (Complimentary)', quantity: 3 });
+  } finally { sqlite.close(); }
 });
