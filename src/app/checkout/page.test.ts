@@ -707,6 +707,94 @@ describe('coupon benefits in checkout', () => {
     await act(async () => choice!.click());
     await input('#delivery-state', 'TX');
   }
+  async function returnToCart() {
+    await click('Back');
+    await click('Back');
+    expect(host.textContent).toContain('Step 1');
+  }
+  function maintenanceRow() {
+    return Array.from(host.querySelectorAll('span')).find(item => item.textContent === 'Maintenance fee')?.parentElement?.textContent;
+  }
+  it.each([
+    { cart: 'sweets', sweets: 2, jars: 0, fee: '$0.99', total: '$80.99' },
+    { cart: 'mixed', sweets: 1, jars: 4, fee: '$0.99', total: '$119.01' },
+    { cart: 'pickles', sweets: 0, jars: 4, fee: '$1.99', total: '$80.09' },
+  ])('itemizes the retained Texas coupon fee when returning to the $cart cart', async ({ sweets, jars, fee, total }) => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    if (sweets) useCartStore.getState().addItem(getProductById('sweet-malpuri')!, sweets, 16);
+    if (jars) useCartStore.getState().addItem(getProductById('pickle-chicken')!, jars);
+    await apply();
+    expect(maintenanceRow()).toBeUndefined();
+    await delivery();
+    await returnToCart();
+    expect(maintenanceRow()).toBe(`Maintenance fee${fee}`);
+    expect(host.textContent).toContain(total);
+    expect(host.textContent).toContain('Shipping (estimated 1 business day after dispatch)');
+    expect(host.textContent).not.toContain('UPS 2nd Day Air');
+    expect(host.querySelector('s')?.textContent).toBe('$6.99');
+    expect(host.textContent).toContain('Coupon savings: $6.99');
+  });
+  it('updates the returned cart fee and shipping as its coupon eligibility changes', async () => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('pickle-chicken')!, 4);
+    await apply();
+    await delivery();
+    await returnToCart();
+    expect(maintenanceRow()).toBe('Maintenance fee$0.99');
+    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 16));
+    expect(maintenanceRow()).toBe('Maintenance fee$1.99');
+    await act(async () => useCartStore.getState().updateQuantity('pickle-chicken', 3));
+    expect(maintenanceRow()).toBeUndefined();
+    expect(host.textContent).toContain('This coupon requires a minimum cart value of $70.00');
+    expect(host.textContent).toContain('$6.99');
+    expect(host.querySelector('s')).toBeNull();
+    await act(async () => useCartStore.getState().updateQuantity('pickle-chicken', 4));
+    expect(maintenanceRow()).toBe('Maintenance fee$1.99');
+    await click('Remove promo code');
+    expect(maintenanceRow()).toBeUndefined();
+    expect(host.textContent).toContain('$6.99');
+    expect(host.textContent).toContain('$85.51');
+    expect(host.querySelector('s')).toBeNull();
+  });
+  it.each([{ state: 'OK', shipping: '$8.99' }, { state: 'NY', shipping: '$11.99' }])('hides maintenance and itemizes regular shipping after returning from $state delivery', async ({ state, shipping }) => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    await apply();
+    await delivery();
+    await input('#delivery-state', state);
+    await returnToCart();
+    expect(maintenanceRow()).toBeUndefined();
+    expect(host.textContent).toContain(shipping);
+    expect(host.querySelector('s')).toBeNull();
+  });
+  it('hides retained Texas delivery charges after switching to pickup and returning to cart', async () => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    await apply();
+    await delivery();
+    await click('Back');
+    const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
+    await act(async () => pickup!.click());
+    await returnToCart();
+    expect(maintenanceRow()).toBeUndefined();
+    expect(host.textContent).not.toContain('Standard shipping');
+    expect(host.textContent).not.toContain('$6.99');
+    expect(host.textContent).not.toContain('$0.99');
+    expect(host.textContent).toContain('$80.00');
+  });
+  it('labels retained shipping as an estimate when returning before choosing a state', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    await render();
+    expect(host.textContent).not.toContain('Shipping estimate');
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    await act(async () => choice!.click());
+    await returnToCart();
+    expect(host.textContent).toContain('Shipping estimate (select a state to confirm)');
+    expect(maintenanceRow()).toBeUndefined();
+    expect(host.textContent).toContain('$11.99');
+  });
   it('shows the correct maintenance fee only for qualifying Texas delivery', async () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
     useCartStore.getState().addItem(getProductById('pickle-chicken')!, 4);

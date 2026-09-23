@@ -921,6 +921,14 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
+              {fulfillmentType === 'delivery' && (
+                <ShippingCharge
+                  label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : deliveryState.trim() ? shippingMethodLabel(resolvedShippingMethod, picklesOnly) : 'Shipping estimate (select a state to confirm)'}
+                  shipping={totals.shipping}
+                  quote={shippingQuote}
+                />
+              )}
+              <MaintenanceFee amount={totals.maintenanceFee} />
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
                 <span>{SALES_TAX_LABEL}</span>
                 <span>{formatCurrency(totals.tax)}</span>
