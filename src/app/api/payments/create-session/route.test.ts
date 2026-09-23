@@ -413,13 +413,43 @@ describe('pickle-only orders have no destination minimum', () => {
 
 describe('authoritative coupon benefits at payment', () => {
   const free = { code: 'SHIP', active: 1, coupon_type: 'free_delivery' as const, bonus_item: '', bonus_qty: 0, min_subtotal: 19 };
-  it.each(['TX', 'OK', 'NY'])('waives delivery and its tax at the exact minimum in %s', async state => {
+  it.each([['TX', 0, 20.57], ['OK', 3.99, 24.56], ['NY', 3.99, 24.56]])('quotes eligible pickle shipping in %s', async (state, shipping, total) => {
     mocks.coupon.mockResolvedValue(free);
-    const response = await post({ ...checkout([{ productId: 'pickle-gongura-chicken', quantity: 1 }], delivery(state)), couponCode: 'ship' });
+    const response = await post({ ...checkout([{ productId: 'pickle-gongura-chicken', quantity: 1 }], delivery(String(state))), couponCode: 'ship' });
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 19, shipping: 0, tax: 1.57, totalAmount: 20.57 });
-    expect(JSON.parse(mocks.inserts[0][11] as string)).toEqual({ code: 'SHIP', type: 'free_delivery', minSubtotal: 19 });
-    expect(JSON.parse(mocks.inserts[1][1] as string)).toMatchObject({ shippingCents: 0, taxableShippingCents: 0, taxCents: 157 });
+    expect(await response.json()).toMatchObject({ subtotal: 19, shipping, tax: 1.57, totalAmount: total });
+    expect(JSON.parse(mocks.inserts[0][11] as string)).toEqual({ code: 'SHIP', type: 'free_delivery', minSubtotal: 19, shippingPolicy: 'regional_v1' });
+    expect(JSON.parse(mocks.inserts[1][1] as string)).toMatchObject({ shippingCents: Math.round(Number(shipping) * 100), taxableShippingCents: 0, taxCents: 157 });
+  });
+
+  it.each([['TX', 0, 77.94], ['OK', 3.99, 81.93], ['NY', 3.99, 81.93]])('honors the admin minimum for four pickle jars in %s', async (state, shipping, total) => {
+    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
+    const response = await post({ ...checkout([{ productId: 'pickle-chicken', quantity: 4 }], delivery(String(state))), couponCode: 'ship' });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 72, shipping, tax: 5.94, totalAmount: total,
+      shippingQuote: { referenceShipping: 6.99, regularShipping: 4.99, quantitySavings: 2, couponSavings: state === 'TX' ? 4.99 : 1 } });
+  });
+
+  it.each([1, 2, 3])('rejects %s pickle jars below a $70 minimum', async quantity => {
+    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
+    const response = await post({ ...checkout([{ productId: 'pickle-mutton', quantity }], delivery('OK')), couponCode: 'SHIP', subtotal: 999 });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('This coupon requires a minimum cart value of $70.00 before tax and shipping.');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it.each([['TX', 0], ['OK', 4.99], ['NY', 8.99]])('discounts mixed carts using the destination in %s', async (state, shipping) => {
+    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
+    const response = await post({ ...checkout([sweet, { productId: 'pickle-mutton', quantity: 2 }], delivery(String(state))), couponCode: 'SHIP' });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 82, shipping, tax: 3.47 });
+  });
+
+  it.each(['TX', 'OK'])('accepts an exact $70 sweets/gift cart in %s', async state => {
+    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
+    const response = await post({ ...checkout([sweet, gift], delivery(state)), couponCode: 'SHIP' });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 70, shipping: state === 'TX' ? 0 : 4.99 });
   });
 
   it('rejects one cent below minimum despite inflated client totals and forged benefit', async () => {

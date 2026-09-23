@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   const influencerName = String(body.influencerName || '').trim();
   const couponType = body.type ?? 'complimentary';
   if (couponType !== 'complimentary' && couponType !== 'free_delivery') {
-    return fail('Select complimentary pieces or free delivery.', 400);
+    return fail('Select complimentary pieces or a shipping offer.', 400);
   }
   const bonusItem = couponType === 'complimentary' ? String(body.bonusItem ?? 'Malai Khaja').trim() : '';
   const bonusQty = couponType === 'complimentary' ? Number(body.bonusQty ?? 2) : 0;
@@ -122,7 +122,7 @@ export async function PATCH(request: NextRequest) {
   if (!coupon) return fail('Coupon not found.', 404);
 
   if ('minSubtotal' in body) {
-    if (coupon.coupon_type !== 'free_delivery') return fail('Only free-delivery coupons have a minimum cart value.', 400);
+    if (coupon.coupon_type !== 'free_delivery') return fail('Only shipping coupons have a minimum cart value.', 400);
     if (!isValidCouponMinimum(body.minSubtotal)) {
       return fail('Enter a minimum cart value of $0 or more, with up to two decimal places.', 400);
     }

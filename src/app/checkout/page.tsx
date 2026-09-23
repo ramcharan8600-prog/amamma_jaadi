@@ -28,11 +28,15 @@ import {
 import { useStock, invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
-import { couponBenefitLabel, type CouponBenefit } from '@/lib/coupons';
+import { couponBenefitLabel, couponMinimumMessage, type CouponBenefit } from '@/lib/coupons';
 import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, requiresNextDayPickup } from '@/lib/pickup-date';
 import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
 import {
   calculateOrderTotals,
+  calculateShippingQuote,
+  getShippingZone,
+  type ShippingQuote,
+  type ShippingOptions,
   DELIVERY_STATE_OPTIONS,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
@@ -41,6 +45,7 @@ import {
   shippingMethodLabel,
 } from '@/lib/pricing';
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
+import ShippingCharge from '@/components/checkout/ShippingCharge';
 import {
   claimPendingPayment, classifyPaymentOutcome, forgetPendingPayment, PENDING_PAYMENT_KEY,
   readPendingPayment, requestPaymentStatus, type PendingPayment,
@@ -100,6 +105,7 @@ export default function CheckoutPage() {
     subtotal: number;
     tax: number;
     shipping: number;
+    shippingQuote?: ShippingQuote;
     shippingMethod: DeliveryShippingMethod;
     total: number;
     appId: string | null;
@@ -344,10 +350,10 @@ export default function CheckoutPage() {
   );
   const resolvedShippingMethod: DeliveryShippingMethod = 'standard';
   const picklesOnly = items.length > 0 && items.every(({ product }) => product.category === 'pickles');
-  const totals = useMemo(
-    () => calculateOrderTotals(subtotal, {
+  const pricingOptions = useMemo<ShippingOptions & { taxableSubtotal: number }>(
+    () => ({
       taxableSubtotal,
-      freeDelivery: appliedCoupon?.type === 'free_delivery' && subtotal >= appliedCoupon.minSubtotal,
+      shippingCoupon: appliedCoupon?.type === 'free_delivery' ? appliedCoupon : undefined,
       picklesOnly,
       pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
@@ -357,8 +363,10 @@ export default function CheckoutPage() {
           ? 'standard'
           : undefined,
     }),
-    [subtotal, taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, appliedCoupon]
+    [taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, appliedCoupon]
   );
+  const totals = useMemo(() => calculateOrderTotals(subtotal, pricingOptions), [subtotal, pricingOptions]);
+  const shippingQuote = useMemo(() => calculateShippingQuote(subtotal, pricingOptions), [subtotal, pricingOptions]);
   const nearbyPickup = getNearbyPickup(deliveryState, deliveryZip);
   const pickupLocations = nearbyPickup
     ? [...PICKUP_LOCATIONS].sort((a, b) => Number(b.zip === nearbyPickup.zip) - Number(a.zip === nearbyPickup.zip))
@@ -527,6 +535,7 @@ export default function CheckoutPage() {
         subtotal: Number(data.subtotal ?? 0),
         tax: Number(data.tax ?? 0),
         shipping: Number(data.shipping ?? 0),
+        shippingQuote: data.shippingQuote,
         shippingMethod:
           data.shippingMethod === 'expedited'
             ? 'expedited'
@@ -826,8 +835,14 @@ export default function CheckoutPage() {
               {fulfillmentType === 'pickup'
                 ? 'This code applies to delivery orders only. Pickup is already free.'
                 : subtotal < appliedCoupon.minSubtotal
-                  ? `Code not applied. Add ${formatCurrency(appliedCoupon.minSubtotal - subtotal)} more to reach the ${formatCurrency(appliedCoupon.minSubtotal)} minimum cart value.`
-                  : `Free delivery on this order. Minimum cart value: ${formatCurrency(appliedCoupon.minSubtotal)} before tax and delivery.`}
+                  ? couponMinimumMessage(appliedCoupon.minSubtotal)
+                  : !deliveryState
+                    ? `Select your delivery state to see the shipping offer. Minimum cart value: ${formatCurrency(appliedCoupon.minSubtotal)} before tax and shipping.`
+                    : appliedCoupon.shippingPolicy !== 'regional_v1' || deliveryState === 'TX'
+                      ? 'Free delivery on this order.'
+                      : picklesOnly
+                        ? 'Pickle-only shipping is $3.99 with this coupon.'
+                        : `${formatCurrency(getShippingZone(deliveryState) === 'nearby' ? 4 : 3)} off shipping with this coupon.`}
             </p>
           )}
           {step !== 'payment' && <button type="button" disabled={submitting || paying} className="underline text-brand-charcoal/60"
@@ -1371,10 +1386,8 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
-              <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                <span>{deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod, picklesOnly)}</span>
-                <span>{totals.shipping > 0 ? formatCurrency(totals.shipping) : 'Free'}</span>
-              </div>
+              <ShippingCharge label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod, picklesOnly)}
+                shipping={totals.shipping} quote={shippingQuote} />
               {nearbyPickup && (
                 <div className="font-body text-xs text-green-800 space-y-1 py-2">
                   <p className="font-bold">
@@ -1445,10 +1458,8 @@ export default function CheckoutPage() {
               <span>{formatCurrency(sessionInfo.subtotal)}</span>
             </div>
             {fulfillment?.type === 'delivery' && (
-              <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
-                <span>{fulfillment?.type === 'delivery' && fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod, picklesOnly)}</span>
-                <span>{sessionInfo.shipping > 0 ? formatCurrency(sessionInfo.shipping) : 'Free'}</span>
-              </div>
+              <ShippingCharge label={fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod, picklesOnly)}
+                shipping={sessionInfo.shipping} quote={sessionInfo.shippingQuote} />
             )}
             <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
               <span>{SALES_TAX_LABEL}</span>

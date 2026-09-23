@@ -701,6 +701,7 @@ describe('coupon pricing before the first charge', () => {
     { code: 'SHIP40', type: 'free_delivery', minSubtotal: -1 },
     { code: 'SHIP40', type: 'free_delivery' },
     { code: 'SHIP40', type: 'unknown', minSubtotal: 0 },
+    { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40, shippingPolicy: 'unknown' },
   ])('does not charge free shipping without an eligible persisted benefit: %j', async snapshot => {
     deliverySession(snapshot);
     const execute = vi.fn();
@@ -708,4 +709,16 @@ describe('coupon pricing before the first charge', () => {
       .toMatchObject({ code: 'SESSION_EXPIRED' });
     expect(execute).not.toHaveBeenCalled();
   });
+});
+
+
+it.each([['TX', 0, 77.94], ['OK', 3.99, 81.93], ['NY', 3.99, 81.93]])('charges the persisted regional pickle quote in %s', async (state, shipping, total) => {
+  const coupon = { code: 'REGION70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'regional_v1' };
+  fixture.sqlite.prepare(`UPDATE payment_sessions SET cart_data=?, fulfillment_data=?, coupon_code=?, coupon_snapshot=?, shipping=?, tax=5.94, total_amount=?`).run(
+    JSON.stringify([{ productId: 'pickle-chicken', quantity: 4 }]), JSON.stringify({ type: 'delivery', state }),
+    coupon.code, JSON.stringify(coupon), shipping, total);
+  const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(async () => ({ paymentId: 'PAY-REGIONAL', status: 'COMPLETED' }));
+  expect(await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize })).toMatchObject({ success: true });
+  expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
+  expect(finalize.mock.calls[0][1]).toMatchObject({ shipping, coupon_snapshot: coupon });
 });
