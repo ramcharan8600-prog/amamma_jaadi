@@ -169,6 +169,7 @@ export function calculateOrderTotals(
     pickleJarCount?: number;
     deliveryState?: string;
     shippingMethod?: DeliveryShippingMethod;
+    freeDelivery?: boolean;
   } = {}
 ): OrderTotals {
   const safeSubtotal = roundMoney(Math.max(0, Number(subtotal) || 0));
@@ -193,6 +194,9 @@ export function calculateOrderTotals(
       shipping = SHIPPING_FAR;
     }
   }
+
+  // Waive the fee before calculating tax so a free fee is never taxed.
+  if (opts.freeDelivery) shipping = 0;
 
   const taxableShipping = opts.fulfillmentType === 'delivery' && isTexas(opts.deliveryState) && taxable > 0
     ? shipping : 0;

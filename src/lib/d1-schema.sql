@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS payment_sessions (
   tax REAL DEFAULT 0,
   shipping REAL NOT NULL DEFAULT 0,    -- flat delivery fee (0 for pickup / free shipping)
   coupon_code TEXT,                         -- influencer coupon used (NULL if none)
+  coupon_snapshot TEXT,                    -- server-validated benefit at checkout
   payment_status TEXT NOT NULL DEFAULT 'pending',
   order_id TEXT,
   idempotency_key TEXT UNIQUE,
@@ -143,11 +144,13 @@ INSERT OR IGNORE INTO inventory (product_id, stock_count) VALUES
   ('pickle-prawns', 20),
   ('pickle-gongura-chicken', 0);
 
--- Influencer coupon codes — each code is tied to one influencer and adds
--- complimentary items (e.g. 2 pcs Malai Khaja) instead of a discount.
+-- Coupons provide either complimentary pieces or free delivery.
 CREATE TABLE IF NOT EXISTS influencer_coupons (
   code TEXT PRIMARY KEY,                   -- uppercase, no spaces
   influencer_name TEXT NOT NULL,
+  coupon_type TEXT NOT NULL DEFAULT 'complimentary'
+    CHECK (coupon_type IN ('complimentary', 'free_delivery')),
+  min_subtotal REAL NOT NULL DEFAULT 0 CHECK (min_subtotal >= 0),
   bonus_item TEXT NOT NULL DEFAULT 'Malai Khaja',  -- item added free
   bonus_qty INTEGER NOT NULL DEFAULT 2,
   times_used INTEGER NOT NULL DEFAULT 0,

@@ -20,6 +20,7 @@ let host: HTMLDivElement;
 let paymentResult: () => Promise<Response>;
 let verifyResult: () => Promise<Response>;
 let createdSessions: number;
+let couponResult: () => Promise<Response>;
 let bobbatluStock = 0;
 let kovaBobbatluStock = 0;
 const tokenize = vi.fn();
@@ -44,6 +45,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
       squareEnvironment: 'sandbox',
     }, { status: 201 });
   }
+  if (url === '/api/coupons/validate') return couponResult();
   if (url === '/api/payments/create-payment') return paymentResult();
   if (url === '/api/payments/verify') return verifyResult();
   if (url === '/api/checkout-log') return Response.json({ success: true });
@@ -122,6 +124,7 @@ beforeEach(() => {
   localStorage.clear();
   useCartStore.getState().clearCart();
   createdSessions = 0;
+  couponResult = async () => Response.json({ code: 'SHIP', type: 'free_delivery', minSubtotal: 59 });
   fetchMock.mockClear();
   tokenize.mockReset().mockResolvedValue({ status: 'OK', token: 'TEST_CARD_TOKEN' });
   destroy.mockClear();
@@ -688,5 +691,67 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).toContain('Step 4');
     expect(host.textContent).toContain('UPS 2nd Day Air');
     expect(host.textContent).not.toContain('Standard shipping');
+  });
+});
+
+
+describe('coupon benefits in checkout', () => {
+  async function apply() {
+    await render();
+    await input('input[placeholder="Enter code"]', 'ship');
+    await click('Apply');
+  }
+  async function delivery() {
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    await act(async () => choice!.click());
+    await input('#delivery-state', 'TX');
+  }
+  it('waives delivery at the minimum and restores fee and tax when items are removed', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
+    await apply();
+    expect(JSON.parse(String(calls('/api/coupons/validate')[0][1]?.body)).items).toHaveLength(2);
+    expect(host.textContent).toContain('Minimum cart value: $59.00');
+    await delivery();
+    expect(host.textContent).toContain('$60.57');
+    expect(host.textContent).not.toContain('$6.99');
+    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 16));
+    expect(host.textContent).toContain('Code not applied. Add $40.00 more');
+    expect(host.textContent).toContain('$6.99');
+    expect(host.textContent).toContain('$28.13');
+    expect(button('Continue to payment').disabled).toBe(true);
+    await click('Remove promo code');
+    expect(host.textContent).not.toContain('Code not applied.');
+  });
+  it('keeps paid shipping for complimentary pieces and shows the selected quantity', async () => {
+    couponResult = async () => Response.json({ code: 'BONUS', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 });
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    await apply();
+    expect(host.textContent).toContain('3 complimentary Malpuri pcs');
+    await delivery();
+    expect(host.textContent).toContain('$46.99');
+  });
+  it('explains that delivery coupons do not apply to pickup and omits them from the payment request', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    await apply();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
+    await act(async () => choice!.click());
+    expect(host.textContent).toContain('Pickup is already free.');
+    await input('select', 'plano-biryanify');
+    await input('input[type="date"]', '2026-09-09');
+    await input('input[autocomplete="name"]', 'Checkout Test');
+    await input('input[type="tel"]', '2145550100');
+    await input('input[type="email"]', 'checkout@example.com');
+    await click('Continue to payment');
+    expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body)).couponCode).toBeNull();
+  });
+  it('shows minimum errors without applying the code', async () => {
+    couponResult = async () => Response.json({ error: 'This code requires a minimum cart value of $59.00 before tax and delivery.' }, { status: 400 });
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    await apply();
+    expect(host.textContent).toContain('minimum cart value of $59.00');
+    expect(host.textContent).not.toContain('Remove promo code');
   });
 });

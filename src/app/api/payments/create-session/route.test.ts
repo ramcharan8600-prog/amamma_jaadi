@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getProductById } from '@/data/products';
+import type { CouponRow } from '@/lib/coupons';
 import { MAX_PRODUCT_QUANTITY } from '@/lib/cart-validation';
 
 const mocks = vi.hoisted(() => {
   const inserts: unknown[][] = [];
-  const coupon = vi.fn(async () => null as { code: string; active: number } | null);
+  const coupon = vi.fn(async () => null as CouponRow | null);
   const prepare = vi.fn(() => {
     let values: unknown[] = [];
     return {
@@ -254,7 +255,7 @@ describe('create-session retains approved shipping and gift-box rules', () => {
   });
 
   it('keeps accepted gift contents and valid coupons unchanged', async () => {
-    mocks.coupon.mockResolvedValue({ code: 'WELCOME', active: 1 });
+    mocks.coupon.mockResolvedValue({ code: 'WELCOME', active: 1, coupon_type: 'complimentary', bonus_item: 'Malai Khaja', bonus_qty: 2, min_subtotal: 0 });
     const response = await post({ ...checkout([gift]), couponCode: 'welcome' });
     expect(response.status).toBe(201);
     const saved = JSON.parse(mocks.inserts[0][4] as string);
@@ -406,5 +407,50 @@ describe('pickle-only orders have no destination minimum', () => {
     const response = await post(checkout([{ productId: 'pickle-chicken', quantity: 1 }], delivery(state)));
     expect(response.status).toBe(400);
     expect(mocks.inserts).toHaveLength(0);
+  });
+});
+
+
+describe('authoritative coupon benefits at payment', () => {
+  const free = { code: 'SHIP', active: 1, coupon_type: 'free_delivery' as const, bonus_item: '', bonus_qty: 0, min_subtotal: 19 };
+  it.each(['TX', 'OK', 'NY'])('waives delivery and its tax at the exact minimum in %s', async state => {
+    mocks.coupon.mockResolvedValue(free);
+    const response = await post({ ...checkout([{ productId: 'pickle-gongura-chicken', quantity: 1 }], delivery(state)), couponCode: 'ship' });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 19, shipping: 0, tax: 1.57, totalAmount: 20.57 });
+    expect(JSON.parse(mocks.inserts[0][11] as string)).toEqual({ code: 'SHIP', type: 'free_delivery', minSubtotal: 19 });
+    expect(JSON.parse(mocks.inserts[1][1] as string)).toMatchObject({ shippingCents: 0, taxableShippingCents: 0, taxCents: 157 });
+  });
+
+  it('rejects one cent below minimum despite inflated client totals and forged benefit', async () => {
+    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 40.01 });
+    const response = await post({ ...checkout([{ ...sweet, lineTotal: 1000 }], delivery('TX')), couponCode: 'SHIP', subtotal: 1000, minSubtotal: 0, freeDelivery: true });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain('$40.01');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it('still enforces destination minimums for free-delivery coupons', async () => {
+    mocks.coupon.mockResolvedValue(free);
+    const response = await post({ ...checkout([sweet], delivery('NY')), couponCode: 'SHIP' });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain('$80.00');
+  });
+
+  it('rejects a free-delivery coupon for pickup', async () => {
+    mocks.coupon.mockResolvedValue(free);
+    expect((await post({ ...checkout(), couponCode: 'SHIP' })).status).toBe(400);
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it.each([null, { ...free, active: 0 }])('rejects missing or disabled codes without creating a chargeable session', async coupon => {
+    mocks.coupon.mockResolvedValue(coupon);
+    expect((await post({ ...checkout([sweet], delivery('TX')), couponCode: 'SHIP' })).status).toBe(400);
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it('ignores a forged free-delivery flag without a valid coupon', async () => {
+    const response = await post({ ...checkout([sweet], delivery('TX')), freeDelivery: true, coupon: free });
+    expect((await response.json()).shipping).toBe(6.99);
   });
 });

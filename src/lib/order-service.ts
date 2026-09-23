@@ -6,6 +6,7 @@ import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage
 import { getPickupLocationById, getProductById, isStockTracked, stockUnits } from '@/data/products';
 import { prepareOrderTaxRecord } from '@/lib/tax-records';
 import type { DeliveryShippingMethod } from '@/types';
+import { couponBenefit, type CouponBenefit, type CouponRow } from '@/lib/coupons';
 
 export interface PaymentSessionRow {
   id: string;
@@ -19,6 +20,7 @@ export interface PaymentSessionRow {
   tax: number | null;
   shipping: number | null;
   coupon_code: string | null;
+  coupon_snapshot?: CouponBenefit | null;
 }
 
 interface FulfillmentData {
@@ -79,6 +81,7 @@ export function mapSessionRow(raw: Record<string, unknown>): PaymentSessionRow {
     tax: raw.tax == null ? 0 : Number(raw.tax),
     shipping: raw.shipping == null ? 0 : Number(raw.shipping),
     coupon_code: (raw.coupon_code as string) ?? null,
+    coupon_snapshot: parseJson<CouponBenefit>(raw.coupon_snapshot),
   };
 }
 
@@ -177,19 +180,24 @@ export async function createOrderFromSession(
       (storedSession.order_id && storedSession.order_id !== existing?.id)) {
     throw new Error('Paid session linkage is inconsistent; manual review required');
   }
-  const coupon = session.coupon_code
-    ? await db.prepare('SELECT bonus_item, bonus_qty FROM influencer_coupons WHERE code = ?')
-      .bind(session.coupon_code).first<{ bonus_item: string; bonus_qty: number }>() : null;
-  if (session.coupon_code && (!coupon || !coupon.bonus_item || !Number.isSafeInteger(coupon.bonus_qty) || coupon.bonus_qty < 1)) {
+  // New sessions carry the promised benefit; legacy sessions resolve their coupon.
+  let coupon = session.coupon_snapshot ?? null;
+  if (session.coupon_code && !coupon) {
+    const row = await db.prepare('SELECT code, coupon_type, bonus_item, bonus_qty, active, min_subtotal FROM influencer_coupons WHERE code = ?')
+      .bind(session.coupon_code).first<CouponRow>();
+    coupon = row ? couponBenefit(row) : null;
+  }
+  if (session.coupon_code && (!coupon || coupon.code !== session.coupon_code)) {
     throw new Error('Paid session coupon cannot be resolved; manual review required');
   }
+  const bonus = coupon?.type === 'complimentary' ? coupon : null;
   const orderId = existing?.id ?? newId();
   const orderNumber = existing?.order_number ?? await generateOrderNumber(db);
   const attemptId = newId();
   const pickup = fulfillment.type === 'pickup' && fulfillment.locationId
     ? getPickupLocationById(fulfillment.locationId) : null;
   const emailItems = lines.map((line) => ({ name: line.name, quantity: line.quantity, price: line.lineTotal }));
-  if (coupon) emailItems.push({ name: `${coupon.bonus_qty} complimentary ${coupon.bonus_item} (FREE)`, quantity: 1, price: 0 });
+  if (bonus) emailItems.push({ name: `${bonus.bonusQty} complimentary ${bonus.bonusItem} (FREE)`, quantity: 1, price: 0 });
   const emailParams = {
     orderNumber, squarePaymentId, total: session.total_amount,
     subtotal: lines.reduce((sum, line) => sum + Math.round(line.lineTotal * 100), 0) / 100,
@@ -242,11 +250,13 @@ export async function createOrderFromSession(
     ).bind(newId(), attemptId, line.name, line.quantity,
       Math.round((line.lineTotal / line.quantity) * 100) / 100, line.selectedTier, line.lineTotal, attemptId));
   }
-  if (coupon) {
+  if (bonus) {
     statements.push(db.prepare(
       `INSERT INTO order_items (id, order_id, product_name, quantity, product_price, selected_tier, line_total)
        SELECT ?, ${resolvedId}, ?, ?, 0, NULL, 0 WHERE ${guard}`
-    ).bind(newId(), attemptId, `${coupon.bonus_item} (Complimentary)`, coupon.bonus_qty, attemptId));
+    ).bind(newId(), attemptId, `${bonus.bonusItem} (Complimentary)`, bonus.bonusQty, attemptId));
+  }
+  if (coupon) {
     statements.push(db.prepare(
       `UPDATE influencer_coupons SET times_used = times_used + 1 WHERE code = ?
        AND EXISTS (SELECT 1 FROM order_finalizations WHERE attempt_id = ? AND legacy_repair = 0)`

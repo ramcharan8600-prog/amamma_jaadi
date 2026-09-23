@@ -670,3 +670,42 @@ it('retains the far-state minimum before charging a mixed pickle and sweets orde
   expect(finalize).not.toHaveBeenCalled();
   expect(attempt()).toBeUndefined();
 });
+
+describe('coupon pricing before the first charge', () => {
+  function deliverySession(snapshot: unknown, amount = 40, shipping = 0) {
+    fixture.sqlite.prepare(`UPDATE payment_sessions SET fulfillment_data=?, coupon_code='SHIP40',
+      coupon_snapshot=?, total_amount=?, shipping=?`).run(
+      JSON.stringify({ type: 'delivery', state: 'TX', addressLine1: '123 Test Street', city: 'Plano', zip: '75093' }),
+      snapshot === null ? null : JSON.stringify(snapshot), amount, shipping);
+  }
+  it('charges the free-delivery quote and forwards its immutable coupon to order finalization', async () => {
+    const snapshot = { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40 };
+    deliverySession(snapshot);
+    const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(async () => ({ paymentId: 'PAY-FREE-SHIPPING', status: 'COMPLETED' }));
+    const result = await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize });
+    expect(result).toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+    expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(4000);
+    expect(finalize.mock.calls[0][1]).toMatchObject({ shipping: 0, coupon_snapshot: snapshot });
+  });
+  it('retains the shipping charge for complimentary coupons', async () => {
+    deliverySession({ code: 'SHIP40', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 }, 46.99, 6.99);
+    const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(async () => ({ paymentId: 'PAY-COMPLIMENTARY', status: 'COMPLETED' }));
+    expect(await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
+      .toMatchObject({ success: true });
+    expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(4699);
+  });
+  it.each([
+    null,
+    { code: 'OTHER', type: 'free_delivery', minSubtotal: 40 },
+    { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40.01 },
+    { code: 'SHIP40', type: 'free_delivery', minSubtotal: -1 },
+    { code: 'SHIP40', type: 'free_delivery' },
+    { code: 'SHIP40', type: 'unknown', minSubtotal: 0 },
+  ])('does not charge free shipping without an eligible persisted benefit: %j', async snapshot => {
+    deliverySession(snapshot);
+    const execute = vi.fn();
+    expect(await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED' });
+    expect(execute).not.toHaveBeenCalled();
+  });
+});

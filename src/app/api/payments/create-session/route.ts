@@ -17,6 +17,7 @@ import { sanitize } from '@/lib/sanitize';
 import { validateRequiredContact } from '@/lib/contact-validation';
 import { buildTaxSnapshot } from '@/lib/tax-records';
 import { ok, fail } from '@/lib/api';
+import { couponBenefit, type CouponBenefit, type CouponRow } from '@/lib/coupons';
 
 /**
  * POST /api/payments/create-session
@@ -169,6 +170,24 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    // Only the stored coupon and catalog subtotal determine eligibility.
+    const rawCoupon = typeof body.couponCode === 'string'
+      ? body.couponCode.trim().replace(/\s+/g, '').toUpperCase() : '';
+    let benefit: CouponBenefit | null = null;
+    if (rawCoupon) {
+      const coupon = await getDb()
+        .prepare('SELECT code, coupon_type, bonus_item, bonus_qty, active, min_subtotal FROM influencer_coupons WHERE code = ?')
+        .bind(rawCoupon).first<CouponRow>();
+      benefit = coupon?.active ? couponBenefit(coupon) : null;
+      if (!benefit) return fail('That promo code is no longer valid. Please remove it or apply another code.', 400);
+      if (benefit.type === 'free_delivery') {
+        if (fulfillmentType !== 'delivery') return fail('This promo code is only valid for delivery orders.', 400);
+        if (serverTotal < benefit.minSubtotal) {
+          return fail(`This code requires a minimum cart value of $${benefit.minSubtotal.toFixed(2)} before tax and delivery.`, 400);
+        }
+      }
+    }
+
     // Price merchandise and shipping, then tax the applicable base. Same helper
     // the checkout UI uses, so the amount shown always matches the amount charged.
     const { subtotal, tax, shipping, total } = calculateOrderTotals(serverTotal, {
@@ -178,6 +197,7 @@ export async function POST(request: NextRequest) {
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       deliveryState,
       shippingMethod,
+      freeDelivery: benefit?.type === 'free_delivery',
     });
 
     if (
@@ -188,19 +208,6 @@ export async function POST(request: NextRequest) {
       !Number.isSafeInteger(Math.round(total * 100))
     ) {
       return fail('Invalid order total', 400);
-    }
-
-    // Validate influencer coupon if provided.
-    const rawCoupon = typeof body.couponCode === 'string'
-      ? body.couponCode.trim().replace(/\s+/g, '').toUpperCase()
-      : null;
-    let validCoupon: string | null = null;
-    if (rawCoupon) {
-      const coupon = await getDb()
-        .prepare('SELECT code, active FROM influencer_coupons WHERE code = ? AND active = 1')
-        .bind(rawCoupon)
-        .first<{ code: string; active: number }>();
-      if (coupon) validCoupon = coupon.code;
     }
 
     const sessionId = newId();
@@ -214,8 +221,8 @@ export async function POST(request: NextRequest) {
     await db.batch([db.prepare(
         `INSERT INTO payment_sessions
           (id, customer_name, email, phone_number, cart_data, fulfillment_data,
-           total_amount, tax, shipping, coupon_code, payment_status, idempotency_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+           total_amount, tax, shipping, coupon_code, payment_status, idempotency_key, coupon_snapshot)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
       )
       .bind(
         sessionId,
@@ -227,8 +234,9 @@ export async function POST(request: NextRequest) {
         total,
         tax,
         shipping,
-        validCoupon,
-        idempotencyKey
+        benefit?.code ?? null,
+        idempotencyKey,
+        benefit ? JSON.stringify(benefit) : null
       ),
       db.prepare('INSERT INTO payment_tax_quotes (session_id, snapshot_json) VALUES (?, ?)')
         .bind(sessionId, JSON.stringify(taxSnapshot)),
@@ -244,6 +252,7 @@ export async function POST(request: NextRequest) {
       shipping,
       shippingMethod: shippingMethod || null,
       totalAmount: total,
+      coupon: benefit,
       idempotencyKey,
       squareEnabled: isSquareEnabled(),
       squareAppId: squarePublic.appId || null,
