@@ -115,11 +115,11 @@ describe('pricing — nearby-state delivery', () => {
 describe('pricing — far-state delivery', () => {
   const NY = { deliveryState: 'NY' };
 
-  it('charges $18 below $80 and $11.99 at $80 or more', () => {
+  it('charges $18.99 below $80 and $11.99 at $80 or more', () => {
     expect(calculateOrderTotals(55, { fulfillmentType: 'delivery', ...NY }).shipping)
-      .toBe(18);
+      .toBe(18.99);
     expect(calculateOrderTotals(79.99, { fulfillmentType: 'delivery', ...NY }).shipping)
-      .toBe(18);
+      .toBe(18.99);
     expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', ...NY }).shipping)
       .toBe(11.99);
     expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', ...NY }).shipping)
@@ -323,8 +323,8 @@ describe('regional shipping coupons', () => {
     expect(quote).toEqual({ shipping: deliveryState === 'TX' ? 0 : 3.99, regularShipping: 4.99, referenceShipping: 6.99,
       quantitySavings: 2, couponSavings: deliveryState === 'TX' ? 4.99 : 1 });
   });
-  it('takes the regional $3 saving off the $18 far-state fee below $80', () => {
-    expect(calculateOrderTotals(60, { fulfillmentType: 'delivery', deliveryState: 'CA', shippingCoupon: { minSubtotal: 55, shippingPolicy: 'regional_v1' }, taxableSubtotal: 0 }).shipping).toBe(15);
+  it('takes the regional $3 saving off the $18.99 far-state fee below $80', () => {
+    expect(calculateOrderTotals(60, { fulfillmentType: 'delivery', deliveryState: 'CA', shippingCoupon: { minSubtotal: 55, shippingPolicy: 'regional_v1' }, taxableSubtotal: 0 }).shipping).toBe(15.99);
   });
   it('honors legacy free-delivery snapshots outside Texas', () => {
     expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: 'CA', shippingCoupon: { minSubtotal: 70 } }).shipping).toBe(0);

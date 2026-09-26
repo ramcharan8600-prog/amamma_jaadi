@@ -39,7 +39,7 @@ vi.mock('@/lib/rate-limit', () => ({ rateLimit: mocks.rateLimit, getClientIp: ()
 import { POST } from './route';
 
 const sweet = { productId: 'sweet-malpuri', quantity: 1, selectedTier: 16 };
-const assorted = { productId: 'sweet-assorted-box', quantity: 1, selectedTier: 20 };
+const assorted = { productId: 'sweet-assorted-box', quantity: 1, selectedTier: 22 };
 const gift = {
   productId: 'gift-box-sweet-memories', quantity: 1,
   selectedVariant: '12 pcs Guntur Malpuri',
@@ -230,11 +230,12 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     { name: 'nearby at $60 including gift box', items: [{ ...gift, quantity: 2 }], fulfillment: delivery('CO'), subtotal: 60, shipping: 8.99 },
     { name: 'far at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('NC'), subtotal: 80, shipping: 11.99 },
     { name: 'far at $80 including gift box', items: [gift, { productId: 'sweet-kova', quantity: 1, selectedTier: 25 }], fulfillment: delivery('WA'), subtotal: 80, shipping: 11.99 },
-    { name: 'far from $55 below $80', items: [sweet, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NC'), subtotal: 72, shipping: 18 },
+    { name: 'far from $55 below $80', items: [sweet, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NC'), subtotal: 72, shipping: 18.99 },
     { name: 'far at $82 with Kova boxes', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 25 }, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('WA'), subtotal: 82, shipping: 11.99 },
-    { name: 'assorted box pickup', items: [assorted], fulfillment: pickup, subtotal: 50, shipping: 0 },
-    { name: 'assorted box in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 50, shipping: 6.99 },
-    { name: 'far assorted box plus Kova at $82', items: [assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NY'), subtotal: 82, shipping: 11.99 },
+    { name: 'assorted box pickup', items: [assorted], fulfillment: pickup, subtotal: 55, shipping: 0 },
+    { name: 'assorted box in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 55, shipping: 6.99 },
+    { name: 'far assorted box alone meets the $55 minimum', items: [assorted], fulfillment: delivery('NY'), subtotal: 55, shipping: 18.99 },
+    { name: 'far assorted box plus Kova at $87', items: [assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NY'), subtotal: 87, shipping: 11.99 },
   ])('$name', async ({ items, fulfillment, subtotal, shipping }) => {
     const response = await post(checkout(items, fulfillment));
     expect(response.status).toBe(201);
@@ -243,6 +244,29 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     expect(mocks.inserts).toHaveLength(2);
     const stored = JSON.parse(mocks.inserts[0][4] as string) as Array<{ lineTotal: number }>;
     expect(stored.reduce((sum, item) => sum + item.lineTotal, 0)).toBe(subtotal);
+  });
+
+  it('rejects the Assorted Box when its box stock is 0', async () => {
+    mocks.getStockMap.mockResolvedValue({ 'sweet-assorted-box': 0 });
+    const response = await post(checkout([assorted], pickup));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toContain('sold out');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it('rejects more Assorted Boxes than are in stock', async () => {
+    mocks.getStockMap.mockResolvedValue({ 'sweet-assorted-box': 2 });
+    const response = await post(checkout([{ ...assorted, quantity: 3 }], pickup));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toContain('Only 2');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it('accepts Assorted Boxes within stock', async () => {
+    mocks.getStockMap.mockResolvedValue({ 'sweet-assorted-box': 2 });
+    const response = await post(checkout([{ ...assorted, quantity: 2 }], pickup));
+    expect(response.status).toBe(201);
+    expect((await response.json()).subtotal).toBe(110);
   });
 
   it.each(['AL', 'CO', 'NC', 'WA'])('rejects the $30 gift box alone outside Texas (%s)', async (state) => {

@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Leaf, Heart, Sparkles, Truck } from 'lucide-react';
-import { PRODUCTS } from '@/data/products';
+import { ASSORTED_BOX_PRODUCT_ID, PRODUCTS } from '@/data/products';
+import { renderDescription } from '@/lib/description';
 
 export const metadata: Metadata = {
   alternates: { canonical: 'https://amammajaadi.com' },
@@ -17,7 +18,7 @@ const PROMISES = [
 
 export default function HomePage() {
   // The Assorted Box lives on the Sweets page; the homepage keeps featuring single sweets.
-  const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && p.id !== 'sweet-assorted-box').slice(0, 3);
+  const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && p.id !== ASSORTED_BOX_PRODUCT_ID).slice(0, 3);
 
   return (
     <>
@@ -159,7 +160,7 @@ export default function HomePage() {
                     {product.name}
                   </h3>
                   <p className="font-body text-sm text-brand-charcoal/60 mt-1 line-clamp-2">
-                    {product.description}
+                    {renderDescription(product.description)}
                   </p>
                   <p className="font-body text-sm font-semibold text-brand-maroon mt-3">
                     Starting at ${product.unitPrice * (product.quantityOptions?.[0] ?? 16)}

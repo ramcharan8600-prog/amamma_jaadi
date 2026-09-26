@@ -105,18 +105,20 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'premium'],
   },
   {
-    // Priced like its two sweets ($2.50/pc) with a single 20-piece box, so the
-    // box total is $50 and the existing sweets tier, tax and pickup rules apply.
+    // Priced like its two sweets ($2.50/pc) with a single 22-piece box, so the
+    // box total is $55 and the existing sweets tier, tax and pickup rules apply.
+    // Stock is counted separately, in whole boxes (see isStockTracked).
     id: 'sweet-assorted-box',
     slug: 'assorted-sweets-box',
     name: 'Assorted Box — Malpuri & Malai Khaja',
+    // **…** renders bold on the storefront and is stripped for search engines.
     description:
-      'Can\'t choose? Get both — 10 pcs Guntur Malpuri and 10 pcs Nellore Malai Khaja packed together in one box. Perfect for sharing, gifting and festivals.',
+      'Made for **your 11:11 sweet cravings** — 11 pcs Guntur Malpuri and 11 pcs Nellore Malai Khaja packed together in one box. Perfect for sharing, gifting and festivals.',
     category: 'sweets',
     unitPrice: 2.5,
     image: '/images/products/texas-limited-gift-box-closed.jpg',
     imageFit: 'contain',
-    quantityOptions: [20],
+    quantityOptions: [22],
     inStock: true,
     prepNotice: 'Baked fresh every day.',
     prepNoticeTone: 'fresh',
@@ -211,17 +213,20 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-/** Pickles have a hard stock limit; Bobbatlu falls back to made-to-order. */
+/** Pickles and the Assorted Box have a hard stock limit; Bobbatlu falls back to made-to-order. */
 export const TRACKED_CATEGORY: ProductCategory = 'pickles';
 export const BOBBATLU_PRODUCT_ID = 'sweet-bobbatlu';
 export const KOVA_BOBBATLU_PRODUCT_ID = 'sweet-kova-bobbatlu';
+/** Counted in whole boxes, separately from the loose sweets it contains. */
+export const ASSORTED_BOX_PRODUCT_ID = 'sweet-assorted-box';
 
 export function isBobbatluProduct(productId: string): boolean {
   return productId === BOBBATLU_PRODUCT_ID || productId === KOVA_BOBBATLU_PRODUCT_ID;
 }
 
 export function isStockTracked(product: Product): boolean {
-  return product.category === TRACKED_CATEGORY || isBobbatluProduct(product.id);
+  return product.category === TRACKED_CATEGORY || isBobbatluProduct(product.id) ||
+    product.id === ASSORTED_BOX_PRODUCT_ID;
 }
 
 /** Jars for pickles; individual pieces for Bobbatlu's variable box sizes. */

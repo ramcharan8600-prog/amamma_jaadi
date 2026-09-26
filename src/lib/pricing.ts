@@ -227,7 +227,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/LA/NM/OK): $11.99 below $60, otherwise $8.99.
- * Sweets/mixed in far states: $55 merchandise minimum; $18 below $80, otherwise $11.99.
+ * Sweets/mixed in far states: $55 merchandise minimum; $18.99 below $80, otherwise $11.99.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */

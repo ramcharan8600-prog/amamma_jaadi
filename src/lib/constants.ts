@@ -54,4 +54,4 @@ export const SHIPPING_NEARBY_ABOVE = 8.99;
 export const SHIPPING_FAR = 11.99;
 
 /** Far-state shipping for sweets/mixed orders from the $55 minimum up to $80. */
-export const SHIPPING_FAR_BELOW = 18;
+export const SHIPPING_FAR_BELOW = 18.99;

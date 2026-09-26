@@ -6,9 +6,10 @@ import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
-import { calculateSweetPrice, isBobbatluProduct } from '@/data/products';
+import { ASSORTED_BOX_PRODUCT_ID, calculateSweetPrice, isBobbatluProduct } from '@/data/products';
 import { useStock } from '@/hooks/useStock';
 import { formatCurrency } from '@/lib/utils';
+import { renderDescription } from '@/lib/description';
 
 interface SweetCardProps {
   product: Product;
@@ -20,17 +21,26 @@ export default function SweetCard({ product }: SweetCardProps) {
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
   const isBobbatlu = isBobbatluProduct(product.id);
-  const { count } = useStock(isBobbatlu ? product.id : null);
+  // The Assorted Box has a hard limit in whole boxes; Bobbatlu stock only
+  // changes the preparation notice. `count === null` means untracked.
+  const isAssortedBox = product.id === ASSORTED_BOX_PRODUCT_ID;
+  const { count, loaded } = useStock(isBobbatlu || isAssortedBox ? product.id : null);
+  const boxesInCart = useCartStore((s) => s.items
+    .filter((item) => item.productId === product.id)
+    .reduce((sum, item) => sum + item.quantity, 0));
   const readyFromStock = isBobbatlu && (count ?? 0) >= selectedTier;
   const prepNotice = readyFromStock ? 'Freshly made and in stock.' : product.prepNotice;
   const freshNotice = readyFromStock || product.prepNoticeTone === 'fresh';
 
   const currentPrice = calculateSweetPrice(product.unitPrice, selectedTier);
 
-  const soldOut = !product.inStock;
+  const boxLimit = isAssortedBox && loaded && count !== null ? count : null;
+  const soldOut = !product.inStock || (boxLimit !== null && boxLimit <= 0);
+  const limitReached = !soldOut && boxLimit !== null && boxesInCart >= boxLimit;
+  const lowStock = !soldOut && boxLimit !== null && boxLimit <= 5;
 
   const handleAdd = () => {
-    if (soldOut) return;
+    if (soldOut || limitReached) return;
     addItem(product, 1, selectedTier);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
@@ -64,7 +74,7 @@ export default function SweetCard({ product }: SweetCardProps) {
             {product.name}
           </h3>
           <p className="font-body text-sm text-brand-charcoal/60 mt-1.5 leading-relaxed line-clamp-2">
-            {product.description}
+            {renderDescription(product.description)}
           </p>
         </div>
 
@@ -111,10 +121,15 @@ export default function SweetCard({ product }: SweetCardProps) {
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
-          <button onClick={handleAdd} disabled={soldOut} className="btn-primary w-full gap-2">
+          <button onClick={handleAdd} disabled={soldOut || limitReached} className="btn-primary w-full gap-2">
             <ShoppingBag size={16} />
-            {soldOut ? 'Out of Stock' : added ? 'Added!' : 'Add to Cart'}
+            {soldOut ? 'Out of Stock' : limitReached ? 'All available boxes in cart' : added ? 'Added!' : 'Add to Cart'}
           </button>
+          {lowStock && (
+            <p className="font-body text-xs font-medium text-amber-600 text-center">
+              Only {boxLimit} {boxLimit === 1 ? 'box' : 'boxes'} left
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <Link href="/checkout" className="btn-secondary text-center text-xs py-2">
               <Eye size={14} className="inline mr-1" />

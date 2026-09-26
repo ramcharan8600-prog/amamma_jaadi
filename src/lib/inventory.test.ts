@@ -68,6 +68,12 @@ describe('inventory — stock decrement on a paid order', () => {
     expect(rows['pickle-chicken']).toBe(7);
   });
 
+  it('decrements Assorted Boxes by whole boxes, not pieces', async () => {
+    const { db, rows } = makeFakeDb({ 'sweet-assorted-box': 5 });
+    await decrementStockForOrder(db, [{ productId: 'sweet-assorted-box', quantity: 2, selectedTier: 22 }], 'AJ-1100');
+    expect(rows['sweet-assorted-box']).toBe(3);
+  });
+
   it('ignores untracked products (sweets, gift boxes)', async () => {
     const { db, rows } = makeFakeDb({ 'pickle-chicken': 10 });
     await decrementStockForOrder(
@@ -149,7 +155,7 @@ describe('inventory — stock map', () => {
     expect(await getStockMap(db)).toEqual({ 'pickle-chicken': 7, 'pickle-mutton': 0 });
   });
 
-  it('tracks all four pickles and both Bobbatlu products', () => {
-    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-bobbatlu', 'sweet-kova-bobbatlu']);
+  it('tracks all four pickles, the Assorted Box and both Bobbatlu products', () => {
+    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-assorted-box', 'sweet-bobbatlu', 'sweet-kova-bobbatlu']);
   });
 });

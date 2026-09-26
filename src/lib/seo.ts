@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { plainDescription } from '@/lib/description';
 import { BRAND_NAME, SITE_URL, PHONE_E164 } from '@/lib/constants';
 import { ALL_SERVICE_AREAS } from '@/data/service-areas';
 import { FAQS } from '@/data/faq';
@@ -136,7 +137,7 @@ export function getProductListSchema(products: Array<{ name: string; unitPrice: 
         '@type': 'Product',
         name: p.name,
         image: `${SITE_URL}${p.image}`,
-        description: p.description || `Fresh ${p.name} by ${BRAND_NAME}`,
+        description: p.description ? plainDescription(p.description) : `Fresh ${p.name} by ${BRAND_NAME}`,
         offers: {
           '@type': 'Offer',
           price: p.unitPrice.toFixed(2),

@@ -7,6 +7,7 @@ import { Gift, ShoppingBag, Eye, CreditCard, Minus, Plus } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
 import { formatCurrency } from '@/lib/utils';
+import { renderDescription } from '@/lib/description';
 
 interface GiftBoxCardProps {
   product: Product;
@@ -65,7 +66,7 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
             {product.name}
           </h3>
           <p className="font-body text-sm text-brand-charcoal/60 mt-2 leading-relaxed">
-            {product.description}
+            {renderDescription(product.description)}
           </p>
         </div>
 

@@ -8,6 +8,7 @@ import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
 import { useStock } from '@/hooks/useStock';
 import { formatCurrency } from '@/lib/utils';
+import { renderDescription } from '@/lib/description';
 
 interface PickleCardProps {
   product: Product;
@@ -61,7 +62,7 @@ export default function PickleCard({ product }: PickleCardProps) {
             {product.name}
           </h3>
           <p className="font-body text-sm text-brand-charcoal/60 mt-1.5 leading-relaxed line-clamp-2">
-            {product.description}
+            {renderDescription(product.description)}
           </p>
         </div>
 
