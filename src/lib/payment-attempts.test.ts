@@ -74,8 +74,8 @@ afterEach(() => {
   fixture.sqlite.close();
 });
 
-describe('10-digit contact phones before a first charge', () => {
-  it.each(['214555010', '12145550100'])('expires an unattempted session with phone %s without charging', async (phone) => {
+describe('contact phones before a first charge', () => {
+  it.each(['214555', '1234567890123456'])('expires an unattempted session with phone %s without charging', async (phone) => {
     fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run(phone);
     const execute = vi.fn();
     expect(await runPaymentAttempt(fixture.db,
@@ -87,8 +87,8 @@ describe('10-digit contact phones before a first charge', () => {
     expect(fixture.sqlite.prepare('SELECT payment_status FROM payment_sessions').get()?.payment_status).toBe('expired');
   });
 
-  it('allows a first charge with exactly 10 phone digits', async () => {
-    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run('2145550100');
+  it.each(['2145550100', '12145550100'])('allows a first charge with phone %s', async (phone) => {
+    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run(phone);
     const execute = vi.fn(async () => ({ paymentId: 'payment-valid-phone', status: 'COMPLETED' }));
     expect(await runPaymentAttempt(fixture.db,
       { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))

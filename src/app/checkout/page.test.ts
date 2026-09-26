@@ -226,10 +226,10 @@ describe('checkout pickup date controls', () => {
 });
 
 describe('checkout phone length', () => {
-  it('blocks short and long pickup numbers without truncating, and submits ten digits', async () => {
+  it('blocks too-short and too-long pickup numbers without truncating', async () => {
     await pickupDetails();
     await input('#pickup-date', '2026-09-09');
-    for (const phone of ['2145550', '214555010', '12145550100']) {
+    for (const phone of ['214555', '1234567890123456']) {
       await input('#pickup-phone', phone);
       expect(host.querySelector<HTMLInputElement>('#pickup-phone')?.value).toBe(phone);
       expect(host.querySelector('#pickup-phone')?.getAttribute('aria-invalid')).toBe('true');
@@ -237,11 +237,21 @@ describe('checkout phone length', () => {
       await click('Continue to payment');
       expect(calls('/api/payments/create-session')).toHaveLength(0);
     }
-    await input('#pickup-phone', '(214) 555-0100');
-    expect(host.querySelector<HTMLInputElement>('#pickup-phone')?.value).toBe('2145550100');
+  });
+
+  it.each([
+    ['(214) 555-0100', '2145550100'],
+    ['+1 (214) 555-0100', '12145550100'],
+    ['12145550100', '12145550100'],
+  ])('accepts autofilled pickup phone %s', async (typed, sent) => {
+    await pickupDetails();
+    await input('#pickup-date', '2026-09-09');
+    await input('#pickup-phone', typed);
+    expect(host.querySelector<HTMLInputElement>('#pickup-phone')?.value).toBe(sent);
+    expect(host.querySelector('#pickup-phone')?.getAttribute('aria-invalid')).toBe('false');
     expect(button('Continue to payment').disabled).toBe(false);
     await click('Continue to payment');
-    expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body)).phone).toBe('2145550100');
+    expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body)).phone).toBe(sent);
   });
 });
 
@@ -466,19 +476,19 @@ describe('nearby delivery pickup switch', () => {
     expect(host.textContent).toContain('Step 3');
   }
 
-  it('requires ten digits for delivery and normalizes formatted phone input', async () => {
+  it('accepts a +1 autofilled delivery phone and still blocks too-short numbers', async () => {
     await delivery();
-    for (const phone of ['2145550', '214555010', '12145550100']) {
+    for (const phone of ['214555', '1234567890123456']) {
       await input('#delivery-phone', phone);
       expect(host.querySelector<HTMLInputElement>('#delivery-phone')?.value).toBe(phone);
       expect(button('Continue to payment').disabled).toBe(true);
     }
     expect(calls('/api/payments/create-session')).toHaveLength(0);
-    await input('#delivery-phone', '(214) 555-0100');
-    expect(host.querySelector<HTMLInputElement>('#delivery-phone')?.value).toBe('2145550100');
+    await input('#delivery-phone', '+1 (214) 555-0100');
+    expect(host.querySelector<HTMLInputElement>('#delivery-phone')?.value).toBe('12145550100');
     expect(button('Continue to payment').disabled).toBe(false);
     await click('Continue to payment');
-    expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body)).phone).toBe('2145550100');
+    expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body)).phone).toBe('12145550100');
   });
 
   it('preserves contacts/address, permits any pickup point, and creates a new pickup session', async () => {

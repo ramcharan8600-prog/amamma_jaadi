@@ -1162,7 +1162,6 @@ export default function CheckoutPage() {
                 id="pickup-phone"
                 type="tel"
                 inputMode="numeric"
-                pattern="[0-9]{10}"
                 value={pickupPhone}
                 onChange={(e) => setPickupPhone(e.target.value.replace(/\D/g, ''))}
                 placeholder="(xxx) xxx-xxxx"
@@ -1263,7 +1262,6 @@ export default function CheckoutPage() {
                 id="delivery-phone"
                 type="tel"
                 inputMode="numeric"
-                pattern="[0-9]{10}"
                 value={deliveryPhone}
                 onChange={(e) => setDeliveryPhone(e.target.value.replace(/\D/g, ''))}
                 className="input-field"

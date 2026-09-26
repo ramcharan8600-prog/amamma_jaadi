@@ -19,13 +19,13 @@ describe('checkout contact validation', () => {
     expect(isValidEmail('')).toBe(false);
   });
 
-  it('accepts exactly ten digits', () => {
-    expect(isValidPhone('4695550123')).toBe(true);
+  it.each(['4695550123', '14695550123', '+1 (469) 555-0123', '(469) 555-0123', '469-555-0123',
+    '4695550', '+91 98765 43210', '123456789012345'])('accepts phone value %j (7-15 digits)', value => {
+    expect(isValidPhone(value)).toBe(true);
   });
 
-  it.each(['', '123', '4695550', '469555012', '14695550123', '123456789012345',
-    '+1 (469) 555-0123', '(469) 555-0123', '4695550123x', '4695550123\n',
-    ' 4695550123', 4695550123, null, undefined])('rejects invalid phone value %j', value => {
+  it.each(['', '   ', '123', '469555', '1234567890123456', '+1 (469) 555-0123 ext 99999',
+    4695550123, null, undefined])('rejects invalid phone value %j', value => {
     expect(isValidPhone(value)).toBe(false);
   });
 
@@ -33,7 +33,7 @@ describe('checkout contact validation', () => {
     expect(validateRequiredContact({ name: '', phone: '4695550123', email: 'buyer@example.com' }))
       .toBe('Customer name is required');
     expect(validateRequiredContact({ name: 'Buyer', phone: '123', email: 'buyer@example.com' }))
-      .toBe('Phone number must contain exactly 10 digits');
+      .toBe('Valid phone number is required');
     expect(validateRequiredContact({ name: 'Buyer', phone: '4695550123', email: 'bad' }))
       .toBe('Valid email address is required');
     expect(validateRequiredContact({ name: 'Buyer', phone: '4695550123', email: 'buyer@example.com' }))
