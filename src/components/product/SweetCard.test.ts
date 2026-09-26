@@ -43,14 +43,19 @@ async function renderAssorted(stock: Record<string, number>) {
   return {host,cleanup};
 }
 
-it('offers the Assorted Box as a single 22-piece, $55 box with a bold 11:11 line and the gift-box photo',async()=>{
+it('offers the Assorted Box as a single 22-piece, $55 box with a bold 11:11 line and both gift-box photos',async()=>{
   const {host,cleanup}=await renderAssorted({});
   try{
     expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['22 pcs — $55.00']);
     expect(host.textContent).toContain('11 pcs Guntur Malpuri and 11 pcs Nellore Malai Khaja');
     expect(host.querySelector('strong')?.textContent).toBe('your 11:11 sweet cravings');
     expect(host.textContent).not.toContain('**');
-    expect(host.querySelector('img')?.getAttribute('src')).toBe('/images/products/texas-limited-gift-box-closed.jpg');
+    expect(Array.from(host.querySelectorAll('img')).map(img=>img.getAttribute('src'))).toEqual([
+      '/images/products/texas-limited-gift-box-closed.jpg',
+      '/images/products/texas-limited-gift-box-open.jpg',
+    ]);
+    expect(host.textContent).toContain('Gift Box');
+    expect(host.textContent).not.toContain('/pc');
     expect(host.querySelector('button')?.disabled).toBe(false);
   }finally{await cleanup();}
 });

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ShoppingBag, Eye, CreditCard, Clock, Sparkles } from 'lucide-react';
+import { ShoppingBag, Eye, CreditCard, Clock, Sparkles, Gift } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
 import { ASSORTED_BOX_PRODUCT_ID, calculateSweetPrice, isBobbatluProduct } from '@/data/products';
@@ -46,27 +46,56 @@ export default function SweetCard({ product }: SweetCardProps) {
     setTimeout(() => setAdded(false), 1500);
   };
 
+  const photos = [{ src: product.image, alt: product.name }, ...(product.additionalImages ?? [])];
+  const outOfStockOverlay = soldOut && (
+    <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+      <span className="bg-brand-charcoal text-white text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wide">
+        Out of Stock
+      </span>
+    </div>
+  );
+
   return (
     <div className="card group">
-      <div className="relative aspect-[4/3] overflow-hidden bg-brand-cream">
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className={`${product.imageFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
-        />
-        <span className="absolute top-3 right-3 bg-brand-gold text-white text-xs font-medium px-2.5 py-1 rounded-full">
-          {formatCurrency(product.unitPrice)}/pc
-        </span>
-        {soldOut && (
-          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-            <span className="bg-brand-charcoal text-white text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wide">
-              Out of Stock
-            </span>
+      {photos.length > 1 ? (
+        // Boxed sweets (the Assorted Box) use the gift-box look: closed and
+        // open photos side by side with a Gift Box badge.
+        <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-brand-gold/10 to-brand-cream">
+          <div className="absolute inset-0 flex">
+            {photos.map((photo) => (
+              <div key={photo.src} className="relative flex-1 min-w-0">
+                <Image
+                  src={photo.src}
+                  alt={photo.alt}
+                  fill
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  className={product.imageFit === 'contain' ? 'object-contain' : 'object-cover group-hover:scale-105 transition-transform duration-500'}
+                />
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+          <span className="absolute bottom-4 left-4 flex items-center gap-1.5 bg-brand-gold text-white text-sm font-semibold px-3 py-1.5 rounded-full">
+            <Gift size={14} />
+            Gift Box
+          </span>
+          {outOfStockOverlay}
+        </div>
+      ) : (
+        <div className="relative aspect-[4/3] overflow-hidden bg-brand-cream">
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className={`${product.imageFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
+          />
+          <span className="absolute top-3 right-3 bg-brand-gold text-white text-xs font-medium px-2.5 py-1 rounded-full">
+            {formatCurrency(product.unitPrice)}/pc
+          </span>
+          {outOfStockOverlay}
+        </div>
+      )}
 
       <div className="p-5 space-y-4">
         <div>

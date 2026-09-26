@@ -118,6 +118,11 @@ export const PRODUCTS: Product[] = [
     unitPrice: 2.5,
     image: '/images/products/texas-limited-gift-box-closed.jpg',
     imageFit: 'contain',
+    // Shown side by side with the closed box, like the Sweet Memories gift box.
+    additionalImages: [{
+      src: '/images/products/texas-limited-gift-box-open.jpg',
+      alt: 'Assorted Box open with individually wrapped Malpuri and Malai Khaja',
+    }],
     quantityOptions: [22],
     inStock: true,
     prepNotice: 'Baked fresh every day.',
