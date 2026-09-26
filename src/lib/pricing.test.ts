@@ -115,18 +115,22 @@ describe('pricing — nearby-state delivery', () => {
 describe('pricing — far-state delivery', () => {
   const NY = { deliveryState: 'NY' };
 
-  it('charges a flat $11.99 shipping fee', () => {
+  it('charges $18 below $80 and $11.99 at $80 or more', () => {
+    expect(calculateOrderTotals(55, { fulfillmentType: 'delivery', ...NY }).shipping)
+      .toBe(18);
+    expect(calculateOrderTotals(79.99, { fulfillmentType: 'delivery', ...NY }).shipping)
+      .toBe(18);
     expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', ...NY }).shipping)
       .toBe(11.99);
     expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', ...NY }).shipping)
       .toBe(11.99);
   });
 
-  it('requires an $80 merchandise subtotal', () => {
-    expect(getDeliveryMinimumSubtotal('NY')).toBe(80);
-    expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(40);
-    expect(getDeliveryMinimumShortfall(79.99, 'NY')).toBe(0.01);
-    expect(getDeliveryMinimumShortfall(80, 'NY')).toBe(0);
+  it('requires a $55 merchandise subtotal', () => {
+    expect(getDeliveryMinimumSubtotal('NY')).toBe(55);
+    expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(15);
+    expect(getDeliveryMinimumShortfall(54.99, 'NY')).toBe(0.01);
+    expect(getDeliveryMinimumShortfall(55, 'NY')).toBe(0);
     expect(getDeliveryMinimumShortfall(100, 'NY')).toBe(0);
     expect(getDeliveryMinimumSubtotal('TX')).toBe(0);
     expect(getDeliveryMinimumSubtotal('AL')).toBe(0);
@@ -298,9 +302,9 @@ describe('pickle-only nationwide rates and minimum exemption', () => {
     }
   });
   it('restores the far-state minimum when sweets are present', () => {
-    expect(getDeliveryMinimumSubtotal('NY', false)).toBe(80);
-    expect(getDeliveryMinimumShortfall(59, 'NY', false)).toBe(21);
-    expect(getDeliveryMinimumShortfall(80, 'NY', false)).toBe(0);
+    expect(getDeliveryMinimumSubtotal('NY', false)).toBe(55);
+    expect(getDeliveryMinimumShortfall(40, 'NY', false)).toBe(15);
+    expect(getDeliveryMinimumShortfall(55, 'NY', false)).toBe(0);
   });
 });
 
@@ -318,6 +322,9 @@ describe('regional shipping coupons', () => {
     const quote = calculateShippingQuote(72, { fulfillmentType: 'delivery', deliveryState, picklesOnly: true, pickleJarCount: 4, shippingCoupon });
     expect(quote).toEqual({ shipping: deliveryState === 'TX' ? 0 : 3.99, regularShipping: 4.99, referenceShipping: 6.99,
       quantitySavings: 2, couponSavings: deliveryState === 'TX' ? 4.99 : 1 });
+  });
+  it('takes the regional $3 saving off the $18 far-state fee below $80', () => {
+    expect(calculateOrderTotals(60, { fulfillmentType: 'delivery', deliveryState: 'CA', shippingCoupon: { minSubtotal: 55, shippingPolicy: 'regional_v1' }, taxableSubtotal: 0 }).shipping).toBe(15);
   });
   it('honors legacy free-delivery snapshots outside Texas', () => {
     expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: 'CA', shippingCoupon: { minSubtotal: 70 } }).shipping).toBe(0);

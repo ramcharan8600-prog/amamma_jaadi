@@ -105,6 +105,24 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'premium'],
   },
   {
+    // Priced like its two sweets ($2.50/pc) with a single 20-piece box, so the
+    // box total is $50 and the existing sweets tier, tax and pickup rules apply.
+    id: 'sweet-assorted-box',
+    slug: 'assorted-sweets-box',
+    name: 'Assorted Box — Malpuri & Malai Khaja',
+    description:
+      'Can\'t choose? Get both — 10 pcs Guntur Malpuri and 10 pcs Nellore Malai Khaja packed together in one box. Perfect for sharing, gifting and festivals.',
+    category: 'sweets',
+    unitPrice: 2.5,
+    image: '/images/products/texas-limited-gift-box-closed.jpg',
+    imageFit: 'contain',
+    quantityOptions: [20],
+    inStock: true,
+    prepNotice: 'Baked fresh every day.',
+    prepNoticeTone: 'fresh',
+    tags: ['traditional', 'andhra', 'festival', 'gifting'],
+  },
+  {
     id: 'sweet-bobbatlu',
     slug: 'bobbatlu',
     name: 'Bobbatlu',

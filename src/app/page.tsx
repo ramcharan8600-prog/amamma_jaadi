@@ -16,7 +16,8 @@ const PROMISES = [
 ];
 
 export default function HomePage() {
-  const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets').slice(0, 3);
+  // The Assorted Box lives on the Sweets page; the homepage keeps featuring single sweets.
+  const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && p.id !== 'sweet-assorted-box').slice(0, 3);
 
   return (
     <>
@@ -161,7 +162,7 @@ export default function HomePage() {
                     {product.description}
                   </p>
                   <p className="font-body text-sm font-semibold text-brand-maroon mt-3">
-                    Starting at ${product.unitPrice * 16}
+                    Starting at ${product.unitPrice * (product.quantityOptions?.[0] ?? 16)}
                   </p>
                 </div>
               </Link>

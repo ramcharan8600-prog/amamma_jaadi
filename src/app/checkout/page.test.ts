@@ -735,12 +735,29 @@ describe('nationwide pickle-only delivery', () => {
     });
   });
 
+  it('charges $18 far-state shipping from the $55 minimum up to $80', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-kova')!, 1, 16);
+    await enterDeliveryDetails('NY');
+    expect(host.textContent).not.toContain('A minimum product subtotal');
+    expect(host.textContent).toContain('$18.00');
+    expect(host.textContent).toContain('$90.00');
+    expect(button('Continue to payment').disabled).toBe(false);
+  });
+
+  it('keeps an Assorted Box alone below the far-state minimum', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 20);
+    await enterDeliveryDetails('NY');
+    expect(host.textContent).toContain('A minimum product subtotal of $55.00');
+    expect(host.textContent).toContain('$5.00');
+    expect(button('Continue to payment').disabled).toBe(true);
+  });
+
   it('retains the far-state minimum when sweets are included', async () => {
-    useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
     await enterDeliveryDetails('NY');
-    expect(host.textContent).toContain('A minimum product subtotal of $80.00');
-    expect(host.textContent).toContain('$21.00');
+    expect(host.textContent).toContain('A minimum product subtotal of $55.00');
+    expect(host.textContent).toContain('$15.00');
     expect(button('Continue to payment').disabled).toBe(true);
     await click('Continue to payment');
     expect(calls('/api/payments/create-session')).toHaveLength(0);

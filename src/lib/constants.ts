@@ -33,7 +33,10 @@ export const BUSINESS_TZ = 'America/Chicago';
 export const STANDARD_SHIPPING_THRESHOLD = 60;
 
 /** Minimum merchandise subtotal for far-state delivery when sweets are included. */
-export const FAR_SHIPPING_MINIMUM = 80;
+export const FAR_SHIPPING_MINIMUM = 55;
+
+/** Far-state sweets/mixed orders at or above this subtotal ship at SHIPPING_FAR. */
+export const FAR_SHIPPING_STANDARD_THRESHOLD = 80;
 
 /** Flat UPS shipping within Texas. */
 export const SHIPPING_TX = 6.99;
@@ -47,5 +50,8 @@ export const SHIPPING_PICKLES_THREE_PLUS = 4.99;
 export const SHIPPING_NEARBY_BELOW = 11.99;
 export const SHIPPING_NEARBY_ABOVE = 8.99;
 
-/** Flat shipping for eligible far-state orders. */
+/** Far-state shipping for sweets/mixed orders of $80 or more. */
 export const SHIPPING_FAR = 11.99;
+
+/** Far-state shipping for sweets/mixed orders from the $55 minimum up to $80. */
+export const SHIPPING_FAR_BELOW = 18;

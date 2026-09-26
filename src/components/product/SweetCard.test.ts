@@ -30,3 +30,19 @@ it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu'].flatMap(productId => [0, 15, 2
     await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
   }
 });
+it('offers the Assorted Box as a single 20-piece, $50 box with the gift-box photo',async()=>{
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({stock:{}})));
+  invalidateStock();
+  const host=document.createElement('div');document.body.append(host);
+  const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(SweetCard,{product:getProductById('sweet-assorted-box')!})));
+    expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['20 pcs — $50.00']);
+    expect(host.textContent).toContain('10 pcs Guntur Malpuri and 10 pcs Nellore Malai Khaja');
+    expect(host.textContent).toContain('Baked fresh every day.');
+    expect(host.querySelector('img')?.getAttribute('src')).toBe('/images/products/texas-limited-gift-box-closed.jpg');
+  }finally{
+    await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
+  }
+});

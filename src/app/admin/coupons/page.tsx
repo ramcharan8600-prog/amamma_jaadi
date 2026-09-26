@@ -279,7 +279,7 @@ export default function CouponsPage() {
               </>
             )}
           </div>
-          {newType === 'free_delivery' && <p className="font-body text-xs text-brand-charcoal/70">At the minimum: free shipping within Texas. Texas delivery adds a maintenance fee of $1.99 for pickle-only carts or $0.99 for sweets and mixed carts. Other states pay regular shipping. This shipping offer adds no complimentary pieces. Far-state sweets and mixed orders still require an $80 cart.</p>}
+          {newType === 'free_delivery' && <p className="font-body text-xs text-brand-charcoal/70">At the minimum: free shipping within Texas. Texas delivery adds a maintenance fee of $1.99 for pickle-only carts or $0.99 for sweets and mixed carts. Other states pay regular shipping. This shipping offer adds no complimentary pieces. Far-state sweets and mixed orders still require a $55 cart.</p>}
           {formError && (
             <p className="font-body text-sm text-red-600">{formError}</p>
           )}
