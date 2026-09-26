@@ -47,6 +47,7 @@ import {
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
 import MaintenanceFee from '@/components/checkout/MaintenanceFee';
+import PickupDateCalendar from '@/components/checkout/PickupDateCalendar';
 import {
   claimPendingPayment, classifyPaymentOutcome, forgetPendingPayment, PENDING_PAYMENT_KEY,
   readPendingPayment, requestPaymentStatus, type PendingPayment,
@@ -1083,24 +1084,21 @@ export default function CheckoutPage() {
 
           <div>
             <label htmlFor="pickup-date" className="label-text">Pickup Date</label>
-            <input
+            <PickupDateCalendar
               id="pickup-date"
-              type="date"
-              required
+              value={pickupDate}
               min={pickupBounds.min}
               max={pickupBounds.max}
-              value={pickupDate}
-              onChange={(e) => {
-                setPickupDate(e.target.value);
+              today={pickupBounds.today}
+              invalid={showPickupDateError}
+              describedBy={showPickupDateError ? 'pickup-date-error' : undefined}
+              onChange={(date) => {
+                setPickupDate(date);
                 setPickupDateTouched(true);
                 setPickupNow(new Date());
                 setSubmitError('');
               }}
-              onBlur={() => setPickupDateTouched(true)}
-              onClick={(e) => e.currentTarget.showPicker?.()}
-              aria-invalid={showPickupDateError}
-              aria-describedby={showPickupDateError ? 'pickup-date-error' : undefined}
-              className={`input-field cursor-pointer ${showPickupDateError ? '!border-red-500' : ''}`}
+              onClose={() => setPickupDateTouched(true)}
             />
             {showPickupDateError && (
               <p id="pickup-date-error" role="alert" className="text-red-500 text-xs mt-1">{pickupDateError}</p>

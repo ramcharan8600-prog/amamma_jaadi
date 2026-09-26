@@ -106,9 +106,42 @@ async function pickupDetails(quantity = 1) {
   await input('input[type="email"]', 'checkout@example.com');
 }
 
+/** The pickup calendar keeps its allowed range on its wrapper for tests. */
+function dateBounds() {
+  const root = host.querySelector('#pickup-date')!.parentElement!;
+  return { min: root.getAttribute('data-min'), max: root.getAttribute('data-max') };
+}
+
+/** Open the pickup calendar and move forward to the month containing `date`. */
+async function showDay(date: string) {
+  if (!host.querySelector('[role="dialog"][aria-label="Choose a pickup date"]')) {
+    await act(async () => host.querySelector<HTMLButtonElement>('#pickup-date')!.click());
+  }
+  for (let i = 0; i < 24 && !host.querySelector(`[data-date="${date}"]`); i++) {
+    const next = host.querySelector<HTMLButtonElement>('button[aria-label="Next month"]')!;
+    if (next.disabled) break;
+    await act(async () => next.click());
+  }
+  return host.querySelector<HTMLButtonElement>(`[data-date="${date}"]`);
+}
+
+/** Tap a date in the pickup calendar; fails if the date is greyed out. */
+async function pickDate(date: string) {
+  const day = await showDay(date);
+  if (!day || day.disabled) throw new Error(`Pickup date ${date} is not selectable`);
+  await act(async () => day.click());
+}
+
+/** Assert a date is greyed out (or outside the calendar) and close the calendar. */
+async function expectDateUnavailable(date: string) {
+  const day = await showDay(date);
+  expect(day === null || day.disabled).toBe(true);
+  await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+}
+
 async function readyToPay() {
   await pickupDetails();
-  await input('input[type="date"]', '2026-09-09');
+  await pickDate('2026-09-09');
   expect(button('Continue to payment').disabled).toBe(false);
   await click('Continue to payment');
   expect(button('Pay $40.00').disabled).toBe(false);
@@ -169,55 +202,63 @@ describe('checkout pickup date controls', () => {
     if (method === 'Delivery') expect(host.textContent).toContain('Shipping times begin after your order is prepared.');
   });
 
-  it.each(['2026-09-07', '122026-01-09', '2026-12-08'])('blocks %s with a visible error before any payment session', async (date) => {
+  it.each(['2026-09-07', '2026-12-08'])('greys out %s so it cannot be picked or submitted', async (date) => {
     await pickupDetails();
-    await input('#pickup-date', date);
-    expect(host.querySelector('#pickup-date')?.getAttribute('aria-invalid')).toBe('true');
-    expect(host.querySelector('#pickup-date-error')?.textContent).toBeTruthy();
+    await expectDateUnavailable(date);
+    expect(host.querySelector('#pickup-date')?.textContent).toContain('Choose a pickup date');
     expect(button('Continue to payment').disabled).toBe(true);
     await click('Continue to payment');
     expect(calls('/api/payments/create-session')).toHaveLength(0);
     expect(tokenize).not.toHaveBeenCalled();
   });
 
-  it('allows the 90th day and sends that exact date; clearing it disables checkout', async () => {
+  it('marks today, greys out past days and highlights the chosen date', async () => {
     await pickupDetails();
-    const field = host.querySelector<HTMLInputElement>('#pickup-date')!;
-    expect(field.min).toBe('2026-09-08');
-    expect(field.max).toBe('2026-12-07');
+    const today = await showDay('2026-09-08');
+    expect(today?.disabled).toBe(false);
+    expect(today?.getAttribute('aria-label')).toContain('today');
+    const yesterday = host.querySelector<HTMLButtonElement>('[data-date="2026-09-07"]')!;
+    expect(yesterday.disabled).toBe(true);
+    expect(yesterday.className).toContain('line-through');
+    expect(yesterday.getAttribute('aria-label')).toContain('not available');
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-date="2026-09-10"]')!.click());
+    expect(host.querySelector('#pickup-date')?.textContent).toContain('Thu, Sep 10, 2026');
+    expect((await showDay('2026-09-10'))?.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('allows the 90th day and sends that exact date; no date keeps checkout disabled', async () => {
+    await pickupDetails();
+    expect(dateBounds()).toEqual({ min: '2026-09-08', max: '2026-12-07' });
     expect(host.textContent).not.toContain('Schedule pickup up to');
     expect(host.querySelector('#pickup-date-help')).toBeNull();
     expect(button('Continue to payment').disabled).toBe(true);
-    await input('#pickup-date', '2026-12-07');
+    await pickDate('2026-12-07');
     expect(button('Continue to payment').disabled).toBe(false);
-    await input('#pickup-date', '');
-    expect(button('Continue to payment').disabled).toBe(true);
-    await input('#pickup-date', '2026-12-07');
     await click('Continue to payment');
     expect(JSON.parse(calls('/api/payments/create-session')[0][1]!.body as string).fulfillment.date).toBe('2026-12-07');
   });
 
   it('blocks same-day large orders and permits tomorrow', async () => {
     await pickupDetails(10);
-    await input('#pickup-date', '2026-09-08');
+    expect(dateBounds().min).toBe('2026-09-09');
+    await expectDateUnavailable('2026-09-08');
     expect(button('Continue to payment').disabled).toBe(true);
-    expect(host.querySelector('#pickup-date-error')?.textContent).toContain('1 day notice');
-    await input('#pickup-date', '2026-09-09');
+    await pickDate('2026-09-09');
     expect(button('Continue to payment').disabled).toBe(false);
   });
 
   it('refreshes boundaries when returning after Dallas midnight', async () => {
     await pickupDetails();
-    await input('#pickup-date', '2026-09-08');
+    await pickDate('2026-09-08');
     vi.setSystemTime(new Date('2026-09-09T05:00:00Z'));
     await act(async () => window.dispatchEvent(new Event('focus')));
-    expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-09');
+    expect(dateBounds().min).toBe('2026-09-09');
     expect(button('Continue to payment').disabled).toBe(true);
   });
 
   it('rechecks the current date on submission even before the refresh timer fires', async () => {
     await pickupDetails();
-    await input('#pickup-date', '2026-09-08');
+    await pickDate('2026-09-08');
     vi.setSystemTime(new Date('2026-09-09T05:00:00Z'));
     await click('Continue to payment');
     expect(calls('/api/payments/create-session')).toHaveLength(0);
@@ -228,7 +269,7 @@ describe('checkout pickup date controls', () => {
 describe('checkout phone length', () => {
   it('blocks too-short and too-long pickup numbers without truncating', async () => {
     await pickupDetails();
-    await input('#pickup-date', '2026-09-09');
+    await pickDate('2026-09-09');
     for (const phone of ['214555', '1234567890123456']) {
       await input('#pickup-phone', phone);
       expect(host.querySelector<HTMLInputElement>('#pickup-phone')?.value).toBe(phone);
@@ -245,7 +286,7 @@ describe('checkout phone length', () => {
     ['12145550100', '12145550100'],
   ])('accepts autofilled pickup phone %s', async (typed, sent) => {
     await pickupDetails();
-    await input('#pickup-date', '2026-09-09');
+    await pickDate('2026-09-09');
     await input('#pickup-phone', typed);
     expect(host.querySelector<HTMLInputElement>('#pickup-phone')?.value).toBe(sent);
     expect(host.querySelector('#pickup-phone')?.getAttribute('aria-invalid')).toBe('false');
@@ -260,8 +301,8 @@ describe('pickup cutoff and next-day products', () => {
     'allows today through exactly 1:30 PM at %s', async instant => {
       vi.setSystemTime(new Date(instant));
       await pickupDetails();
-      expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-08');
-      await input('#pickup-date', '2026-09-08');
+      expect(dateBounds().min).toBe('2026-09-08');
+      await pickDate('2026-09-08');
       expect(button('Continue to payment').disabled).toBe(false);
       await click('Continue to payment');
       expect(JSON.parse(calls('/api/payments/create-session')[0][1]!.body as string).fulfillment.date).toBe('2026-09-08');
@@ -273,11 +314,10 @@ describe('pickup cutoff and next-day products', () => {
     'disables today when pickup is selected after the cutoff at %s', async instant => {
       vi.setSystemTime(new Date(instant));
       await pickupDetails();
-      expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-09');
-      await input('#pickup-date', '2026-09-08');
+      expect(dateBounds().min).toBe('2026-09-09');
+      await expectDateUnavailable('2026-09-08');
       expect(button('Continue to payment').disabled).toBe(true);
-      expect(host.querySelector('#pickup-date-error')?.textContent).toContain('1:30 PM Central');
-      await input('#pickup-date', '2026-09-09');
+      await pickDate('2026-09-09');
       expect(button('Continue to payment').disabled).toBe(false);
     }
   );
@@ -286,14 +326,14 @@ describe('pickup cutoff and next-day products', () => {
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
     vi.setSystemTime(new Date('2026-09-08T18:29:59Z'));
     await pickupDetails();
-    await input('#pickup-date', '2026-09-08');
+    await pickDate('2026-09-08');
     expect(button('Continue to payment').disabled).toBe(false);
     const requests = fetchMock.mock.calls.length;
     await act(async () => { vi.advanceTimersByTime(1000); });
-    expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-08');
+    expect(dateBounds().min).toBe('2026-09-08');
     expect(button('Continue to payment').disabled).toBe(false);
     await act(async () => { vi.advanceTimersByTime(1); });
-    expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-09');
+    expect(dateBounds().min).toBe('2026-09-09');
     expect(button('Continue to payment').disabled).toBe(true);
     expect(fetchMock.mock.calls).toHaveLength(requests);
   });
@@ -301,7 +341,7 @@ describe('pickup cutoff and next-day products', () => {
   it('rechecks the cutoff at submission even if the browser timer has not fired', async () => {
     vi.setSystemTime(new Date('2026-09-08T18:29:59Z'));
     await pickupDetails();
-    await input('#pickup-date', '2026-09-08');
+    await pickDate('2026-09-08');
     vi.setSystemTime(new Date('2026-09-08T18:30:00.001Z'));
     await click('Continue to payment');
     expect(calls('/api/payments/create-session')).toHaveLength(0);
@@ -316,10 +356,10 @@ describe('pickup cutoff and next-day products', () => {
       await pickupDetails();
       expect(host.textContent).toContain(`Your order contains ${getProductById(productId)!.name} (needs 1 day prep time). Please select tomorrow or a later date for pickup.`);
       expect(host.textContent).not.toContain('After 1:30 PM, pickup starts tomorrow');
-      expect(host.querySelector<HTMLInputElement>('#pickup-date')!.min).toBe('2026-09-09');
-      await input('#pickup-date', '2026-09-08');
+      expect(dateBounds().min).toBe('2026-09-09');
+      await expectDateUnavailable('2026-09-08');
       expect(button('Continue to payment').disabled).toBe(true);
-      await input('#pickup-date', '2026-09-09');
+      await pickDate('2026-09-09');
       expect(button('Continue to payment').disabled).toBe(false);
       await click('Continue to payment');
       const submitted = JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body));
@@ -514,7 +554,7 @@ describe('nearby delivery pickup switch', () => {
     expect(options[1].textContent).toContain('Plano');
     expect(options[1].textContent).toContain('Closest to your ZIP');
     await input('select', 'irving-ravibabu');
-    await input('input[type="date"]', '2026-09-09');
+    await pickDate('2026-09-09');
     await click('Continue to payment');
     const requests = calls('/api/payments/create-session');
     expect(requests).toHaveLength(2);
@@ -560,7 +600,7 @@ describe.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu'])('%s pickup preparation'
     await click('Continue');
     const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
     await act(async () => pickup!.click());
-    expect(host.querySelector('input[type="date"]')?.getAttribute('min')).toBe('2026-09-09');
+    expect(dateBounds().min).toBe('2026-09-09');
     expect(host.textContent).toContain(`Your order contains ${getProductById(productId)!.name} (needs 1 day prep time). Please select tomorrow or a later date for pickup.`);
   });
 });
@@ -904,7 +944,7 @@ describe('coupon benefits in checkout', () => {
     await act(async () => choice!.click());
     expect(host.textContent).toContain('Pickup is already free.');
     await input('select', 'plano-biryanify');
-    await input('input[type="date"]', '2026-09-09');
+    await pickDate('2026-09-09');
     await input('input[autocomplete="name"]', 'Checkout Test');
     await input('input[type="tel"]', '2145550100');
     await input('input[type="email"]', 'checkout@example.com');
