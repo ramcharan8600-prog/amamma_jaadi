@@ -69,8 +69,8 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-describe('create-session requires a 7-15 digit contact phone', () => {
-  it.each([undefined, null, '', '   ', '214555', '1234567890123456', 'not a phone'])
+describe('create-session requires a US contact phone', () => {
+  it.each([undefined, null, '', '   ', '214555', '1234567890123456', 'not a phone', '1234567890', '24695550123', '+91 98765 43210'])
     ('rejects phone %j before storing a session', async (phone) => {
       const response = await post({ ...checkout(), phone });
       expect(response.status).toBe(400);
@@ -85,16 +85,17 @@ describe('create-session requires a 7-15 digit contact phone', () => {
     expect(mocks.inserts[0][3]).toBe('2145550100');
   });
 
-  it.each([pickup, delivery('TX')])('accepts a +1 country code for $type', async (fulfillment) => {
-    const response = await post({ ...checkout([sweet], fulfillment), phone: '12145550100' });
+  it.each([pickup, delivery('TX')])('stores a +1 number as 10 digits for $type', async (fulfillment) => {
+    const response = await post({ ...checkout([sweet], { ...fulfillment, phone: '+1 (214) 555-0100' }), phone: '+1 (214) 555-0100' });
     expect(response.status).toBe(201);
-    expect(mocks.inserts[0][3]).toBe('12145550100');
+    expect(mocks.inserts[0][3]).toBe('2145550100');
+    expect(JSON.parse(mocks.inserts[0][5] as string).phone).toBe('2145550100');
   });
 
   it.each([pickup, delivery('TX')])('rejects a 6-digit phone for $type', async (fulfillment) => {
     const response = await post({ ...checkout([sweet], fulfillment), phone: '214555' });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe('Valid phone number is required');
+    expect((await response.json()).error).toBe('Enter a 10-digit US phone number');
     expect(mocks.inserts).toHaveLength(0);
   });
 });

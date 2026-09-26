@@ -16,7 +16,7 @@ import {
 import { getStockMap } from '@/lib/inventory';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
-import { validateRequiredContact } from '@/lib/contact-validation';
+import { normalizeUsPhone, validateRequiredContact } from '@/lib/contact-validation';
 import { buildTaxSnapshot } from '@/lib/tax-records';
 import { ok, fail } from '@/lib/api';
 import { couponBenefit, couponMinimumMessage, type CouponBenefit, type CouponRow } from '@/lib/coupons';
@@ -61,9 +61,11 @@ export async function POST(request: NextRequest) {
     const picklesOnly = cart.items.every(({ product }) => product.category === 'pickles');
     const customerName = sanitize(body.customerName, 100);
     const email = sanitize(body.email, 200).toLowerCase();
-    const phone = sanitize(body.phone, 20);
-    const contactError = validateRequiredContact({ name: customerName, email, phone });
+    const rawPhone = sanitize(body.phone, 20);
+    const contactError = validateRequiredContact({ name: customerName, email, phone: rawPhone });
     if (contactError) return fail(contactError, 400);
+    // Stored as plain 10 digits (autofilled +1 dropped) for orders, email and labels.
+    const phone = normalizeUsPhone(rawPhone)!;
 
     // Stock for tracked products (pickles). Products with no row are untracked
     // and always available. Quantities are summed across cart lines so the same
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest) {
       const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), new Date(),
         requiresNextDayPickup(cart.items));
       if (dateError) return fail(dateError, 400);
+      fulfillment = { ...rawFulfillment, phone };
     }
 
     if (fulfillmentType === 'delivery') {

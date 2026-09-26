@@ -21,7 +21,7 @@ function setup(overrides: Partial<PaymentSessionRow> = {}) {
   const database = createTestD1();
   database.sqlite.exec(schema);
   const session: PaymentSessionRow = {
-    id: 'session-test', order_id: null, customer_name: 'Test Customer', phone_number: '5551234567',
+    id: 'session-test', order_id: null, customer_name: 'Test Customer', phone_number: '2145550100',
     email: 'buyer@example.invalid',
     cart_data: [{ productId: 'pickle-chicken', product: { name: '<b>forged name</b>' }, quantity: 2, lineTotal: 36 }],
     fulfillment_data: { type: 'pickup', date: '2026-09-10', locationId: 'plano-biryanify' },

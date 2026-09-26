@@ -43,7 +43,7 @@ function addSession(id = 'test-session') {
   fixture.sqlite.prepare(
     `INSERT INTO payment_sessions
      (id, customer_name, email, phone_number, cart_data, fulfillment_data, total_amount, idempotency_key)
-     VALUES (?, 'Test Buyer', 'test@example.com', '5551234567', ?, ?, 40, ?)`
+     VALUES (?, 'Test Buyer', 'test@example.com', '2145550100', ?, ?, 40, ?)`
   ).run(id, JSON.stringify([{ productId: 'sweet-malpuri', product: { name: 'Guntur Malpuri' },
     quantity: 1, selectedTier: 16, lineTotal: 40 }]), JSON.stringify(pickupFulfillment()), `key-${id}`);
 }
@@ -139,7 +139,7 @@ describe('contact phones before a first charge', () => {
     expect(await runPaymentAttempt(fixture.db,
       { sessionId: 'test-session', sourceId: 'original-token' }, { execute, finalize }))
       .toMatchObject({ code: 'ORDER_FINALIZING', canStartNewSession: false });
-    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run('12145550100');
+    fixture.sqlite.prepare('UPDATE payment_sessions SET phone_number = ?').run('214555010');
     expect(await getPaymentAttemptStatus(fixture.db, 'test-session', { execute, finalize }))
       .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED', canStartNewSession: false });
     expect(execute).toHaveBeenCalledTimes(1);

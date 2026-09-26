@@ -98,7 +98,7 @@ describe('scheduled Worker recovery wiring', () => {
       NEXT_PUBLIC_SQUARE_APP_ID: f.env.NEXT_PUBLIC_SQUARE_APP_ID,
     });
     const session: PaymentSessionRow = {
-      id: 'test-session', order_id: null, customer_name: 'Test', phone_number: '5551234567',
+      id: 'test-session', order_id: null, customer_name: 'Test', phone_number: '2145550100',
       email: 'test@example.invalid', cart_data: [], fulfillment_data: { type: 'pickup' },
       total_amount: 40, tax: 0, shipping: 0, coupon_code: null,
     };

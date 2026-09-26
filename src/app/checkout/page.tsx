@@ -30,7 +30,7 @@ import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
 import { couponBenefitLabel, couponMinimumMessage, type CouponBenefit } from '@/lib/coupons';
 import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, requiresNextDayPickup } from '@/lib/pickup-date';
-import { isValidCustomerName, isValidEmail, isValidPhone } from '@/lib/contact-validation';
+import { isValidCustomerName, isValidEmail, isValidPhone, normalizeUsPhone, PHONE_ERROR, toUsE164 } from '@/lib/contact-validation';
 import {
   calculateOrderTotals,
   calculateShippingQuote,
@@ -84,11 +84,13 @@ export default function CheckoutPage() {
   const [pickupLocationId, setPickupLocationId] = useState('');
   const [pickupName, setPickupName] = useState('');
   const [pickupPhone, setPickupPhone] = useState('');
+  const [pickupPhoneTouched, setPickupPhoneTouched] = useState(false);
   const [pickupEmail, setPickupEmail] = useState('');
 
   // Delivery state
   const [deliveryName, setDeliveryName] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
+  const [deliveryPhoneTouched, setDeliveryPhoneTouched] = useState(false);
   const [deliveryEmail, setDeliveryEmail] = useState('');
   const [deliveryAddressLine1, setDeliveryAddressLine1] = useState('');
   const [deliveryAddressLine2, setDeliveryAddressLine2] = useState('');
@@ -585,7 +587,7 @@ export default function CheckoutPage() {
       date: pickupDate,
       locationId: pickupLocationId,
       customerName: pickupName,
-      phone: pickupPhone,
+      phone: normalizeUsPhone(pickupPhone) ?? pickupPhone,
       email: pickupEmail,
     });
   };
@@ -595,7 +597,7 @@ export default function CheckoutPage() {
       type: 'delivery',
       shippingMethod: resolvedShippingMethod,
       customerName: deliveryName,
-      phone: deliveryPhone,
+      phone: normalizeUsPhone(deliveryPhone) ?? deliveryPhone,
       email: deliveryEmail,
       addressLine1: deliveryAddressLine1,
       addressLine2: deliveryAddressLine2,
@@ -655,7 +657,8 @@ export default function CheckoutPage() {
         givenName: givenName || undefined,
         familyName: restName.join(' ') || undefined,
         email: fulfillment.email || undefined,
-        phone: fulfillment.phone || undefined,
+        // Square expects E.164 (+1XXXXXXXXXX) for buyer verification.
+        phone: toUsE164(fulfillment.phone),
         countryCode: 'US',
         ...(fulfillment.type === 'delivery'
           ? {
@@ -775,6 +778,12 @@ export default function CheckoutPage() {
     }
   };
 
+  // Explain a blocked Continue button instead of leaving it silently grey:
+  // once the customer leaves the field, or has typed a full-length number.
+  const showPickupPhoneError = Boolean(pickupPhone) && !isValidPhone(pickupPhone) &&
+    (pickupPhoneTouched || pickupPhone.length >= 10);
+  const showDeliveryPhoneError = Boolean(deliveryPhone) && !isValidPhone(deliveryPhone) &&
+    (deliveryPhoneTouched || deliveryPhone.length >= 10);
   const canSubmitPickup = Boolean(
     !pickupDateError &&
     pickupLocationId &&
@@ -1162,12 +1171,17 @@ export default function CheckoutPage() {
                 inputMode="numeric"
                 value={pickupPhone}
                 onChange={(e) => setPickupPhone(e.target.value.replace(/\D/g, ''))}
+                onBlur={() => setPickupPhoneTouched(true)}
                 placeholder="(xxx) xxx-xxxx"
                 className="input-field"
                 aria-invalid={Boolean(pickupPhone && !isValidPhone(pickupPhone))}
+                aria-describedby={showPickupPhoneError ? 'pickup-phone-error' : undefined}
                 required
                 autoComplete="tel"
               />
+              {showPickupPhoneError && (
+                <p id="pickup-phone-error" className="font-body text-xs text-red-600 mt-1">{PHONE_ERROR}</p>
+              )}
             </div>
           </div>
 
@@ -1262,12 +1276,17 @@ export default function CheckoutPage() {
                 inputMode="numeric"
                 value={deliveryPhone}
                 onChange={(e) => setDeliveryPhone(e.target.value.replace(/\D/g, ''))}
+                onBlur={() => setDeliveryPhoneTouched(true)}
                 className="input-field"
                 placeholder="(xxx) xxx-xxxx"
                 aria-invalid={Boolean(deliveryPhone && !isValidPhone(deliveryPhone))}
+                aria-describedby={showDeliveryPhoneError ? 'delivery-phone-error' : undefined}
                 required
                 autoComplete="tel"
               />
+              {showDeliveryPhoneError && (
+                <p id="delivery-phone-error" className="font-body text-xs text-red-600 mt-1">{PHONE_ERROR}</p>
+              )}
             </div>
           </div>
 
