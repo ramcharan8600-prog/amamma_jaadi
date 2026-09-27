@@ -138,22 +138,31 @@ export function shippingMethodLabel(method: DeliveryShippingMethod | null | unde
 
 export const MALAI_KHAJA_PRODUCT_ID = 'sweet-malai-khaja';
 
+export type GroundShippingKind = 'malai-khaja' | 'assorted-box';
+
 /**
- * A cart holding nothing but Malai Khaja, or nothing but the Assorted Box.
- * Outside Texas it ships UPS Ground for at most $9.99 with no minimum, so
- * customers can try it on its own. Mixing the two, or adding anything else,
- * restores the regular rates. Intentionally quiet: no banner or copy mentions it.
+ * Carts shipped UPS Ground outside Texas, with no minimum. Mixing the two, or
+ * adding anything else, restores the regular rates. Intentionally quiet: no
+ * banner or copy mentions either rate.
+ * - Only Malai Khaja: the lower of $9.99 and the regular rate.
+ * - Only the Assorted Box: exactly $9.99 (Texas stays $6.99).
  */
+export function groundShippingKind(items: ReadonlyArray<{ productId: string }>): GroundShippingKind | undefined {
+  if (items.length === 0) return undefined;
+  if (items.every(({ productId }) => productId === MALAI_KHAJA_PRODUCT_ID)) return 'malai-khaja';
+  if (items.every(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID)) return 'assorted-box';
+  return undefined;
+}
+
 export function isGroundShippingCart(items: ReadonlyArray<{ productId: string }>): boolean {
-  return items.length > 0 && [MALAI_KHAJA_PRODUCT_ID, ASSORTED_BOX_PRODUCT_ID]
-    .some((id) => items.every(({ productId }) => productId === id));
+  return groundShippingKind(items) !== undefined;
 }
 
 /** Pickle-only and ground-shipped carts have no minimum; other far-state orders require $80. */
 export function getDeliveryMinimumSubtotal(
   state: string | undefined | null,
   picklesOnly = false,
-  groundShipping = false
+  groundShipping: GroundShippingKind | boolean | undefined = false
 ): number {
   return !picklesOnly && !groundShipping && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
@@ -162,7 +171,7 @@ export function getDeliveryMinimumShortfall(
   subtotal: number,
   state: string | undefined | null,
   picklesOnly = false,
-  groundShipping = false
+  groundShipping: GroundShippingKind | boolean | undefined = false
 ): number {
   return roundMoney(Math.max(0, getDeliveryMinimumSubtotal(state, picklesOnly, groundShipping) - Math.max(0, subtotal)));
 }
@@ -179,7 +188,7 @@ export interface ShippingOptions {
   fulfillmentType?: 'pickup' | 'delivery';
   picklesOnly?: boolean;
   /** Cart holds only Malai Khaja or only the Assorted Box: out-of-state shipping is capped at $9.99. */
-  groundShipping?: boolean;
+  groundShipping?: GroundShippingKind;
   pickleJarCount?: number;
   deliveryState?: string;
   shippingMethod?: DeliveryShippingMethod;
@@ -215,9 +224,11 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else {
       regularShipping = SHIPPING_FAR;
     }
-    // Never more than the regular rate: large nearby orders keep $8.99 / $7.99.
+    // Malai Khaja never pays more than the regular rate (nearby $8.99 / $7.99
+    // stay); the Assorted Box is a flat $9.99 everywhere outside Texas.
     if (opts.groundShipping && !opts.picklesOnly && zone !== 'texas') {
-      regularShipping = Math.min(regularShipping, SHIPPING_GROUND_OUT_OF_STATE);
+      regularShipping = opts.groundShipping === 'assorted-box' ? SHIPPING_GROUND_OUT_OF_STATE
+        : Math.min(regularShipping, SHIPPING_GROUND_OUT_OF_STATE);
     }
   }
   const coupon = opts.shippingCoupon;
@@ -245,7 +256,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/KS/LA/MS/NM/OK/TN): $11.99 below $60, $8.99 from $60, $7.99 from $100.
  * Sweets/mixed in far states: $11.99 flat, with an $80 merchandise minimum.
- * Only Malai Khaja, or only the Assorted Box, outside Texas: the lower of $9.99 and the rate above, no minimum.
+ * Only Malai Khaja outside Texas: the lower of $9.99 and the rate above, no minimum.
+ * Only the Assorted Box outside Texas: a flat $9.99, no minimum.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */

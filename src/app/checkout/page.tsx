@@ -39,7 +39,7 @@ import {
   DELIVERY_STATE_OPTIONS,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
-  isGroundShippingCart,
+  groundShippingKind,
   isSupportedDeliveryState,
   SALES_TAX_LABEL,
   shippingMethodLabel,
@@ -355,9 +355,9 @@ export default function CheckoutPage() {
   );
   const resolvedShippingMethod: DeliveryShippingMethod = 'standard';
   const picklesOnly = items.length > 0 && items.every(({ product }) => product.category === 'pickles');
-  const groundShipping = isGroundShippingCart(items);
+  const groundShipping = groundShippingKind(items);
   // Pickle-only and Malai Khaja-only carts don't ship UPS 2nd Day Air.
-  const standardShipping = picklesOnly || groundShipping;
+  const standardShipping = picklesOnly || !!groundShipping;
   const pricingOptions = useMemo<ShippingOptions & { taxableSubtotal: number }>(
     () => ({
       taxableSubtotal,

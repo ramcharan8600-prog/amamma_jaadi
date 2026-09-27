@@ -20,6 +20,8 @@ export interface Product {
   sizeLabel?: string;
   /** For sweets: available quantity tiers */
   quantityOptions?: number[];
+  /** Diagonal corner ribbon on the card photo, e.g. "Special Edition". */
+  ribbon?: string;
   /** Fixed price for a tier, overriding unitPrice × pieces (e.g. a $60 box of 22). */
   tierPrices?: Partial<Record<number, number>>;
   /**

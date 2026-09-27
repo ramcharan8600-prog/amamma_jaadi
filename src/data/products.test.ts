@@ -157,7 +157,8 @@ describe('pricing math (money path)', () => {
 
   it('uses a fixed tier price when one is set (Assorted Box: 22 pcs for $60)', () => {
     const box = getProductById('sweet-assorted-box')!;
-    expect(box.name).toBe('Special Edition Assorted Box — Malpuri & Malai Khaja');
+    expect(box.name).toBe('Assorted Box — Malpuri & Malai Khaja');
+    expect(box.ribbon).toBe('Special Edition');
     expect(box.quantityOptions).toEqual([22]);
     expect(calculateSweetPrice(box, 22)).toBe(60);
     expect(calculateSweetPrice({ unitPrice: 2.5, tierPrices: { 22: 60 } }, 16)).toBe(40);

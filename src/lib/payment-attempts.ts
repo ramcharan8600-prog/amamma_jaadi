@@ -6,7 +6,7 @@ import { isValidPhone } from '@/lib/contact-validation';
 import { isValidCouponMinimum } from '@/lib/coupons';
 import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
-import { calculateOrderTotals, getDeliveryMinimumShortfall, isGroundShippingCart, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions } from '@/lib/pricing';
+import { calculateOrderTotals, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
   executeSquarePaymentRequest,
@@ -91,7 +91,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     const cart = validateCart(typeof session.cart_data === 'string' ? JSON.parse(session.cart_data) : session.cart_data);
     if (!cart.ok) return null;
     const picklesOnly = cart.items.every(({ product }) => product.category === 'pickles');
-    const groundShipping = isGroundShippingCart(cart.items);
+    const groundShipping = groundShippingKind(cart.items);
     const fulfillment = typeof session.fulfillment_data === 'string' ? JSON.parse(session.fulfillment_data) : session.fulfillment_data;
     if (!fulfillment || typeof fulfillment !== 'object' || Array.isArray(fulfillment) ||
         (fulfillment.type !== 'pickup' && fulfillment.type !== 'delivery')) return null;

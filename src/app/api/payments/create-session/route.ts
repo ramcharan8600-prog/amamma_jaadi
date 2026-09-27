@@ -10,7 +10,7 @@ import {
   type ShippingOptions,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
-  isGroundShippingCart,
+  groundShippingKind,
   isSupportedDeliveryState,
   normalizeStateCode,
 } from '@/lib/pricing';
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const cart = validateCart(body.items);
     if (!cart.ok) return fail(cart.error, cart.status);
     const picklesOnly = cart.items.every(({ product }) => product.category === 'pickles');
-    const groundShipping = isGroundShippingCart(cart.items);
+    const groundShipping = groundShippingKind(cart.items);
     const customerName = sanitize(body.customerName, 100);
     const email = sanitize(body.email, 200).toLowerCase();
     const rawPhone = sanitize(body.phone, 20);

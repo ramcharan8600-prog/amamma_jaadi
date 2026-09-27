@@ -79,6 +79,12 @@ export default function SweetCard({ product }: SweetCardProps) {
             <Gift size={14} />
             Gift Box
           </span>
+          {product.ribbon && (
+            // Diagonal sash across the top-left corner of the photo.
+            <span className="pointer-events-none absolute top-11 -left-12 w-52 -rotate-45 bg-brand-maroon text-center font-body text-[11px] font-semibold uppercase tracking-wider text-white py-1.5 shadow-md">
+              {product.ribbon}
+            </span>
+          )}
           {outOfStockOverlay}
         </div>
       ) : (

@@ -46,7 +46,8 @@ async function renderAssorted(stock: Record<string, number>) {
 it('offers the Special Edition Assorted Box as a single 22-piece, $60 box with bold bullet lines and both gift-box photos',async()=>{
   const {host,cleanup}=await renderAssorted({});
   try{
-    expect(host.querySelector('h3')?.textContent).toBe('Special Edition Assorted Box — Malpuri & Malai Khaja');
+    expect(host.querySelector('h3')?.textContent).toBe('Assorted Box — Malpuri & Malai Khaja');
+    expect(host.querySelector('span.-rotate-45')?.textContent).toBe('Special Edition');
     expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['22 pcs — $60.00']);
     expect(Array.from(host.querySelectorAll('strong')).map(s=>s.textContent))
       .toEqual(['your 11:11 sweet cravings', '11 Guntur Malpuri', '11 Nellore Malai Khaja']);

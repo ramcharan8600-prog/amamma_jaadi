@@ -110,7 +110,8 @@ export const PRODUCTS: Product[] = [
     // Stock is counted separately, in whole boxes (see isStockTracked).
     id: 'sweet-assorted-box',
     slug: 'assorted-sweets-box',
-    name: 'Special Edition Assorted Box — Malpuri & Malai Khaja',
+    name: 'Assorted Box — Malpuri & Malai Khaja',
+    ribbon: 'Special Edition',
     // **…** renders bold; each new line starts a line on the card and "* " makes
     // it a bullet. Markers are stripped for search engines.
     description:

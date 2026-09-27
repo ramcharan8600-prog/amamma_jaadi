@@ -12,6 +12,7 @@ import {
   normalizeStateCode,
   shippingMethodLabel,
   isGroundShippingCart,
+  groundShippingKind,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
 } from './pricing';
@@ -371,8 +372,9 @@ describe('pricing — nearby states with the $100 tier', () => {
 });
 
 describe('pricing — Malai Khaja-only carts', () => {
-  const ship = (subtotal: number, deliveryState: string, groundShipping = true) =>
-    calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0, groundShipping }).shipping;
+  const ship = (subtotal: number, deliveryState: string, malaiKhaja = true) =>
+    calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0,
+      groundShipping: malaiKhaja ? 'malai-khaja' as const : undefined }).shipping;
 
   it('recognises carts made entirely of Malai Khaja, or entirely of the Assorted Box', () => {
     expect(isGroundShippingCart([{ productId: 'sweet-malai-khaja' }])).toBe(true);
@@ -384,6 +386,8 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(isGroundShippingCart([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-malai-khaja' }])).toBe(false);
     expect(isGroundShippingCart([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-malpuri' }])).toBe(false);
     expect(isGroundShippingCart([])).toBe(false);
+    expect(groundShippingKind([{ productId: 'sweet-malai-khaja' }])).toBe('malai-khaja');
+    expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-assorted-box' }])).toBe('assorted-box');
   });
 
   it('keeps $6.99 in Texas', () => {
@@ -414,7 +418,28 @@ describe('pricing — Malai Khaja-only carts', () => {
   });
 
   it('gives no shipping-coupon discount on the $9.99 rate', () => {
-    expect(calculateOrderTotals(50, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0, groundShipping: true,
+    expect(calculateOrderTotals(50, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0, groundShipping: 'malai-khaja',
       shippingCoupon: { minSubtotal: 50, shippingPolicy: 'texas_v3' } }).shipping).toBe(9.99);
+  });
+});
+
+describe('pricing — Assorted Box-only carts', () => {
+  const ship = (subtotal: number, deliveryState: string) =>
+    calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0, groundShipping: 'assorted-box' }).shipping;
+
+  it('keeps $6.99 in Texas', () => {
+    expect(ship(60, 'TX')).toBe(6.99);
+    expect(ship(120, 'TX')).toBe(6.99);
+  });
+
+  it('charges a flat $9.99 to every other state, nearby tiers and $100 tier included', () => {
+    for (const state of ['GA', 'OK', 'FL', 'KS', 'NY', 'CA']) {
+      expect(ship(60, state)).toBe(9.99);
+      expect(ship(120, state)).toBe(9.99);
+    }
+  });
+
+  it('has no far-state minimum', () => {
+    expect(getDeliveryMinimumShortfall(60, 'NY', false, 'assorted-box')).toBe(0);
   });
 });
