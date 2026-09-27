@@ -950,37 +950,21 @@ describe('coupon benefits in checkout', () => {
     await click('Remove promo code');
     expect(host.textContent).not.toContain('This coupon requires');
   });
-  it('shows the pickle base fee and actual savings, and recalculates when the state changes', async () => {
-    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'regional_v1' });
+  it('applies the shipping coupon in Texas only and recalculates when the state changes', async () => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
     useCartStore.getState().addItem(getProductById('pickle-chicken')!, 4);
     await apply();
     await delivery();
-    expect(host.querySelector('s')?.textContent).toBe('$6.99');
-    expect(host.textContent).toContain('Jar-count savings: $2.00');
-    expect(host.textContent).toContain('Coupon savings: $4.99');
-    for (const state of ['OK', 'NY']) {
+    expect(host.textContent).toContain('Free delivery on this order.');
+    expect(host.textContent).toContain('Coupon savings: $6.99');
+    expect(host.textContent).not.toContain('Jar-count savings');
+    for (const state of ['OK', 'GA', 'NY']) {
       await input('#delivery-state', state);
-      expect(host.querySelector('s')?.textContent).toBe('$6.99');
-      expect(host.textContent).toContain('Pickle-only shipping is $3.99');
-      expect(host.textContent).toContain('Coupon savings: $1.00');
-      expect(host.textContent).toContain('$81.93');
+      expect(host.textContent).toContain('This coupon offers free shipping within Texas only.');
+      expect(host.querySelector('s')).toBeNull();
+      expect(host.textContent).not.toContain('Coupon savings');
+      expect(host.textContent).toContain('$84.93');
     }
-    await click('Remove promo code');
-    expect(host.querySelector('s')).toBeNull();
-    expect(host.textContent).toContain('$84.93');
-  });
-  it('shows different regional discounts for a qualifying mixed cart', async () => {
-    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'regional_v1' });
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
-    useCartStore.getState().addItem(getProductById('pickle-mutton')!, 2);
-    await apply();
-    await delivery();
-    await input('#delivery-state', 'OK');
-    expect(host.textContent).toContain('Coupon savings: $4.00');
-    expect(host.textContent).toContain('$90.46');
-    await input('#delivery-state', 'NY');
-    expect(host.textContent).toContain('Coupon savings: $3.00');
-    expect(host.textContent).toContain('$94.46');
   });
   it('keeps paid shipping for complimentary pieces and shows the selected quantity', async () => {
     couponResult = async () => Response.json({ code: 'BONUS', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 });

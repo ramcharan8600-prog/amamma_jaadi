@@ -34,7 +34,6 @@ import { isValidCustomerName, isValidEmail, isValidPhone, normalizeUsPhone, PHON
 import {
   calculateOrderTotals,
   calculateShippingQuote,
-  getShippingZone,
   type ShippingQuote,
   type ShippingOptions,
   DELIVERY_STATE_OPTIONS,
@@ -856,13 +855,9 @@ export default function CheckoutPage() {
                   ? couponMinimumMessage(appliedCoupon.minSubtotal)
                   : !deliveryState
                     ? `Select your delivery state to see the shipping offer. Minimum cart value: ${formatCurrency(appliedCoupon.minSubtotal)} before tax and shipping.`
-                    : !appliedCoupon.shippingPolicy || deliveryState === 'TX'
+                    : deliveryState === 'TX'
                       ? 'Free delivery on this order.'
-                      : ['texas_v2', 'texas_v3'].includes(appliedCoupon.shippingPolicy)
-                        ? 'This coupon offers free shipping within Texas only. Regular shipping rates apply to your state.'
-                      : picklesOnly
-                        ? 'Pickle-only shipping is $3.99 with this coupon.'
-                        : `${formatCurrency(getShippingZone(deliveryState) === 'nearby' ? 4 : 3)} off shipping with this coupon.`}
+                      : 'This coupon offers free shipping within Texas only. Regular shipping rates apply to your state.'}
             </p>
           )}
           {step !== 'payment' && <button type="button" disabled={submitting || paying} className="underline text-brand-charcoal/60"

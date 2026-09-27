@@ -514,7 +514,7 @@ describe('authoritative coupon benefits at payment', () => {
     const response = await post({ ...checkout([{ productId: 'pickle-chicken', quantity: 4 }], delivery(String(state))), couponCode: 'ship' });
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ subtotal: 72, shipping, tax: state === 'TX' ? 6.10 : 5.94, maintenanceFee: state === 'TX' ? 1.99 : 0, totalAmount: total,
-      shippingQuote: { referenceShipping: 6.99, regularShipping: 6.99, quantitySavings: 0, couponSavings: state === 'TX' ? 6.99 : 0 } });
+      shippingQuote: { referenceShipping: 6.99, regularShipping: 6.99, couponSavings: state === 'TX' ? 6.99 : 0 } });
   });
 
   it.each([1, 2, 3])('rejects %s pickle jars below a $70 minimum', async quantity => {

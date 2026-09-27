@@ -120,7 +120,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
           !session.coupon_code || coupon.code !== session.coupon_code) return null;
       if (coupon.type === 'free_delivery') {
         if (!delivery || !isValidCouponMinimum(coupon.minSubtotal) || cart.subtotal < coupon.minSubtotal) return null;
-        if (coupon.shippingPolicy !== undefined && coupon.shippingPolicy !== 'regional_v1' && coupon.shippingPolicy !== 'texas_v2' && coupon.shippingPolicy !== 'texas_v3') return null;
+        if (coupon.shippingPolicy !== 'texas_v2' && coupon.shippingPolicy !== 'texas_v3') return null;
         shippingCoupon = coupon;
       } else if (coupon.type !== 'complimentary' || typeof coupon.bonusItem !== 'string' ||
           !coupon.bonusItem.trim() || !Number.isSafeInteger(coupon.bonusQty) || coupon.bonusQty < 1) return null;

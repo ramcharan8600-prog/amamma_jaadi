@@ -1,5 +1,6 @@
 export type CouponType = 'complimentary' | 'free_delivery';
-export type ShippingCouponPolicy = 'regional_v1' | 'texas_v2' | 'texas_v3';
+/** Both policies are Texas-only free shipping; they differ only in the maintenance fee. */
+export type ShippingCouponPolicy = 'texas_v2' | 'texas_v3';
 
 export type CouponBenefit =
   | { code: string; type: 'complimentary'; bonusItem: string; bonusQty: number }

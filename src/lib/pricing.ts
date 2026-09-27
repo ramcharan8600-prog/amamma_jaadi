@@ -189,8 +189,8 @@ export interface ShippingOptions {
 export interface ShippingQuote {
   shipping: number;
   regularShipping: number;
+  /** Shipping before the coupon; shown struck through when a coupon applies. */
   referenceShipping: number;
-  quantitySavings: number;
   couponSavings: number;
   maintenanceFee?: number;
 }
@@ -202,8 +202,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   if (opts.fulfillmentType === 'delivery') {
     if (opts.picklesOnly) {
       const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
-      const legacy = opts.legacyPickleRates || (opts.shippingCoupon && !['texas_v2', 'texas_v3'].includes(opts.shippingCoupon.shippingPolicy ?? ''));
-      regularShipping = legacy ? jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
+      regularShipping = opts.legacyPickleRates ? jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
         : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE : SHIPPING_PICKLES_SINGLE;
     } else if (zone === 'texas') {
       regularShipping = SHIPPING_TX;
@@ -221,26 +220,13 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   const coupon = opts.shippingCoupon;
   const eligible = opts.fulfillmentType === 'delivery' && !!coupon &&
     Number.isFinite(coupon.minSubtotal) && coupon.minSubtotal >= 0 && subtotal >= coupon.minSubtotal;
-  let shipping = regularShipping;
-  if (eligible) {
-    // Unversioned snapshots retain the free delivery promised before this policy.
-    if (coupon.shippingPolicy === undefined || zone === 'texas') shipping = 0;
-    else if (coupon.shippingPolicy === 'regional_v1') {
-      shipping = opts.picklesOnly ? Math.min(regularShipping, 3.99)
-        : roundMoney(Math.max(0, regularShipping - (zone === 'nearby' ? 4 : 3)));
-    }
-  }
+  // Shipping coupons are Texas-only: other states always pay the regular rate.
+  let shipping = eligible && zone === 'texas' ? 0 : regularShipping;
   if (opts.freeDelivery) shipping = 0;
-  // The pickle reference is the base fee, not the fee after jar-count savings.
-  // Keep both savings separate so checkout never overstates the coupon saving.
-  const referenceShipping = eligible && opts.picklesOnly &&
-    coupon.shippingPolicy === 'regional_v1'
-    ? SHIPPING_PICKLES_SINGLE : regularShipping;
   return {
     shipping,
     regularShipping,
-    referenceShipping,
-    quantitySavings: roundMoney(referenceShipping - regularShipping),
+    referenceShipping: regularShipping,
     couponSavings: roundMoney(regularShipping - shipping),
     ...(eligible && zone === 'texas' && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
       ? { maintenanceFee: opts.picklesOnly ? 1.99 : 0.99 } : {}),

@@ -306,22 +306,26 @@ describe('pickle-only nationwide rates and minimum exemption', () => {
 });
 
 
-describe('regional shipping coupons', () => {
-  const shippingCoupon = { minSubtotal: 70, shippingPolicy: 'regional_v1' as const };
-  it.each([['TX', 0], ['OK', 4.99], ['CA', 8.99]])('applies regional savings in %s', (deliveryState, shipping) => {
+describe('shipping coupons are Texas-only', () => {
+  const shippingCoupon = { minSubtotal: 70, shippingPolicy: 'texas_v3' as const };
+  it.each([['TX', 0], ['OK', 8.99], ['GA', 8.99], ['CA', 11.99]])('gives %s shipping of %s on an $80 sweets cart', (deliveryState, shipping) => {
     expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: String(deliveryState), shippingCoupon, taxableSubtotal: 0 }).shipping).toBe(shipping);
   });
   it.each(['TX', 'OK', 'CA'])('does not discount a cart one cent below the minimum in %s', deliveryState => {
-    const opts = { fulfillmentType: 'delivery' as const, deliveryState, picklesOnly: true, pickleJarCount: 4, legacyPickleRates: true };
+    const opts = { fulfillmentType: 'delivery' as const, deliveryState, picklesOnly: true, pickleJarCount: 4 };
     expect(calculateOrderTotals(69.99, { ...opts, shippingCoupon })).toEqual(calculateOrderTotals(69.99, opts));
   });
-  it.each(['TX', 'OK', 'CA'])('separates pickle quantity savings from coupon savings in %s', deliveryState => {
-    const quote = calculateShippingQuote(72, { fulfillmentType: 'delivery', deliveryState, picklesOnly: true, pickleJarCount: 4, shippingCoupon });
-    expect(quote).toEqual({ shipping: deliveryState === 'TX' ? 0 : 3.99, regularShipping: 4.99, referenceShipping: 6.99,
-      quantitySavings: 2, couponSavings: deliveryState === 'TX' ? 4.99 : 1 });
+  it.each(['OK', 'NY'])('leaves pickle-only shipping at the regular $6.99 in %s', deliveryState => {
+    expect(calculateShippingQuote(72, { fulfillmentType: 'delivery', deliveryState, picklesOnly: true, pickleJarCount: 4, shippingCoupon }))
+      .toEqual({ shipping: 6.99, regularShipping: 6.99, referenceShipping: 6.99, couponSavings: 0 });
   });
-  it('honors legacy free-delivery snapshots outside Texas', () => {
-    expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: 'CA', shippingCoupon: { minSubtotal: 70 } }).shipping).toBe(0);
+  it('makes Texas pickle-only shipping free with the $1.99 fee', () => {
+    expect(calculateShippingQuote(72, { fulfillmentType: 'delivery', deliveryState: 'TX', picklesOnly: true, pickleJarCount: 4, shippingCoupon }))
+      .toEqual({ shipping: 0, regularShipping: 6.99, referenceShipping: 6.99, couponSavings: 6.99, maintenanceFee: 1.99 });
+  });
+  it('gives no discount outside Texas even for a coupon with no policy', () => {
+    expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: 'CA', shippingCoupon: { minSubtotal: 70 } }).shipping).toBe(11.99);
+    expect(calculateOrderTotals(80, { fulfillmentType: 'delivery', deliveryState: 'TX', shippingCoupon: { minSubtotal: 70 } }).shipping).toBe(0);
   });
   it('uses the configured minimum rather than a fixed $70', () => {
     expect(calculateOrderTotals(70, { fulfillmentType: 'delivery', deliveryState: 'TX', shippingCoupon: { ...shippingCoupon, minSubtotal: 70.01 } }).shipping).toBe(6.99);
@@ -360,9 +364,9 @@ describe('pricing — nearby states with the $100 tier', () => {
     expect(getDeliveryMinimumSubtotal('NC')).toBe(80);
   });
 
-  it('applies the regional coupon saving to the $7.99 nearby tier', () => {
+  it('gives no shipping-coupon discount on the $7.99 nearby tier', () => {
     expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', deliveryState: 'GA', taxableSubtotal: 0,
-      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'regional_v1' } }).shipping).toBe(3.99);
+      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'texas_v3' } }).shipping).toBe(7.99);
   });
 });
 
@@ -406,8 +410,8 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(40);
   });
 
-  it('takes the regional coupon saving off the $9.99 rate', () => {
+  it('gives no shipping-coupon discount on the $9.99 rate', () => {
     expect(calculateOrderTotals(50, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0, malaiKhajaOnly: true,
-      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'regional_v1' } }).shipping).toBe(6.99);
+      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'texas_v3' } }).shipping).toBe(9.99);
   });
 });
