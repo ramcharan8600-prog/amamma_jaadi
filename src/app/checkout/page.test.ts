@@ -575,7 +575,8 @@ describe('nearby delivery pickup switch', () => {
     expect(host.querySelector<HTMLInputElement>('input[type="tel"]')?.value).toBe('2145550100');
     expect(host.querySelector<HTMLInputElement>('input[type="email"]')?.value).toBe('nearby@example.com');
     const options = Array.from(host.querySelectorAll('select option'));
-    expect(options).toHaveLength(5);
+    expect(options).toHaveLength(4);
+    expect(options.map((option) => option.textContent).join(' ')).not.toContain('Biryanify - Irving');
     expect(options[1].textContent).toContain('Plano');
     expect(options[1].textContent).toContain('Closest to your ZIP');
     await input('select', 'irving-ravibabu');

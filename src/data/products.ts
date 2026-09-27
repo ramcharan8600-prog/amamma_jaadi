@@ -261,6 +261,8 @@ export const PICKUP_LOCATIONS: PickupLocation[] = [
     city: 'Irving',
     state: 'TX',
     zip: '75063',
+    // Partnership ended Sept 27, 2026; kept so earlier orders still resolve.
+    active: false,
   },
   {
     id: 'frisco-ravibabu',
@@ -295,6 +297,13 @@ export function getProductsByCategory(category: string): Product[] {
 
 export function getPickupLocationById(id: string): PickupLocation | undefined {
   return PICKUP_LOCATIONS.find((l) => l.id === id);
+}
+
+/** Locations customers can choose for new orders. */
+export const ACTIVE_PICKUP_LOCATIONS: PickupLocation[] = PICKUP_LOCATIONS.filter((l) => l.active !== false);
+
+export function isActivePickupLocation(id: unknown): boolean {
+  return typeof id === 'string' && ACTIVE_PICKUP_LOCATIONS.some((l) => l.id === id);
 }
 
 /**

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
-import { PRODUCTS, getTotalPieces, isBobbatluProduct } from '@/data/products';
+import { PRODUCTS, getTotalPieces, isActivePickupLocation, isBobbatluProduct } from '@/data/products';
 import { validateCart } from '@/lib/cart-validation';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import {
@@ -105,6 +105,9 @@ export async function POST(request: NextRequest) {
       const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), new Date(),
         requiresNextDayPickup(cart.items));
       if (dateError) return fail(dateError, 400);
+      if (!isActivePickupLocation(rawFulfillment?.locationId)) {
+        return fail('Please choose one of our current pickup locations.', 400);
+      }
       fulfillment = { ...rawFulfillment, phone };
     }
 

@@ -69,6 +69,12 @@ export interface PickupLocation {
   city: string;
   state: string;
   zip: string;
+  /**
+   * False for a partner we no longer pick up from. The location stays in the
+   * catalog so past orders still show its name and address, but customers
+   * can no longer choose it.
+   */
+  active?: boolean;
 }
 
 export interface PickupDetails {

@@ -3,7 +3,7 @@ import { plainDescription } from '@/lib/description';
 import { BRAND_NAME, SITE_URL, PHONE_E164 } from '@/lib/constants';
 import { ALL_SERVICE_AREAS } from '@/data/service-areas';
 import { FAQS } from '@/data/faq';
-import { PICKUP_LOCATIONS } from '@/data/products';
+import { ACTIVE_PICKUP_LOCATIONS } from '@/data/products';
 
 const DEFAULT_DESCRIPTION = 'Authentic South Indian sweets and pickles made fresh in Dallas, TX. Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & more, with DFW pickup and shipping across the contiguous United States.';
 
@@ -83,7 +83,7 @@ export function getLocalBusinessSchema() {
     })),
     // Real, visitable collection points. Helps Google associate the business
     // with those neighbourhoods rather than just "Dallas".
-    hasPOS: PICKUP_LOCATIONS.map((loc) => ({
+    hasPOS: ACTIVE_PICKUP_LOCATIONS.map((loc) => ({
       '@type': 'Place',
       name: loc.name,
       address: {

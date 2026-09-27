@@ -205,6 +205,7 @@ describe('durable payment recovery using real SQLite transactions', () => {
 
   it.each([
     ['stale item price', 39, 0, pickupFulfillment()],
+    ['retired pickup location', 40, 0, { ...pickupFulfillment(), locationId: 'irving-biryanify' }],
     ['far-state minimum bypass', 51.99, 11.99, { type: 'delivery', state: 'NY' }],
     ['invalid delivery state', 46.99, 6.99, { type: 'delivery', state: 'TE' }],
     ['stale shipping rate', 44.99, 4.99, { type: 'delivery', state: 'TX' }],

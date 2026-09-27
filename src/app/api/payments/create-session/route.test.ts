@@ -101,6 +101,20 @@ describe('create-session requires a US contact phone', () => {
   });
 });
 
+describe('create-session only accepts current pickup locations', () => {
+  it.each(['irving-biryanify', 'not-a-location', undefined])('rejects pickup at %j', async (locationId) => {
+    const response = await post(checkout([sweet], { ...pickup, locationId }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('Please choose one of our current pickup locations.');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it.each(['plano-biryanify', 'frisco-ravibabu', 'irving-ravibabu'])('accepts pickup at %s', async (locationId) => {
+    const response = await post(checkout([sweet], { ...pickup, locationId }));
+    expect(response.status).toBe(201);
+  });
+});
+
 describe('create-session validates pickup dates before storing a payable session', () => {
   it.each([undefined, null, '', {}, 20260909, '122026-01-09', '2026-02-30',
     '2026-02-29', '2026-09-07', '2026-12-08', '2026-9-09', '2026-09-09T00:00:00Z'])

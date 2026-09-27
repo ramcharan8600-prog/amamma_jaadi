@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   PRODUCTS,
   PICKUP_LOCATIONS,
+  ACTIVE_PICKUP_LOCATIONS,
+  isActivePickupLocation,
   getProductById,
   getProductBySlug,
   getProductsByCategory,
@@ -173,5 +175,15 @@ describe('pricing math (money path)', () => {
       { quantity: 2, product: pickle },
     ]);
     expect(pieces).toBe(18);
+  });
+});
+
+describe('pickup locations', () => {
+  it('offers only current partners for new orders but still resolves retired ones for past orders', () => {
+    expect(ACTIVE_PICKUP_LOCATIONS.map((l) => l.id)).toEqual(['plano-biryanify', 'frisco-ravibabu', 'irving-ravibabu']);
+    expect(isActivePickupLocation('irving-biryanify')).toBe(false);
+    expect(isActivePickupLocation('frisco-ravibabu')).toBe(true);
+    expect(isActivePickupLocation(undefined)).toBe(false);
+    expect(getPickupLocationById('irving-biryanify')?.address).toBe('9400 N MacArthur Blvd #150');
   });
 });

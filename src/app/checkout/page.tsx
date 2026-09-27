@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
 import {
-  PICKUP_LOCATIONS,
+  ACTIVE_PICKUP_LOCATIONS,
   getPickupLocationById,
   getTotalPieces as calculateTotalPieces,
   isProductTaxExempt,
@@ -374,8 +374,8 @@ export default function CheckoutPage() {
   const shippingQuote = useMemo(() => calculateShippingQuote(subtotal, pricingOptions), [subtotal, pricingOptions]);
   const nearbyPickup = getNearbyPickup(deliveryState, deliveryZip);
   const pickupLocations = nearbyPickup
-    ? [...PICKUP_LOCATIONS].sort((a, b) => Number(b.zip === nearbyPickup.zip) - Number(a.zip === nearbyPickup.zip))
-    : PICKUP_LOCATIONS;
+    ? [...ACTIVE_PICKUP_LOCATIONS].sort((a, b) => Number(b.zip === nearbyPickup.zip) - Number(a.zip === nearbyPickup.zip))
+    : ACTIVE_PICKUP_LOCATIONS;
 
   const switchToPickup = () => {
     if (!nearbyPickup || submitting || paying || pendingPayment) return;

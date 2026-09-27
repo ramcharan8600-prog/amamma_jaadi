@@ -4,7 +4,7 @@ import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { validateCart } from '@/lib/cart-validation';
 import { isValidPhone } from '@/lib/contact-validation';
 import { isValidCouponMinimum } from '@/lib/coupons';
-import { getTotalPieces } from '@/data/products';
+import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { calculateOrderTotals, getDeliveryMinimumShortfall, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions } from '@/lib/pricing';
 import {
@@ -100,6 +100,8 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     if (!delivery) {
       if (getPickupDateError(fulfillment.date, getTotalPieces(cart.items), new Date(),
         requiresNextDayPickup(cart.items))) return null;
+      // A checkout opened before a partner location was retired must not charge.
+      if (!isActivePickupLocation(fulfillment.locationId)) return null;
     }
     const state = normalizeStateCode(fulfillment.state);
     if (delivery && (!isSupportedDeliveryState(state) ||

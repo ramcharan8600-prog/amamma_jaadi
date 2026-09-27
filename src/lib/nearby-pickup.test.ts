@@ -17,3 +17,9 @@ describe('offline nearby pickup recommendations', () => {
     expect(getNearbyPickup('CA', '75093')).toBeNull();
   });
 });
+
+describe('retired pickup partners', () => {
+  it('suggests the current Irving partner, not the retired Biryanify Irving', () => {
+    expect(getNearbyPickup('TX', '75063')?.id).toBe('irving-ravibabu');
+  });
+});
