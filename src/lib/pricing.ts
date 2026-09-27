@@ -10,7 +10,6 @@
 import {
   STANDARD_SHIPPING_THRESHOLD,
   FAR_SHIPPING_MINIMUM,
-  FAR_SHIPPING_STANDARD_THRESHOLD,
   SHIPPING_TX,
   SHIPPING_PICKLES_SINGLE,
   SHIPPING_PICKLES_DOUBLE,
@@ -18,7 +17,6 @@ import {
   SHIPPING_NEARBY_BELOW,
   SHIPPING_NEARBY_ABOVE,
   SHIPPING_FAR,
-  SHIPPING_FAR_BELOW,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod } from '@/types';
 import type { ShippingCouponPolicy } from '@/lib/coupons';
@@ -130,7 +128,7 @@ export function shippingMethodLabel(method: DeliveryShippingMethod | null | unde
   return picklesOnly ? 'Standard shipping' : 'UPS 2nd Day Air';
 }
 
-/** Pickle-only carts have no minimum; other far-state orders require $55. */
+/** Pickle-only carts have no minimum; other far-state orders require $80. */
 export function getDeliveryMinimumSubtotal(state: string | undefined | null, picklesOnly = false): number {
   return !picklesOnly && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
@@ -187,7 +185,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else if (zone === 'nearby') {
       regularShipping = subtotal >= STANDARD_SHIPPING_THRESHOLD ? SHIPPING_NEARBY_ABOVE : SHIPPING_NEARBY_BELOW;
     } else {
-      regularShipping = subtotal >= FAR_SHIPPING_STANDARD_THRESHOLD ? SHIPPING_FAR : SHIPPING_FAR_BELOW;
+      regularShipping = SHIPPING_FAR;
     }
   }
   const coupon = opts.shippingCoupon;
@@ -227,7 +225,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/LA/NM/OK): $11.99 below $60, otherwise $8.99.
- * Sweets/mixed in far states: $55 merchandise minimum; $18.99 below $80, otherwise $11.99.
+ * Sweets/mixed in far states: $11.99 flat, with an $80 merchandise minimum.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */
