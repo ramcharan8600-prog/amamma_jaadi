@@ -341,15 +341,15 @@ describe('pricing — nearby states with the $100 tier', () => {
     }
   });
 
-  it.each(nearby)('%s: $11.99 below $60, $8.99 from $60, $6.99 from $100', (deliveryState) => {
+  it.each(nearby)('%s: $11.99 below $60, $8.99 from $60, $7.99 from $100', (deliveryState) => {
     const ship = (subtotal: number) =>
       calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0 }).shipping;
     expect(ship(40)).toBe(11.99);
     expect(ship(59.99)).toBe(11.99);
     expect(ship(60)).toBe(8.99);
     expect(ship(99.99)).toBe(8.99);
-    expect(ship(100)).toBe(6.99);
-    expect(ship(150)).toBe(6.99);
+    expect(ship(100)).toBe(7.99);
+    expect(ship(150)).toBe(7.99);
   });
 
   it('keeps Texas, far states and pickle-only rates unchanged', () => {
@@ -359,8 +359,8 @@ describe('pricing — nearby states with the $100 tier', () => {
     expect(getDeliveryMinimumSubtotal('NC')).toBe(80);
   });
 
-  it('applies the regional coupon saving to the $6.99 nearby tier', () => {
+  it('applies the regional coupon saving to the $7.99 nearby tier', () => {
     expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', deliveryState: 'GA', taxableSubtotal: 0,
-      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'regional_v1' } }).shipping).toBe(2.99);
+      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'regional_v1' } }).shipping).toBe(3.99);
   });
 });

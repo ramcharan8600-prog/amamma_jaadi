@@ -49,7 +49,7 @@ export const SHIPPING_PICKLES_THREE_PLUS = 4.99;
 /** Shipping rates for the configured nearby-state region: under $60, $60-$99.99, $100+. */
 export const SHIPPING_NEARBY_BELOW = 11.99;
 export const SHIPPING_NEARBY_ABOVE = 8.99;
-export const SHIPPING_NEARBY_100 = 6.99;
+export const SHIPPING_NEARBY_100 = 7.99;
 
 /** Flat shipping for eligible far-state orders. */
 export const SHIPPING_FAR = 11.99;
