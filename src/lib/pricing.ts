@@ -19,9 +19,10 @@ import {
   SHIPPING_NEARBY_ABOVE,
   SHIPPING_NEARBY_100,
   SHIPPING_FAR,
-  SHIPPING_MALAI_KHAJA_OUT_OF_STATE,
+  SHIPPING_GROUND_OUT_OF_STATE,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod } from '@/types';
+import { ASSORTED_BOX_PRODUCT_ID } from '@/data/products';
 import type { ShippingCouponPolicy } from '@/lib/coupons';
 
 /**
@@ -127,7 +128,7 @@ export function getShippingZone(state: string | undefined | null): ShippingZone 
 
 /**
  * `standardShipping` is true for carts that do not go UPS 2nd Day Air:
- * pickle-only carts and Malai Khaja-only carts (see isMalaiKhajaOnlyCart).
+ * pickle-only carts and ground-shipped carts (see isGroundShippingCart).
  */
 export function shippingMethodLabel(method: DeliveryShippingMethod | null | undefined, standardShipping = false): string {
   if (method === 'expedited') return 'Expedited — estimated 2 business days in transit';
@@ -138,30 +139,32 @@ export function shippingMethodLabel(method: DeliveryShippingMethod | null | unde
 export const MALAI_KHAJA_PRODUCT_ID = 'sweet-malai-khaja';
 
 /**
- * A cart holding nothing but Malai Khaja. Outside Texas it ships UPS Ground
- * for at most $9.99 with no minimum, so customers can try it on its own.
- * This is intentionally quiet: no banner or copy mentions it.
+ * A cart holding nothing but Malai Khaja, or nothing but the Assorted Box.
+ * Outside Texas it ships UPS Ground for at most $9.99 with no minimum, so
+ * customers can try it on its own. Mixing the two, or adding anything else,
+ * restores the regular rates. Intentionally quiet: no banner or copy mentions it.
  */
-export function isMalaiKhajaOnlyCart(items: ReadonlyArray<{ productId: string }>): boolean {
-  return items.length > 0 && items.every(({ productId }) => productId === MALAI_KHAJA_PRODUCT_ID);
+export function isGroundShippingCart(items: ReadonlyArray<{ productId: string }>): boolean {
+  return items.length > 0 && [MALAI_KHAJA_PRODUCT_ID, ASSORTED_BOX_PRODUCT_ID]
+    .some((id) => items.every(({ productId }) => productId === id));
 }
 
-/** Pickle-only and Malai Khaja-only carts have no minimum; other far-state orders require $80. */
+/** Pickle-only and ground-shipped carts have no minimum; other far-state orders require $80. */
 export function getDeliveryMinimumSubtotal(
   state: string | undefined | null,
   picklesOnly = false,
-  malaiKhajaOnly = false
+  groundShipping = false
 ): number {
-  return !picklesOnly && !malaiKhajaOnly && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
+  return !picklesOnly && !groundShipping && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
 
 export function getDeliveryMinimumShortfall(
   subtotal: number,
   state: string | undefined | null,
   picklesOnly = false,
-  malaiKhajaOnly = false
+  groundShipping = false
 ): number {
-  return roundMoney(Math.max(0, getDeliveryMinimumSubtotal(state, picklesOnly, malaiKhajaOnly) - Math.max(0, subtotal)));
+  return roundMoney(Math.max(0, getDeliveryMinimumSubtotal(state, picklesOnly, groundShipping) - Math.max(0, subtotal)));
 }
 
 export interface OrderTotals {
@@ -175,8 +178,8 @@ export interface OrderTotals {
 export interface ShippingOptions {
   fulfillmentType?: 'pickup' | 'delivery';
   picklesOnly?: boolean;
-  /** Cart holds only Malai Khaja: out-of-state shipping is capped at $9.99. */
-  malaiKhajaOnly?: boolean;
+  /** Cart holds only Malai Khaja or only the Assorted Box: out-of-state shipping is capped at $9.99. */
+  groundShipping?: boolean;
   pickleJarCount?: number;
   deliveryState?: string;
   shippingMethod?: DeliveryShippingMethod;
@@ -213,8 +216,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
       regularShipping = SHIPPING_FAR;
     }
     // Never more than the regular rate: large nearby orders keep $8.99 / $7.99.
-    if (opts.malaiKhajaOnly && !opts.picklesOnly && zone !== 'texas') {
-      regularShipping = Math.min(regularShipping, SHIPPING_MALAI_KHAJA_OUT_OF_STATE);
+    if (opts.groundShipping && !opts.picklesOnly && zone !== 'texas') {
+      regularShipping = Math.min(regularShipping, SHIPPING_GROUND_OUT_OF_STATE);
     }
   }
   const coupon = opts.shippingCoupon;
@@ -242,7 +245,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/KS/LA/MS/NM/OK/TN): $11.99 below $60, $8.99 from $60, $7.99 from $100.
  * Sweets/mixed in far states: $11.99 flat, with an $80 merchandise minimum.
- * Malai Khaja-only outside Texas: the lower of $9.99 and the rate above, no minimum.
+ * Only Malai Khaja, or only the Assorted Box, outside Texas: the lower of $9.99 and the rate above, no minimum.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */

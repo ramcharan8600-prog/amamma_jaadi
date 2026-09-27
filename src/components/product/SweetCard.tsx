@@ -32,7 +32,7 @@ export default function SweetCard({ product }: SweetCardProps) {
   const prepNotice = readyFromStock ? 'Freshly made and in stock.' : product.prepNotice;
   const freshNotice = readyFromStock || product.prepNoticeTone === 'fresh';
 
-  const currentPrice = calculateSweetPrice(product.unitPrice, selectedTier);
+  const currentPrice = calculateSweetPrice(product, selectedTier);
 
   const boxLimit = isAssortedBox && loaded && count !== null ? count : null;
   const soldOut = !product.inStock || (boxLimit !== null && boxLimit <= 0);
@@ -102,7 +102,7 @@ export default function SweetCard({ product }: SweetCardProps) {
           <h3 className="font-display text-xl font-semibold text-brand-charcoal">
             {product.name}
           </h3>
-          <p className="font-body text-sm text-brand-charcoal/60 mt-1.5 leading-relaxed line-clamp-2">
+          <p className={`font-body text-sm text-brand-charcoal/60 mt-1.5 leading-relaxed ${product.description.includes('\n') ? '' : 'line-clamp-2'}`}>
             {renderDescription(product.description)}
           </p>
         </div>
@@ -132,7 +132,7 @@ export default function SweetCard({ product }: SweetCardProps) {
           >
             {tiers.map((tier) => (
               <option key={tier} value={tier}>
-                {tier} pcs — {formatCurrency(calculateSweetPrice(product.unitPrice, tier))}
+                {tier} pcs — {formatCurrency(calculateSweetPrice(product, tier))}
               </option>
             ))}
           </select>

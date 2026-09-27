@@ -35,7 +35,7 @@ interface CartState {
 
 function computeLineTotal(product: Product, quantity: number, selectedTier?: number): number {
   if (product.category === 'sweets' && selectedTier) {
-    return calculateSweetPrice(product.unitPrice, selectedTier) * quantity;
+    return calculateSweetPrice(product, selectedTier) * quantity;
   }
   return product.unitPrice * quantity;
 }

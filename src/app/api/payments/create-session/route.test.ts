@@ -249,9 +249,12 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     { name: 'Oklahoma at exactly $100', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 50 }], fulfillment: delivery('OK'), subtotal: 100, shipping: 7.99 },
     { name: 'far at $80 including gift box', items: [gift, { productId: 'sweet-kova', quantity: 1, selectedTier: 25 }], fulfillment: delivery('WA'), subtotal: 80, shipping: 11.99 },
     { name: 'far at $82 with Kova boxes', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 25 }, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('WA'), subtotal: 82, shipping: 11.99 },
-    { name: 'assorted box pickup', items: [assorted], fulfillment: pickup, subtotal: 55, shipping: 0 },
-    { name: 'assorted box in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 55, shipping: 6.99 },
-    { name: 'far assorted box plus Kova at $87', items: [assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NY'), subtotal: 87, shipping: 11.99 },
+    { name: 'assorted box pickup', items: [assorted], fulfillment: pickup, subtotal: 60, shipping: 0 },
+    { name: 'assorted box in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 60, shipping: 6.99 },
+    { name: 'assorted box alone to a nearby state', items: [assorted], fulfillment: delivery('FL'), subtotal: 60, shipping: 8.99 },
+    { name: 'assorted box alone to a far state, no minimum', items: [assorted], fulfillment: delivery('NY'), subtotal: 60, shipping: 9.99 },
+    { name: 'two assorted boxes to a far state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('CA'), subtotal: 120, shipping: 9.99 },
+    { name: 'far assorted box plus Kova at $92', items: [assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NY'), subtotal: 92, shipping: 11.99 },
   ])('$name', async ({ items, fulfillment, subtotal, shipping }) => {
     const response = await post(checkout(items, fulfillment));
     expect(response.status).toBe(201);
@@ -283,10 +286,10 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     expect(mocks.inserts).toHaveLength(0);
   });
 
-  it('blocks a far-state Assorted Box alone below the $80 minimum', async () => {
-    const response = await post(checkout([assorted], delivery('NY')));
+  it('keeps the far-state minimum for an Assorted Box mixed with a pickle', async () => {
+    const response = await post(checkout([assorted, { productId: 'pickle-chicken', quantity: 1 }], delivery('NY')));
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('Add $25.00 more');
+    expect((await response.json()).error).toContain('Add $2.00 more');
     expect(mocks.inserts).toHaveLength(0);
   });
 
@@ -310,7 +313,7 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     mocks.getStockMap.mockResolvedValue({ 'sweet-assorted-box': 2 });
     const response = await post(checkout([{ ...assorted, quantity: 2 }], pickup));
     expect(response.status).toBe(201);
-    expect((await response.json()).subtotal).toBe(110);
+    expect((await response.json()).subtotal).toBe(120);
   });
 
   it.each(['AL', 'CO', 'NC', 'WA'])('rejects the $30 gift box alone outside Texas (%s)', async (state) => {

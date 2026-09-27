@@ -110,12 +110,15 @@ export const PRODUCTS: Product[] = [
     // Stock is counted separately, in whole boxes (see isStockTracked).
     id: 'sweet-assorted-box',
     slug: 'assorted-sweets-box',
-    name: 'Assorted Box — Malpuri & Malai Khaja',
-    // **…** renders bold on the storefront and is stripped for search engines.
+    name: 'Special Edition Assorted Box — Malpuri & Malai Khaja',
+    // **…** renders bold; each new line starts a line on the card and "* " makes
+    // it a bullet. Markers are stripped for search engines.
     description:
-      'Made for **your 11:11 sweet cravings** — 11 pcs Guntur Malpuri and 11 pcs Nellore Malai Khaja packed together in one box. Perfect for sharing, gifting and festivals.',
+      'Made for **your 11:11 sweet cravings**\n* **11 Guntur Malpuri**\n* **11 Nellore Malai Khaja**\nPacked together in one box. Perfect for sharing, gifting and festivals.',
     category: 'sweets',
     unitPrice: 2.5,
+    // 22 pieces for $60 (not a whole-cent multiple of 22).
+    tierPrices: { 22: 60 },
     image: '/images/products/texas-limited-gift-box-closed.jpg',
     imageFit: 'contain',
     // Shown side by side with the closed box, like the Sweet Memories gift box.
@@ -326,8 +329,8 @@ export function productNamesFromIds(ids: string[]): string {
   return ids.map((id) => getProductById(id)?.name || id).join(', ');
 }
 
-export function calculateSweetPrice(unitPrice: number, tier: number): number {
-  return unitPrice * tier;
+export function calculateSweetPrice(product: Pick<Product, 'unitPrice' | 'tierPrices'>, tier: number): number {
+  return product.tierPrices?.[tier] ?? product.unitPrice * tier;
 }
 
 /** Total pieces across all cart items (for large-order restriction) */

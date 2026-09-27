@@ -736,12 +736,23 @@ describe('nationwide pickle-only delivery', () => {
     });
   });
 
-  it('blocks an Assorted Box alone below the far-state $80 minimum', async () => {
+  it('quietly ships an Assorted Box alone out of state for $9.99 with no minimum', async () => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await enterDeliveryDetails('NY');
-    expect(host.textContent).toContain('A minimum product subtotal of $80.00');
-    expect(host.textContent).toContain('$25.00');
-    expect(button('Continue to payment').disabled).toBe(true);
+    expect(host.textContent).not.toContain('A minimum product subtotal');
+    expect(host.textContent).toContain('$9.99');
+    expect(host.textContent).toContain('$69.99');
+    expect(host.textContent).toContain('Standard shipping');
+    expect(button('Continue to payment').disabled).toBe(false);
+  });
+
+  it('keeps the far-state minimum when the Assorted Box is mixed with Malai Khaja', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
+    useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 16);
+    await enterDeliveryDetails('NY');
+    expect(host.textContent).toContain('UPS 2nd Day Air');
+    expect(host.textContent).toContain('$11.99');
+    expect(button('Continue to payment').disabled).toBe(false);
   });
 
   it('treats Florida as nearby: no minimum and $11.99 below $60', async () => {

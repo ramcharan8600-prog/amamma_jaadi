@@ -43,12 +43,17 @@ async function renderAssorted(stock: Record<string, number>) {
   return {host,cleanup};
 }
 
-it('offers the Assorted Box as a single 22-piece, $55 box with a bold 11:11 line and both gift-box photos',async()=>{
+it('offers the Special Edition Assorted Box as a single 22-piece, $60 box with bold bullet lines and both gift-box photos',async()=>{
   const {host,cleanup}=await renderAssorted({});
   try{
-    expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['22 pcs — $55.00']);
-    expect(host.textContent).toContain('11 pcs Guntur Malpuri and 11 pcs Nellore Malai Khaja');
-    expect(host.querySelector('strong')?.textContent).toBe('your 11:11 sweet cravings');
+    expect(host.querySelector('h3')?.textContent).toBe('Special Edition Assorted Box — Malpuri & Malai Khaja');
+    expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['22 pcs — $60.00']);
+    expect(Array.from(host.querySelectorAll('strong')).map(s=>s.textContent))
+      .toEqual(['your 11:11 sweet cravings', '11 Guntur Malpuri', '11 Nellore Malai Khaja']);
+    const lines=Array.from(host.querySelectorAll('p span.block')).map(s=>s.textContent);
+    expect(lines).toEqual(['Made for your 11:11 sweet cravings', '• 11 Guntur Malpuri', '• 11 Nellore Malai Khaja',
+      'Packed together in one box. Perfect for sharing, gifting and festivals.']);
+    expect(host.querySelector('p.line-clamp-2')).toBeNull();
     expect(host.textContent).not.toContain('**');
     expect(Array.from(host.querySelectorAll('img')).map(img=>img.getAttribute('src'))).toEqual([
       '/images/products/texas-limited-gift-box-closed.jpg',
@@ -75,7 +80,7 @@ it('limits Assorted Boxes in the cart to the box count',async()=>{
     const add=()=>host.querySelector('button')!;
     await act(async()=>add().click());
     await act(async()=>add().click());
-    expect(useCartStore.getState().items).toEqual([expect.objectContaining({productId:'sweet-assorted-box',quantity:2,selectedTier:22,lineTotal:110})]);
+    expect(useCartStore.getState().items).toEqual([expect.objectContaining({productId:'sweet-assorted-box',quantity:2,selectedTier:22,lineTotal:120})]);
     expect(add().disabled).toBe(true);
     expect(add().textContent).toContain('All available boxes in cart');
   }finally{await cleanup();}

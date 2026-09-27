@@ -10,7 +10,7 @@ import {
   type ShippingOptions,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
-  isMalaiKhajaOnlyCart,
+  isGroundShippingCart,
   isSupportedDeliveryState,
   normalizeStateCode,
 } from '@/lib/pricing';
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const cart = validateCart(body.items);
     if (!cart.ok) return fail(cart.error, cart.status);
     const picklesOnly = cart.items.every(({ product }) => product.category === 'pickles');
-    const malaiKhajaOnly = isMalaiKhajaOnlyCart(cart.items);
+    const groundShipping = isGroundShippingCart(cart.items);
     const customerName = sanitize(body.customerName, 100);
     const email = sanitize(body.email, 200).toLowerCase();
     const rawPhone = sanitize(body.phone, 20);
@@ -128,8 +128,8 @@ export async function POST(request: NextRequest) {
 
       // Pickle-only orders have no minimum. For sweets/mixed carts, check the
       // destination minimum before the gift-box minimum to give one requirement.
-      const minimumSubtotal = getDeliveryMinimumSubtotal(normalizedDeliveryState, picklesOnly, malaiKhajaOnly);
-      const minimumShortfall = getDeliveryMinimumShortfall(serverTotal, normalizedDeliveryState, picklesOnly, malaiKhajaOnly);
+      const minimumSubtotal = getDeliveryMinimumSubtotal(normalizedDeliveryState, picklesOnly, groundShipping);
+      const minimumShortfall = getDeliveryMinimumShortfall(serverTotal, normalizedDeliveryState, picklesOnly, groundShipping);
       if (minimumShortfall > 0) {
         return fail(
           `A minimum product subtotal of $${minimumSubtotal.toFixed(2)} is required for delivery to this state. Add $${minimumShortfall.toFixed(2)} more to continue.`,
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
       fulfillmentType,
       taxableSubtotal: taxableTotal,
       picklesOnly,
-      malaiKhajaOnly,
+      groundShipping,
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       deliveryState,
       shippingMethod,

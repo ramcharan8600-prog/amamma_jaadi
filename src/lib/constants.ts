@@ -55,7 +55,7 @@ export const SHIPPING_NEARBY_100 = 7.99;
 export const SHIPPING_FAR = 11.99;
 
 /**
- * Out-of-state cap for carts holding only Malai Khaja (shipped UPS Ground).
- * No minimum applies. Deliberately not advertised anywhere on the site.
+ * Out-of-state cap for carts holding only Malai Khaja, or only the Assorted
+ * Box (shipped UPS Ground). No minimum applies. Deliberately not advertised.
  */
-export const SHIPPING_MALAI_KHAJA_OUT_OF_STATE = 9.99;
+export const SHIPPING_GROUND_OUT_OF_STATE = 9.99;

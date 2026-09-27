@@ -25,7 +25,7 @@ describe('product catalog integrity', () => {
     for (const key of ['category', 'image', 'unitPrice', 'quantityOptions', 'inStock', 'prepNotice'] as const) {
       expect(kovaBobbatlu[key]).toEqual(original[key]);
     }
-    expect(kovaBobbatlu.quantityOptions?.map(tier => calculateSweetPrice(kovaBobbatlu.unitPrice, tier))).toEqual([48, 75, 150]);
+    expect(kovaBobbatlu.quantityOptions?.map(tier => calculateSweetPrice(kovaBobbatlu, tier))).toEqual([48, 75, 150]);
     expect(isStockTracked(kovaBobbatlu)).toBe(true);
     expect(isProductTaxExempt(kovaBobbatlu)).toBe(true);
   });
@@ -150,9 +150,17 @@ describe('lookups', () => {
 
 describe('pricing math (money path)', () => {
   it('calculateSweetPrice multiplies unit price by tier', () => {
-    expect(calculateSweetPrice(3, 16)).toBe(48);
-    expect(calculateSweetPrice(4, 25)).toBe(100);
-    expect(calculateSweetPrice(2, 50)).toBe(100);
+    expect(calculateSweetPrice({ unitPrice: 3 }, 16)).toBe(48);
+    expect(calculateSweetPrice({ unitPrice: 4 }, 25)).toBe(100);
+    expect(calculateSweetPrice({ unitPrice: 2 }, 50)).toBe(100);
+  });
+
+  it('uses a fixed tier price when one is set (Assorted Box: 22 pcs for $60)', () => {
+    const box = getProductById('sweet-assorted-box')!;
+    expect(box.name).toBe('Special Edition Assorted Box — Malpuri & Malai Khaja');
+    expect(box.quantityOptions).toEqual([22]);
+    expect(calculateSweetPrice(box, 22)).toBe(60);
+    expect(calculateSweetPrice({ unitPrice: 2.5, tierPrices: { 22: 60 } }, 16)).toBe(40);
   });
 
   it('getTotalPieces counts sweet tiers as pieces', () => {

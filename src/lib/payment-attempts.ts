@@ -6,7 +6,7 @@ import { isValidPhone } from '@/lib/contact-validation';
 import { isValidCouponMinimum } from '@/lib/coupons';
 import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
-import { calculateOrderTotals, getDeliveryMinimumShortfall, isMalaiKhajaOnlyCart, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions } from '@/lib/pricing';
+import { calculateOrderTotals, getDeliveryMinimumShortfall, isGroundShippingCart, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
   executeSquarePaymentRequest,
@@ -91,7 +91,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     const cart = validateCart(typeof session.cart_data === 'string' ? JSON.parse(session.cart_data) : session.cart_data);
     if (!cart.ok) return null;
     const picklesOnly = cart.items.every(({ product }) => product.category === 'pickles');
-    const malaiKhajaOnly = isMalaiKhajaOnlyCart(cart.items);
+    const groundShipping = isGroundShippingCart(cart.items);
     const fulfillment = typeof session.fulfillment_data === 'string' ? JSON.parse(session.fulfillment_data) : session.fulfillment_data;
     if (!fulfillment || typeof fulfillment !== 'object' || Array.isArray(fulfillment) ||
         (fulfillment.type !== 'pickup' && fulfillment.type !== 'delivery')) return null;
@@ -106,7 +106,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     }
     const state = normalizeStateCode(fulfillment.state);
     if (delivery && (!isSupportedDeliveryState(state) ||
-        getDeliveryMinimumShortfall(cart.subtotal, state, picklesOnly, malaiKhajaOnly) > 0 ||
+        getDeliveryMinimumShortfall(cart.subtotal, state, picklesOnly, groundShipping) > 0 ||
         cart.items.some(item => item.product.deliveryStateCodes?.length &&
           !item.product.deliveryStateCodes.includes(state) &&
           cart.subtotal < (item.product.deliveryOutsideStateMinimum ?? Number.POSITIVE_INFINITY)))) return null;
@@ -129,7 +129,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
       shippingCoupon,
       legacyPickleRates: !['texas_v2', 'texas_v3'].includes(String(session.pricing_policy)),
       picklesOnly,
-      malaiKhajaOnly,
+      groundShipping,
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       taxableSubtotal: cart.taxableSubtotal, fulfillmentType: delivery ? 'delivery' : 'pickup',
       deliveryState: delivery ? state : undefined,

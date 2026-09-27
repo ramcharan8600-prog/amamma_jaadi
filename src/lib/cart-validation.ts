@@ -85,7 +85,8 @@ export function validateCart(input: unknown): CartValidationResult {
     }
 
     const unitCents = Math.round(product.unitPrice * 100);
-    const lineCents = unitCents * (selectedTier ?? 1) * quantity;
+    const tierPrice = selectedTier === undefined ? undefined : product.tierPrices?.[selectedTier];
+    const lineCents = (tierPrice === undefined ? unitCents * (selectedTier ?? 1) : Math.round(tierPrice * 100)) * quantity;
     if (
       !Number.isFinite(product.unitPrice) ||
       !Number.isSafeInteger(unitCents) ||

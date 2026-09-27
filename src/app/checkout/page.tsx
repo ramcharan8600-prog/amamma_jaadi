@@ -39,7 +39,7 @@ import {
   DELIVERY_STATE_OPTIONS,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
-  isMalaiKhajaOnlyCart,
+  isGroundShippingCart,
   isSupportedDeliveryState,
   SALES_TAX_LABEL,
   shippingMethodLabel,
@@ -355,15 +355,15 @@ export default function CheckoutPage() {
   );
   const resolvedShippingMethod: DeliveryShippingMethod = 'standard';
   const picklesOnly = items.length > 0 && items.every(({ product }) => product.category === 'pickles');
-  const malaiKhajaOnly = isMalaiKhajaOnlyCart(items);
+  const groundShipping = isGroundShippingCart(items);
   // Pickle-only and Malai Khaja-only carts don't ship UPS 2nd Day Air.
-  const standardShipping = picklesOnly || malaiKhajaOnly;
+  const standardShipping = picklesOnly || groundShipping;
   const pricingOptions = useMemo<ShippingOptions & { taxableSubtotal: number }>(
     () => ({
       taxableSubtotal,
       shippingCoupon: appliedCoupon?.type === 'free_delivery' ? appliedCoupon : undefined,
       picklesOnly,
-      malaiKhajaOnly,
+      groundShipping,
       pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,
@@ -372,7 +372,7 @@ export default function CheckoutPage() {
           ? 'standard'
           : undefined,
     }),
-    [taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, malaiKhajaOnly, appliedCoupon]
+    [taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, groundShipping, appliedCoupon]
   );
   const totals = useMemo(() => calculateOrderTotals(subtotal, pricingOptions), [subtotal, pricingOptions]);
   const shippingQuote = useMemo(() => calculateShippingQuote(subtotal, pricingOptions), [subtotal, pricingOptions]);
@@ -395,9 +395,9 @@ export default function CheckoutPage() {
   };
 
   const deliveryMinimumShortfall = isSupportedDeliveryState(deliveryState)
-    ? getDeliveryMinimumShortfall(subtotal, deliveryState, picklesOnly, malaiKhajaOnly)
+    ? getDeliveryMinimumShortfall(subtotal, deliveryState, picklesOnly, groundShipping)
     : 0;
-  const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState, picklesOnly, malaiKhajaOnly);
+  const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState, picklesOnly, groundShipping);
   const stateRestrictedItem = isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0
     ? items.find(({ product }) =>
         product.deliveryStateCodes?.length &&
@@ -1251,7 +1251,7 @@ export default function CheckoutPage() {
             <p className="font-body text-sm text-green-800">
               {picklesOnly
                 ? 'Pickle-only orders use Standard shipping. Tracking details will be emailed when your order ships.'
-                : malaiKhajaOnly
+                : groundShipping
                   ? 'This order uses Standard shipping. Tracking details will be emailed when your order ships.'
                   : 'We use UPS 2nd Day Air for out-of-state orders containing sweets. Packages typically arrive within 2 business days after dispatch.'}
             </p>

@@ -11,7 +11,7 @@ import {
   isSupportedDeliveryState,
   normalizeStateCode,
   shippingMethodLabel,
-  isMalaiKhajaOnlyCart,
+  isGroundShippingCart,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
 } from './pricing';
@@ -371,16 +371,19 @@ describe('pricing — nearby states with the $100 tier', () => {
 });
 
 describe('pricing — Malai Khaja-only carts', () => {
-  const ship = (subtotal: number, deliveryState: string, malaiKhajaOnly = true) =>
-    calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0, malaiKhajaOnly }).shipping;
+  const ship = (subtotal: number, deliveryState: string, groundShipping = true) =>
+    calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0, groundShipping }).shipping;
 
-  it('recognises only carts made entirely of Malai Khaja', () => {
-    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-malai-khaja' }])).toBe(true);
-    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-malai-khaja' }, { productId: 'sweet-malai-khaja' }])).toBe(true);
-    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-malai-khaja' }, { productId: 'sweet-kova' }])).toBe(false);
-    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-malai-khaja' }, { productId: 'pickle-chicken' }])).toBe(false);
-    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-assorted-box' }])).toBe(false);
-    expect(isMalaiKhajaOnlyCart([])).toBe(false);
+  it('recognises carts made entirely of Malai Khaja, or entirely of the Assorted Box', () => {
+    expect(isGroundShippingCart([{ productId: 'sweet-malai-khaja' }])).toBe(true);
+    expect(isGroundShippingCart([{ productId: 'sweet-malai-khaja' }, { productId: 'sweet-malai-khaja' }])).toBe(true);
+    expect(isGroundShippingCart([{ productId: 'sweet-malai-khaja' }, { productId: 'sweet-kova' }])).toBe(false);
+    expect(isGroundShippingCart([{ productId: 'sweet-malai-khaja' }, { productId: 'pickle-chicken' }])).toBe(false);
+    expect(isGroundShippingCart([{ productId: 'sweet-assorted-box' }])).toBe(true);
+    expect(isGroundShippingCart([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-assorted-box' }])).toBe(true);
+    expect(isGroundShippingCart([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-malai-khaja' }])).toBe(false);
+    expect(isGroundShippingCart([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-malpuri' }])).toBe(false);
+    expect(isGroundShippingCart([])).toBe(false);
   });
 
   it('keeps $6.99 in Texas', () => {
@@ -411,7 +414,7 @@ describe('pricing — Malai Khaja-only carts', () => {
   });
 
   it('gives no shipping-coupon discount on the $9.99 rate', () => {
-    expect(calculateOrderTotals(50, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0, malaiKhajaOnly: true,
+    expect(calculateOrderTotals(50, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0, groundShipping: true,
       shippingCoupon: { minSubtotal: 50, shippingPolicy: 'texas_v3' } }).shipping).toBe(9.99);
   });
 });
