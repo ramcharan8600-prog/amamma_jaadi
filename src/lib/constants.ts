@@ -32,6 +32,9 @@ export const BUSINESS_TZ = 'America/Chicago';
 /** The $60 boundary used by nearby-state shipping. */
 export const STANDARD_SHIPPING_THRESHOLD = 60;
 
+/** At or above this subtotal, nearby-state sweets/mixed orders ship for SHIPPING_NEARBY_100. */
+export const NEARBY_SHIPPING_TOP_THRESHOLD = 100;
+
 /** Minimum merchandise subtotal for far-state delivery when sweets are included. */
 export const FAR_SHIPPING_MINIMUM = 80;
 
@@ -43,9 +46,10 @@ export const SHIPPING_PICKLES_SINGLE = 6.99;
 export const SHIPPING_PICKLES_DOUBLE = 5.99;
 export const SHIPPING_PICKLES_THREE_PLUS = 4.99;
 
-/** Shipping rates for the configured nearby-state region. */
+/** Shipping rates for the configured nearby-state region: under $60, $60-$99.99, $100+. */
 export const SHIPPING_NEARBY_BELOW = 11.99;
 export const SHIPPING_NEARBY_ABOVE = 8.99;
+export const SHIPPING_NEARBY_100 = 6.99;
 
 /** Flat shipping for eligible far-state orders. */
 export const SHIPPING_FAR = 11.99;

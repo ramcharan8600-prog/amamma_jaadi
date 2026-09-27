@@ -9,6 +9,7 @@
 
 import {
   STANDARD_SHIPPING_THRESHOLD,
+  NEARBY_SHIPPING_TOP_THRESHOLD,
   FAR_SHIPPING_MINIMUM,
   SHIPPING_TX,
   SHIPPING_PICKLES_SINGLE,
@@ -16,6 +17,7 @@ import {
   SHIPPING_PICKLES_THREE_PLUS,
   SHIPPING_NEARBY_BELOW,
   SHIPPING_NEARBY_ABOVE,
+  SHIPPING_NEARBY_100,
   SHIPPING_FAR,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod } from '@/types';
@@ -44,7 +46,7 @@ export function isTexas(state: string | undefined | null): boolean {
 }
 
 /** States in the nearby shipping region. */
-export const NEARBY_STATE_CODES = ['AL', 'AR', 'CO', 'LA', 'NM', 'OK'] as const;
+export const NEARBY_STATE_CODES = ['AL', 'AR', 'CO', 'FL', 'GA', 'KS', 'LA', 'MS', 'NM', 'OK', 'TN'] as const;
 
 /**
  * Supported delivery destinations. Alaska and Hawaii intentionally remain
@@ -183,7 +185,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else if (zone === 'texas') {
       regularShipping = SHIPPING_TX;
     } else if (zone === 'nearby') {
-      regularShipping = subtotal >= STANDARD_SHIPPING_THRESHOLD ? SHIPPING_NEARBY_ABOVE : SHIPPING_NEARBY_BELOW;
+      regularShipping = subtotal >= NEARBY_SHIPPING_TOP_THRESHOLD ? SHIPPING_NEARBY_100
+        : subtotal >= STANDARD_SHIPPING_THRESHOLD ? SHIPPING_NEARBY_ABOVE : SHIPPING_NEARBY_BELOW;
     } else {
       regularShipping = SHIPPING_FAR;
     }
@@ -224,7 +227,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Texas sweets and mixed carts: $6.99.
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
- * Sweets/mixed in nearby states (AL/AR/CO/LA/NM/OK): $11.99 below $60, otherwise $8.99.
+ * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/KS/LA/MS/NM/OK/TN): $11.99 below $60, $8.99 from $60, $6.99 from $100.
  * Sweets/mixed in far states: $11.99 flat, with an $80 merchandise minimum.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.

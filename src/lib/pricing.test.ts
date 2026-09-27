@@ -330,3 +330,37 @@ describe('regional shipping coupons', () => {
     expect(calculateShippingQuote(80, { fulfillmentType: 'pickup', shippingCoupon }).couponSavings).toBe(0);
   });
 });
+
+describe('pricing — nearby states with the $100 tier', () => {
+  const nearby = ['AL', 'AR', 'CO', 'FL', 'GA', 'KS', 'LA', 'MS', 'NM', 'OK', 'TN'];
+
+  it('treats the five added states as nearby with no minimum', () => {
+    for (const state of nearby) {
+      expect(getShippingZone(state)).toBe('nearby');
+      expect(getDeliveryMinimumSubtotal(state)).toBe(0);
+    }
+  });
+
+  it.each(nearby)('%s: $11.99 below $60, $8.99 from $60, $6.99 from $100', (deliveryState) => {
+    const ship = (subtotal: number) =>
+      calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0 }).shipping;
+    expect(ship(40)).toBe(11.99);
+    expect(ship(59.99)).toBe(11.99);
+    expect(ship(60)).toBe(8.99);
+    expect(ship(99.99)).toBe(8.99);
+    expect(ship(100)).toBe(6.99);
+    expect(ship(150)).toBe(6.99);
+  });
+
+  it('keeps Texas, far states and pickle-only rates unchanged', () => {
+    expect(calculateOrderTotals(120, { fulfillmentType: 'delivery', deliveryState: 'TX', taxableSubtotal: 0 }).shipping).toBe(6.99);
+    expect(calculateOrderTotals(120, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0 }).shipping).toBe(11.99);
+    expect(calculateOrderTotals(18, { fulfillmentType: 'delivery', deliveryState: 'FL', picklesOnly: true, pickleJarCount: 1 }).shipping).toBe(6.99);
+    expect(getDeliveryMinimumSubtotal('NC')).toBe(80);
+  });
+
+  it('applies the regional coupon saving to the $6.99 nearby tier', () => {
+    expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', deliveryState: 'GA', taxableSubtotal: 0,
+      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'regional_v1' } }).shipping).toBe(2.99);
+  });
+});
