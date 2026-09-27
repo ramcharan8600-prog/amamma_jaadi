@@ -11,6 +11,7 @@ import {
   isSupportedDeliveryState,
   normalizeStateCode,
   shippingMethodLabel,
+  isMalaiKhajaOnlyCart,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
 } from './pricing';
@@ -362,5 +363,51 @@ describe('pricing — nearby states with the $100 tier', () => {
   it('applies the regional coupon saving to the $7.99 nearby tier', () => {
     expect(calculateOrderTotals(100, { fulfillmentType: 'delivery', deliveryState: 'GA', taxableSubtotal: 0,
       shippingCoupon: { minSubtotal: 50, shippingPolicy: 'regional_v1' } }).shipping).toBe(3.99);
+  });
+});
+
+describe('pricing — Malai Khaja-only carts', () => {
+  const ship = (subtotal: number, deliveryState: string, malaiKhajaOnly = true) =>
+    calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0, malaiKhajaOnly }).shipping;
+
+  it('recognises only carts made entirely of Malai Khaja', () => {
+    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-malai-khaja' }])).toBe(true);
+    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-malai-khaja' }, { productId: 'sweet-malai-khaja' }])).toBe(true);
+    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-malai-khaja' }, { productId: 'sweet-kova' }])).toBe(false);
+    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-malai-khaja' }, { productId: 'pickle-chicken' }])).toBe(false);
+    expect(isMalaiKhajaOnlyCart([{ productId: 'sweet-assorted-box' }])).toBe(false);
+    expect(isMalaiKhajaOnlyCart([])).toBe(false);
+  });
+
+  it('keeps $6.99 in Texas', () => {
+    expect(ship(40, 'TX')).toBe(6.99);
+    expect(ship(120, 'TX')).toBe(6.99);
+  });
+
+  it('caps nearby states at $9.99 but keeps the cheaper $8.99 / $7.99 tiers', () => {
+    expect(ship(40, 'FL')).toBe(9.99);
+    expect(ship(59.99, 'OK')).toBe(9.99);
+    expect(ship(60, 'GA')).toBe(8.99);
+    expect(ship(100, 'TN')).toBe(7.99);
+  });
+
+  it('ships to far states for $9.99 with no minimum', () => {
+    for (const state of ['NY', 'CA', 'WA', 'NC']) {
+      expect(ship(40, state)).toBe(9.99);
+      expect(ship(120, state)).toBe(9.99);
+      expect(getDeliveryMinimumSubtotal(state, false, true)).toBe(0);
+      expect(getDeliveryMinimumShortfall(40, state, false, true)).toBe(0);
+    }
+  });
+
+  it('leaves every other cart on the regular rates and minimum', () => {
+    expect(ship(40, 'FL', false)).toBe(11.99);
+    expect(ship(80, 'NY', false)).toBe(11.99);
+    expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(40);
+  });
+
+  it('takes the regional coupon saving off the $9.99 rate', () => {
+    expect(calculateOrderTotals(50, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0, malaiKhajaOnly: true,
+      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'regional_v1' } }).shipping).toBe(6.99);
   });
 });

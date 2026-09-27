@@ -753,6 +753,17 @@ describe('nationwide pickle-only delivery', () => {
     expect(button('Continue to payment').disabled).toBe(false);
   });
 
+  it('quietly ships a Malai Khaja-only cart out of state for $9.99 with no minimum', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 16);
+    await enterDeliveryDetails('NY');
+    expect(host.textContent).not.toContain('A minimum product subtotal');
+    expect(host.textContent).toContain('$9.99');
+    expect(host.textContent).toContain('$49.99');
+    expect(host.textContent).toContain('Standard shipping');
+    expect(host.textContent).not.toContain('UPS 2nd Day Air');
+    expect(button('Continue to payment').disabled).toBe(false);
+  });
+
   it('retains the far-state minimum when sweets are included', async () => {
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);

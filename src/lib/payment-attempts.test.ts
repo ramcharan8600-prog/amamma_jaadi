@@ -734,3 +734,15 @@ it.each([['TX', 0, 80.09], ['OK', 6.99, 84.93], ['NY', 6.99, 84.93]])('charges t
   expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
   expect(finalize.mock.calls[0][1]).toMatchObject({ shipping, coupon_snapshot: coupon });
 });
+
+it('charges a far-state Malai Khaja-only order below $80 at $9.99 shipping', async () => {
+  fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=9.99,tax=0,total_amount=49.99')
+    .run(JSON.stringify([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16, lineTotal: 40 }]),
+      JSON.stringify({ type: 'delivery', state: 'NY' }));
+  const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(
+    async () => ({ paymentId: 'payment-malai-khaja', status: 'COMPLETED' }));
+  expect(await runPaymentAttempt(fixture.db,
+    { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
+    .toMatchObject({ status: 'completed' });
+  expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(4999);
+});

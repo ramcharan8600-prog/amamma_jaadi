@@ -262,6 +262,27 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     expect(stored.reduce((sum, item) => sum + item.lineTotal, 0)).toBe(subtotal);
   });
 
+  it.each([
+    ['TX', 6.99],
+    ['FL', 9.99],
+    ['NY', 9.99],
+    ['CA', 9.99],
+  ])('ships a Malai Khaja-only cart to %s for %s with no minimum', async (state, shipping) => {
+    const response = await post(checkout([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16 }], delivery(state)));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 40, tax: 0, shipping, totalAmount: 40 + shipping });
+  });
+
+  it('keeps the far-state minimum when Malai Khaja is mixed with another sweet', async () => {
+    const response = await post(checkout([
+      { productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16 },
+      { productId: 'sweet-kova', quantity: 1, selectedTier: 16 },
+    ], delivery('NY')));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain('Add $8.00 more');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
   it('blocks a far-state Assorted Box alone below the $80 minimum', async () => {
     const response = await post(checkout([assorted], delivery('NY')));
     expect(response.status).toBe(400);

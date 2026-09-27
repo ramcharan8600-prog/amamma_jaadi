@@ -40,6 +40,7 @@ import {
   DELIVERY_STATE_OPTIONS,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
+  isMalaiKhajaOnlyCart,
   isSupportedDeliveryState,
   SALES_TAX_LABEL,
   shippingMethodLabel,
@@ -355,11 +356,15 @@ export default function CheckoutPage() {
   );
   const resolvedShippingMethod: DeliveryShippingMethod = 'standard';
   const picklesOnly = items.length > 0 && items.every(({ product }) => product.category === 'pickles');
+  const malaiKhajaOnly = isMalaiKhajaOnlyCart(items);
+  // Pickle-only and Malai Khaja-only carts don't ship UPS 2nd Day Air.
+  const standardShipping = picklesOnly || malaiKhajaOnly;
   const pricingOptions = useMemo<ShippingOptions & { taxableSubtotal: number }>(
     () => ({
       taxableSubtotal,
       shippingCoupon: appliedCoupon?.type === 'free_delivery' ? appliedCoupon : undefined,
       picklesOnly,
+      malaiKhajaOnly,
       pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,
@@ -368,7 +373,7 @@ export default function CheckoutPage() {
           ? 'standard'
           : undefined,
     }),
-    [taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, appliedCoupon]
+    [taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, malaiKhajaOnly, appliedCoupon]
   );
   const totals = useMemo(() => calculateOrderTotals(subtotal, pricingOptions), [subtotal, pricingOptions]);
   const shippingQuote = useMemo(() => calculateShippingQuote(subtotal, pricingOptions), [subtotal, pricingOptions]);
@@ -391,9 +396,9 @@ export default function CheckoutPage() {
   };
 
   const deliveryMinimumShortfall = isSupportedDeliveryState(deliveryState)
-    ? getDeliveryMinimumShortfall(subtotal, deliveryState, picklesOnly)
+    ? getDeliveryMinimumShortfall(subtotal, deliveryState, picklesOnly, malaiKhajaOnly)
     : 0;
-  const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState, picklesOnly);
+  const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState, picklesOnly, malaiKhajaOnly);
   const stateRestrictedItem = isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0
     ? items.find(({ product }) =>
         product.deliveryStateCodes?.length &&
@@ -933,7 +938,7 @@ export default function CheckoutPage() {
               </div>
               {fulfillmentType === 'delivery' && (
                 <ShippingCharge
-                  label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : deliveryState.trim() ? shippingMethodLabel(resolvedShippingMethod, picklesOnly) : 'Shipping estimate (select a state to confirm)'}
+                  label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : deliveryState.trim() ? shippingMethodLabel(resolvedShippingMethod, standardShipping) : 'Shipping estimate (select a state to confirm)'}
                   shipping={totals.shipping}
                   quote={shippingQuote}
                 />
@@ -1251,7 +1256,9 @@ export default function CheckoutPage() {
             <p className="font-body text-sm text-green-800">
               {picklesOnly
                 ? 'Pickle-only orders use Standard shipping. Tracking details will be emailed when your order ships.'
-                : 'We use UPS 2nd Day Air for out-of-state orders containing sweets. Packages typically arrive within 2 business days after dispatch.'}
+                : malaiKhajaOnly
+                  ? 'This order uses Standard shipping. Tracking details will be emailed when your order ships.'
+                  : 'We use UPS 2nd Day Air for out-of-state orders containing sweets. Packages typically arrive within 2 business days after dispatch.'}
             </p>
           </div>
 
@@ -1414,7 +1421,7 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
-              <ShippingCharge label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod, picklesOnly)}
+              <ShippingCharge label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod, standardShipping)}
                 shipping={totals.shipping} quote={shippingQuote} />
               <MaintenanceFee amount={totals.maintenanceFee} />
               {nearbyPickup && (
@@ -1487,7 +1494,7 @@ export default function CheckoutPage() {
               <span>{formatCurrency(sessionInfo.subtotal)}</span>
             </div>
             {fulfillment?.type === 'delivery' && (
-              <ShippingCharge label={fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod, picklesOnly)}
+              <ShippingCharge label={fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod, standardShipping)}
                 shipping={sessionInfo.shipping} quote={sessionInfo.shippingQuote} />
             )}
             <MaintenanceFee amount={sessionInfo.maintenanceFee} />

@@ -5,6 +5,7 @@ import { buildOrderConfirmationEmail, buildOwnerOrderAlertEmail } from '@/lib/em
 import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage } from '@/lib/email-outbox';
 import { getPickupLocationById, getProductById, isStockTracked, stockUnits } from '@/data/products';
 import { prepareOrderTaxRecord } from '@/lib/tax-records';
+import { isMalaiKhajaOnlyCart } from '@/lib/pricing';
 import type { DeliveryShippingMethod } from '@/types';
 import { couponBenefit, type CouponBenefit, type CouponRow } from '@/lib/coupons';
 
@@ -208,7 +209,9 @@ export async function createOrderFromSession(
     customerName: session.customer_name, phone: session.phone_number, items: emailItems,
     // Match the purchased cart used for shipping; complimentary display rows
     // must not change the service label between checkout and its confirmation.
-    picklesOnly: lines.length > 0 && lines.every((line) => getProductById(line.productId)?.category === 'pickles'),
+    // Drives the "Standard shipping" label: pickle-only and Malai Khaja-only carts.
+    picklesOnly: lines.length > 0 && (lines.every((line) => getProductById(line.productId)?.category === 'pickles') ||
+      isMalaiKhajaOnlyCart(lines)),
     fulfillmentType: fulfillment.type as 'pickup' | 'delivery',
     pickupDate: fulfillment.date,
     pickupLocation: pickup ? `${pickup.name} — ${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip}` : undefined,
