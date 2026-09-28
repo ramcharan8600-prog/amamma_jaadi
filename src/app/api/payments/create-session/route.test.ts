@@ -125,7 +125,14 @@ describe('create-session validates pickup dates before storing a payable session
       expect(mocks.inserts).toHaveLength(0);
     });
 
-  it.each(['2026-09-08', '2026-09-09', '2026-12-07'])('stores valid %s exactly', async (date) => {
+  it('rejects a Tuesday pickup date', async () => {
+    const response = await post(checkout([{ productId: 'pickle-chicken', quantity: 1 }], { ...pickup, date: '2026-09-15' }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain('Tuesdays');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it.each(['2026-09-09', '2026-09-10', '2026-12-07'])('stores valid %s exactly', async (date) => {
     expect((await post(checkout([sweet], { ...pickup, date }))).status).toBe(201);
     expect(JSON.parse(mocks.inserts[0][5] as string).date).toBe(date);
   });

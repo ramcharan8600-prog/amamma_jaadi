@@ -170,6 +170,8 @@ export interface OrderConfirmationParams {
   pickupDate?: string;
   /** Pickup location (name + address) — shown for pickup orders. */
   pickupLocation?: string;
+  /** Pickup window for the chosen location, e.g. "6:30 PM and 10:25 PM". */
+  pickupHours?: string;
   /** Delivery address — shown for delivery orders. */
   deliveryAddress?: string;
 }
@@ -188,7 +190,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
       <p style="margin: 0 0 6px; font-weight: bold; color: #7B1F1F;">Pickup</p>
       ${params.pickupDate ? `<p style="margin: 0 0 6px; color: #2D2926; font-size: 16px;"><strong>Date:</strong> <strong style="color: #7B1F1F;">${escapeHtml(formatPickupDate(params.pickupDate))}</strong></p>` : ''}
       ${params.pickupLocation ? `<p style="margin: 0 0 6px; color: #444;">${escapeHtml(params.pickupLocation)}</p>` : ''}
-      <p style="margin: 0; color: #666;">You can pick up your order between <strong>6:30 PM and 12:45 AM</strong> at the selected location.</p>
+      <p style="margin: 0; color: #666;">You can pick up your order between <strong>${escapeHtml(params.pickupHours ?? '6:30 PM and 12:45 AM')}</strong> at the selected location.</p>
     </div>`
       : `
     <div style="background: #FFF8F0; padding: 14px 16px; border-radius: 8px; margin: 16px 0;">

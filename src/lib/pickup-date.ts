@@ -5,6 +5,11 @@ export const MAX_PICKUP_DAYS_AHEAD = 90;
 export const SAME_DAY_PICKUP_CUTOFF_HOUR = 13;
 export const SAME_DAY_PICKUP_CUTOFF_MINUTE = 30;
 
+/** Pickup is closed on Tuesdays (UTC day 2 of a YYYY-MM-DD business date). */
+export function isPickupClosedDate(date: string): boolean {
+  return new Date(`${date}T00:00:00Z`).getUTCDay() === 2;
+}
+
 /** Product presence decides pickup lead time, independently of ready stock. */
 export function requiresNextDayPickup(items: Array<{ productId: string }>): boolean {
   return items.some(({ productId }) => isBobbatluProduct(productId) || productId === 'sweet-kova');
@@ -60,5 +65,6 @@ export function getPickupDateError(value: unknown, totalPieces: number, now = ne
     return 'Same-day pickup orders must be placed on or before 1:30 PM Central. Please select tomorrow or a later date.';
   }
   if (value > max) return `Pickup can be scheduled up to ${MAX_PICKUP_DAYS_AHEAD} days ahead. Please select an earlier date.`;
+  if (isPickupClosedDate(value)) return 'Pickup is not available on Tuesdays. Please select another date.';
   return null;
 }

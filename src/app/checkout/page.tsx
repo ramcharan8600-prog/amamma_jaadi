@@ -19,6 +19,7 @@ import { useCartStore } from '@/store/cart';
 import {
   ACTIVE_PICKUP_LOCATIONS,
   getPickupLocationById,
+  pickupWindowLabel,
   getTotalPieces as calculateTotalPieces,
   isProductTaxExempt,
   getBobbatluPieces,
@@ -1144,7 +1145,7 @@ export default function CheckoutPage() {
             <div className="bg-[#F7F0DF] border border-[#DDC795] rounded-xl p-4">
               <p className="font-body text-sm text-[#5A4524]">
                 Please pick up your orders between{' '}
-                <span className="font-semibold">6:30 PM and 12:45 AM</span> at the selected pickup
+                <span className="font-semibold">{selectedLocation ? pickupWindowLabel(selectedLocation) : '6:30 PM and 12:45 AM'}</span> at the selected pickup
                 location.
               </p>
             </div>

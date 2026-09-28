@@ -257,6 +257,7 @@ export const PICKUP_LOCATIONS: PickupLocation[] = [
     city: 'Plano',
     state: 'TX',
     zip: '75093',
+    pickupHours: { from: '6:30 PM', until: '12:50 AM' },
   },
   {
     id: 'irving-biryanify',
@@ -265,6 +266,7 @@ export const PICKUP_LOCATIONS: PickupLocation[] = [
     city: 'Irving',
     state: 'TX',
     zip: '75063',
+    pickupHours: { from: '6:30 PM', until: '12:45 AM' },
     // Partnership ended Sept 27, 2026; kept so earlier orders still resolve.
     active: false,
   },
@@ -275,6 +277,7 @@ export const PICKUP_LOCATIONS: PickupLocation[] = [
     city: 'Frisco',
     state: 'TX',
     zip: '75033',
+    pickupHours: { from: '6:30 PM', until: '10:25 PM' },
   },
   {
     id: 'irving-ravibabu',
@@ -283,6 +286,7 @@ export const PICKUP_LOCATIONS: PickupLocation[] = [
     city: 'Irving',
     state: 'TX',
     zip: '75063',
+    pickupHours: { from: '6:30 PM', until: '1:30 AM' },
   },
 ];
 
@@ -305,6 +309,11 @@ export function getPickupLocationById(id: string): PickupLocation | undefined {
 
 /** Locations customers can choose for new orders. */
 export const ACTIVE_PICKUP_LOCATIONS: PickupLocation[] = PICKUP_LOCATIONS.filter((l) => l.active !== false);
+
+/** "6:30 PM and 10:25 PM" — the pickup window for a location, as shown to customers. */
+export function pickupWindowLabel(location: Pick<PickupLocation, 'pickupHours'>): string {
+  return `${location.pickupHours.from} and ${location.pickupHours.until}`;
+}
 
 export function isActivePickupLocation(id: unknown): boolean {
   return typeof id === 'string' && ACTIVE_PICKUP_LOCATIONS.some((l) => l.id === id);

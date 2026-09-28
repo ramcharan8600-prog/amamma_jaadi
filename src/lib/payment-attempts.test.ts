@@ -22,7 +22,20 @@ function pickupDate(daysAhead = 0): string {
   return date.toISOString().slice(0, 10);
 }
 
-function pickupFulfillment(date: unknown = pickupDate(1)) {
+/** Like pickupDate, but steps past Tuesdays (pickup is closed) in `step` direction. */
+function openPickupDate(daysAhead = 1, step = 1): string {
+  let offset = daysAhead;
+  while (new Date(`${pickupDate(offset)}T00:00:00Z`).getUTCDay() === 2) offset += step;
+  return pickupDate(offset);
+}
+
+function nextTuesday(): string {
+  let offset = 1;
+  while (new Date(`${pickupDate(offset)}T00:00:00Z`).getUTCDay() !== 2) offset++;
+  return pickupDate(offset);
+}
+
+function pickupFulfillment(date: unknown = openPickupDate(1)) {
   return { type: 'pickup', date, locationId: 'plano-biryanify' };
 }
 
@@ -192,7 +205,8 @@ describe('durable payment recovery using real SQLite transactions', () => {
   });
 
   it.each([1, 90])('allows an initial pickup payment scheduled %i days ahead', async daysAhead => {
-    const date = pickupDate(daysAhead);
+    // Nearest open day: forward from 1, back from the 90-day limit.
+    const date = openPickupDate(daysAhead, daysAhead === 90 ? -1 : 1);
     fixture.sqlite.prepare('UPDATE payment_sessions SET fulfillment_data = ?')
       .run(JSON.stringify(pickupFulfillment(date)));
     const execute = vi.fn(async () => ({ paymentId: 'payment-one', status: 'COMPLETED' }));
@@ -206,6 +220,7 @@ describe('durable payment recovery using real SQLite transactions', () => {
   it.each([
     ['stale item price', 39, 0, pickupFulfillment()],
     ['retired pickup location', 40, 0, { ...pickupFulfillment(), locationId: 'irving-biryanify' }],
+    ['Tuesday pickup date', 40, 0, pickupFulfillment(nextTuesday())],
     ['far-state minimum bypass', 51.99, 11.99, { type: 'delivery', state: 'NY' }],
     ['invalid delivery state', 46.99, 6.99, { type: 'delivery', state: 'TE' }],
     ['stale shipping rate', 44.99, 4.99, { type: 'delivery', state: 'TX' }],

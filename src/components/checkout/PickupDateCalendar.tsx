@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { isPickupClosedDate } from '@/lib/pickup-date';
 
 /**
  * Pickup date picker drawn by the site instead of the browser.
@@ -153,7 +154,8 @@ export default function PickupDateCalendar({
             {Array.from({ length: leadingBlanks }, (_, i) => <span key={`blank-${i}`} />)}
             {Array.from({ length: daysInMonth }, (_, i) => {
               const date = `${month}-${String(i + 1).padStart(2, '0')}`;
-              const unavailable = date < min || date > max;
+              // Tuesdays are an off day: greyed out like any other unavailable date.
+              const unavailable = date < min || date > max || isPickupClosedDate(date);
               const selected = date === value;
               const isToday = date === today;
               return (

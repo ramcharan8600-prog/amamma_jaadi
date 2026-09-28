@@ -73,6 +73,8 @@ export interface PickupLocation {
   city: string;
   state: string;
   zip: string;
+  /** Pickup window at this location, e.g. { from: '6:30 PM', until: '10:25 PM' }. */
+  pickupHours: { from: string; until: string };
   /**
    * False for a partner we no longer pick up from. The location stays in the
    * catalog so past orders still show its name and address, but customers

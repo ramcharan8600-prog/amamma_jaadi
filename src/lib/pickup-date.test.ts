@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, requiresNextDayPickup } from './pickup-date';
+import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, isPickupClosedDate, requiresNextDayPickup } from './pickup-date';
 
 const now = new Date('2026-09-08T18:00:00Z');
 
 describe('pickup date validation in Dallas time', () => {
   it('allows today through day 90 inclusive, not day 91', () => {
     expect(getPickupDateBounds(150, now)).toEqual({ today: '2026-09-08', min: '2026-09-08', max: '2026-12-07' });
-    for (const value of ['2026-09-08', '2026-09-09', '2026-12-07']) {
+    // Today (Tuesday, Sept 8) is in range but closed; see the Tuesday tests below.
+    for (const value of ['2026-09-09', '2026-09-10', '2026-12-07']) {
       expect(getPickupDateError(value, 150, now)).toBeNull();
     }
     expect(getPickupDateError('2026-12-08', 150, now)).toContain('90 days');
@@ -21,9 +22,10 @@ describe('pickup date validation in Dallas time', () => {
     });
 
   it('preserves the large-order lead time and does not extend its maximum', () => {
-    expect(getPickupDateError('2026-09-08', 150, now)).toBeNull();
-    expect(getPickupDateError('2026-09-08', 151, now)).toContain('1 day notice');
-    expect(getPickupDateError('2026-09-09', 151, now)).toBeNull();
+    const wednesday = new Date('2026-09-09T18:00:00Z');
+    expect(getPickupDateError('2026-09-09', 150, wednesday)).toBeNull();
+    expect(getPickupDateError('2026-09-09', 151, wednesday)).toContain('1 day notice');
+    expect(getPickupDateError('2026-09-10', 151, wednesday)).toBeNull();
     expect(getPickupDateBounds(151, now).max).toBe('2026-12-07');
   });
 
@@ -41,9 +43,25 @@ describe('pickup date validation in Dallas time', () => {
   });
 
   it('handles real leap days, including century rules', () => {
-    expect(getPickupDateError('2028-02-29', 16, new Date('2028-02-01T18:00:00Z'))).toBeNull();
-    expect(getPickupDateError('2000-02-29', 16, new Date('2000-02-01T18:00:00Z'))).toBeNull();
+    // Both leap days fall on a Tuesday: accepted as real dates, then closed.
+    expect(getPickupDateError('2028-02-29', 16, new Date('2028-02-01T18:00:00Z'))).toContain('Tuesdays');
+    expect(getPickupDateError('2000-02-29', 16, new Date('2000-02-01T18:00:00Z'))).toContain('Tuesdays');
     expect(getPickupDateError('2100-02-29', 16, new Date('2100-02-01T18:00:00Z'))).toContain('valid');
+  });
+});
+
+describe('Tuesday pickup closure', () => {
+  it('marks every Tuesday closed and no other day', () => {
+    expect(['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-06', '2026-10-04'].map(isPickupClosedDate))
+      .toEqual([false, true, false, true, false]);
+  });
+
+  it('rejects a Tuesday pickup, including today, while other days stay open', () => {
+    const monday = new Date('2026-09-28T15:00:00Z');
+    expect(getPickupDateError('2026-09-29', 16, monday)).toBe('Pickup is not available on Tuesdays. Please select another date.');
+    expect(getPickupDateError('2026-09-28', 16, monday)).toBeNull();
+    expect(getPickupDateError('2026-09-30', 16, monday)).toBeNull();
+    expect(getPickupDateError('2026-09-08', 16, now)).toContain('Tuesdays');
   });
 });
 

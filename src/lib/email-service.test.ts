@@ -15,6 +15,7 @@ import {
   sendOrderConfirmation,
   type OrderConfirmationParams,
 } from '@/lib/email-service';
+import { getPickupLocationById, pickupWindowLabel } from '@/data/products';
 
 describe('order confirmation recipients', () => {
   afterEach(() => {
@@ -193,5 +194,34 @@ describe('pickle-only delivery email shipping wording', () => {
       expect(html).not.toContain('UPS 2nd Day Air');
       expect(html).not.toContain('$6.99');
     }
+  });
+});
+
+describe('pickup confirmation email hours', () => {
+  const pickupParams: OrderConfirmationParams = {
+    email: 'customer@example.com',
+    orderNumber: 'AJ-EMAIL-PICKUP',
+    squarePaymentId: 'square-test',
+    customerName: 'Test Customer',
+    phone: '2145550100',
+    total: 40,
+    subtotal: 40,
+    items: [{ name: 'Guntur Malpuri', quantity: 1, price: 40 }],
+    fulfillmentType: 'pickup',
+    pickupDate: '2026-09-30',
+    pickupLocation: 'Ravi Babu Biryani - Frisco — 6226 All Stars Ave, Frisco, TX 75033',
+  };
+
+  it.each([
+    ['frisco-ravibabu', '6:30 PM and 10:25 PM'],
+    ['irving-ravibabu', '6:30 PM and 1:30 AM'],
+    ['plano-biryanify', '6:30 PM and 12:50 AM'],
+  ])('shows the %s pickup window', (locationId, window) => {
+    const html = buildOrderConfirmationEmail({ ...pickupParams, pickupHours: pickupWindowLabel(getPickupLocationById(locationId)!) }).html;
+    expect(html).toContain(`between <strong>${window}</strong> at the selected location`);
+  });
+
+  it('keeps the previous window when no location hours are given', () => {
+    expect(buildOrderConfirmationEmail(pickupParams).html).toContain('between <strong>6:30 PM and 12:45 AM</strong>');
   });
 });

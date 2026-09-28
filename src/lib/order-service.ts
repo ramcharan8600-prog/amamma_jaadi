@@ -3,7 +3,7 @@ import type { D1Database, D1PreparedStatement, Queue } from '@cloudflare/workers
 import { generateOrderNumber, newId, parseJson } from '@/lib/db';
 import { buildOrderConfirmationEmail, buildOwnerOrderAlertEmail } from '@/lib/email-service';
 import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage } from '@/lib/email-outbox';
-import { getPickupLocationById, getProductById, isStockTracked, stockUnits } from '@/data/products';
+import { getPickupLocationById, getProductById, isStockTracked, pickupWindowLabel, stockUnits } from '@/data/products';
 import { prepareOrderTaxRecord } from '@/lib/tax-records';
 import { isGroundShippingCart } from '@/lib/pricing';
 import type { DeliveryShippingMethod } from '@/types';
@@ -215,6 +215,7 @@ export async function createOrderFromSession(
     fulfillmentType: fulfillment.type as 'pickup' | 'delivery',
     pickupDate: fulfillment.date,
     pickupLocation: pickup ? `${pickup.name} — ${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip}` : undefined,
+    pickupHours: pickup ? pickupWindowLabel(pickup) : undefined,
     deliveryAddress: buildDeliveryAddress(fulfillment) ?? undefined,
     shippingMethod: fulfillment.type === 'delivery' ? fulfillment.shippingMethod ?? 'standard' : undefined,
   };
