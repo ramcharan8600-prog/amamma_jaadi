@@ -29,6 +29,9 @@ interface ProductionItem {
 type FilterType = 'today' | 'tomorrow' | 'future' | 'completed' | 'all';
 type ShipmentColumnFilter = 'all' | 'pickup' | ShipmentStatus;
 
+/** Orders shown per page in the orders table. */
+const ORDERS_PER_PAGE = 25;
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
@@ -85,6 +88,19 @@ export default function AdminDashboardPage() {
 
   const activeColumnFilterCount = [dateFilter, shipmentFilter !== 'all', pickupLocationFilter]
     .filter(Boolean).length;
+
+  // Page through the filtered list; any filter change starts again at page 1.
+  const filterKey = [filter, dateFilter, shipmentFilter, pickupLocationFilter].join('|');
+  const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
+  const pageCount = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+  const currentPage = pageState.key === filterKey ? Math.min(pageState.page, pageCount) : 1;
+  const pageStart = (currentPage - 1) * ORDERS_PER_PAGE;
+  const pageOrders = filteredOrders.slice(pageStart, pageStart + ORDERS_PER_PAGE);
+  const tableTop = useRef<HTMLDivElement>(null);
+  const goToPage = (page: number) => {
+    setPageState({ key: filterKey, page });
+    tableTop.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
 
   // Check auth (middleware handles redirect, this is for UI state)
   useEffect(() => {
@@ -570,7 +586,7 @@ export default function AdminDashboardPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div ref={tableTop} className="overflow-x-auto scroll-mt-4">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-brand-cream-dark">
@@ -598,7 +614,7 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map((order) => (
+              {pageOrders.map((order) => (
                   <tr
                     key={order.id}
                     className="border-b border-brand-cream-dark/50 hover:bg-brand-cream/50 transition-colors"
@@ -751,6 +767,47 @@ export default function AdminDashboardPage() {
                 ))}
             </tbody>
           </table>
+          <nav aria-label="Orders pages" className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <p className="font-body text-xs text-brand-charcoal/60">
+              Showing {pageStart + 1}–{pageStart + pageOrders.length} of {filteredOrders.length} orders
+            </p>
+            {pageCount > 1 && (
+              <div className="flex flex-wrap items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg font-body text-xs border border-brand-cream-dark hover:bg-brand-cream disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => goToPage(page)}
+                    aria-label={`Page ${page}`}
+                    aria-current={page === currentPage ? 'page' : undefined}
+                    className={`min-w-8 px-2.5 py-1.5 rounded-lg font-body text-xs border ${
+                      page === currentPage
+                        ? 'bg-brand-maroon text-white border-brand-maroon font-semibold'
+                        : 'border-brand-cream-dark hover:bg-brand-cream'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === pageCount}
+                  className="px-3 py-1.5 rounded-lg font-body text-xs border border-brand-cream-dark hover:bg-brand-cream disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </nav>
         </div>
       )}
     </div>
