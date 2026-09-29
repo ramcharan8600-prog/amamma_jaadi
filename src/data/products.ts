@@ -115,7 +115,7 @@ export const PRODUCTS: Product[] = [
     // **…** renders bold; each new line starts a line on the card and "* " makes
     // it a bullet. Markers are stripped for search engines.
     description:
-      'Made for **your 11:11 sweet cravings**\n* **11 Guntur Malpuri**\n* **11 Nellore Malai Khaja**\nPacked together in one box. Perfect for sharing, gifting and festivals.',
+      'Made for **your 11:11 sweet cravings**\n* **11 Guntur Malpuri**\n* **11 Nellore Malai Khaja**\nShipping throughout the USA.',
     category: 'sweets',
     unitPrice: 2.5,
     // 22 pieces for $60 (not a whole-cent multiple of 22).

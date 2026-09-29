@@ -346,6 +346,9 @@ describe('checkout phone length', () => {
 describe('pickup cutoff and next-day products', () => {
   it.each(['2026-09-10T18:29:59.999Z', '2026-09-10T18:30:00.000Z'])(
     'allows today through exactly 1:30 PM at %s', async instant => {
+      // Freeze timers too: at the exact cutoff the page schedules a 1 ms
+      // refresh, which would re-fire forever against a frozen clock.
+      vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
       vi.setSystemTime(new Date(instant));
       await pickupDetails();
       expect(dateBounds().min).toBe('2026-09-10');

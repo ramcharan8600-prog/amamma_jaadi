@@ -53,7 +53,7 @@ it('offers the Special Edition Assorted Box as a single 22-piece, $60 box with b
       .toEqual(['your 11:11 sweet cravings', '11 Guntur Malpuri', '11 Nellore Malai Khaja']);
     const lines=Array.from(host.querySelectorAll('p span.block')).map(s=>s.textContent);
     expect(lines).toEqual(['Made for your 11:11 sweet cravings', '• 11 Guntur Malpuri', '• 11 Nellore Malai Khaja',
-      'Packed together in one box. Perfect for sharing, gifting and festivals.']);
+      'Shipping throughout the USA.']);
     expect(host.querySelector('p.line-clamp-2')).toBeNull();
     expect(host.textContent).not.toContain('**');
     expect(Array.from(host.querySelectorAll('img')).map(img=>img.getAttribute('src'))).toEqual([
