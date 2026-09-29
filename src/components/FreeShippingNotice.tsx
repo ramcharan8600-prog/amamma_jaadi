@@ -45,7 +45,7 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
     { Icon: PickupIcon, lines: [`Pickup at ${pickupCities()}`, 'on your selected date'] },
   ];
   return (
-    <div className={`flex justify-center gap-3 ${className}`}>
+    <div className={`flex justify-center gap-4 sm:gap-10 ${className}`}>
       {options.map(({ Icon, lines }) => (
         <div
           key={lines[0]}

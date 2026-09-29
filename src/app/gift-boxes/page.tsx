@@ -32,7 +32,7 @@ export default function GiftBoxesPage() {
     <>
       <JsonLd data={getProductListSchema(giftBoxes)} />
       {/* Hero */}
-      <section className="bg-gradient-to-br from-brand-charcoal via-brand-maroon-dark to-brand-charcoal py-16 sm:py-24">
+      <section className="bg-gradient-to-br from-brand-charcoal via-brand-maroon-dark to-brand-charcoal py-8 sm:py-12">
         <div className="section-padding text-center space-y-4">
           <p className="font-body text-sm font-semibold tracking-widest text-brand-gold uppercase">
             Events / Party Packs &amp; Gift Boxes
