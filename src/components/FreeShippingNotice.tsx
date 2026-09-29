@@ -41,17 +41,17 @@ function PickupIcon({ size = 24, strokeWidth = 2, className, ...props }: LucideP
  */
 export default function FreeShippingNotice({ className = '' }: { className?: string }) {
   const options = [
-    { Icon: Truck, lines: ['Nationwide Shipping in 2–3 Days'] },
+    { Icon: Truck, lines: ['Nationwide Shipping', 'in 2–3 Days'] },
     { Icon: PickupIcon, lines: [`Pickup at ${pickupCities()}`, 'on your selected date'] },
   ];
   return (
-    <div className={`grid grid-cols-2 gap-3 ${className}`}>
+    <div className={`flex justify-center gap-3 ${className}`}>
       {options.map(({ Icon, lines }) => (
         <div
           key={lines[0]}
-          className="flex flex-col items-center justify-center text-center gap-1.5 bg-brand-gold/10 border border-brand-gold/30 rounded-xl px-3 py-3"
+          className="flex flex-col items-center justify-center text-center gap-2 bg-brand-gold/10 border border-brand-gold/30 rounded-xl px-5 py-3"
         >
-          <Icon size={36} strokeWidth={1.5} className="text-brand-gold" aria-hidden="true" />
+          <Icon size={40} strokeWidth={1.5} className="text-brand-gold" aria-hidden="true" />
           <p className="font-body text-sm font-semibold text-brand-charcoal/80">
             {lines.map((line) => <span key={line} className="block">{line}</span>)}
           </p>

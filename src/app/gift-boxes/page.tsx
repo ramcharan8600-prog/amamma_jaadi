@@ -50,7 +50,7 @@ export default function GiftBoxesPage() {
 
       {/* Delivery options */}
       <section className="section-padding pt-10 pb-8">
-        <FreeShippingNotice className="max-w-2xl mx-auto" />
+        <FreeShippingNotice />
       </section>
 
       {/* Products */}
