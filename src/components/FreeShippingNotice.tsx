@@ -45,13 +45,13 @@ export default function FreeShippingNotice({ className = '' }: { className?: str
     { Icon: PickupIcon, lines: [`Pickup at ${pickupCities()}`, 'on your selected date'] },
   ];
   return (
-    <div className={`grid grid-cols-2 gap-4 ${className}`}>
+    <div className={`grid grid-cols-2 gap-3 ${className}`}>
       {options.map(({ Icon, lines }) => (
         <div
           key={lines[0]}
-          className="flex flex-col items-center text-center gap-2 bg-brand-gold/10 border border-brand-gold/30 rounded-xl p-5"
+          className="flex flex-col items-center justify-center text-center gap-1.5 bg-brand-gold/10 border border-brand-gold/30 rounded-xl px-3 py-3"
         >
-          <Icon size={40} strokeWidth={1.5} className="text-brand-gold" aria-hidden="true" />
+          <Icon size={36} strokeWidth={1.5} className="text-brand-gold" aria-hidden="true" />
           <p className="font-body text-sm font-semibold text-brand-charcoal/80">
             {lines.map((line) => <span key={line} className="block">{line}</span>)}
           </p>
