@@ -48,8 +48,22 @@ export default function GiftBoxesPage() {
         </div>
       </section>
 
+      {/* Delivery options */}
+      <section className="section-padding pt-10 pb-8">
+        <FreeShippingNotice className="max-w-3xl mx-auto" />
+      </section>
+
+      {/* Products */}
+      <section className="section-padding pb-12">
+        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          {giftBoxes.map((product) => (
+            <GiftBoxCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
       {/* Occasions */}
-      <section className="section-padding py-12">
+      <section className="section-padding pb-16 sm:pb-24">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {OCCASIONS.map(({ icon: Icon, label, desc }) => (
             <div
@@ -64,20 +78,6 @@ export default function GiftBoxesPage() {
                 {desc}
               </p>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Delivery banner */}
-      <section className="section-padding pb-8">
-        <FreeShippingNotice className="max-w-3xl mx-auto" />
-      </section>
-
-      {/* Products */}
-      <section className="section-padding pb-16 sm:pb-24">
-        <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-          {giftBoxes.map((product) => (
-            <GiftBoxCard key={product.id} product={product} />
           ))}
         </div>
       </section>
