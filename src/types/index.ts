@@ -22,6 +22,8 @@ export interface Product {
   quantityOptions?: number[];
   /** Diagonal corner ribbon on the card photo, e.g. "Special Edition". */
   ribbon?: string;
+  /** Packing hint added to the item name in order emails only, e.g. "11:11". */
+  packingNote?: string;
   /** Fixed price for a tier, overriding unitPrice × pieces (e.g. a $60 box of 22). */
   tierPrices?: Partial<Record<number, number>>;
   /**

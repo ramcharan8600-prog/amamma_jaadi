@@ -120,6 +120,8 @@ export const PRODUCTS: Product[] = [
     unitPrice: 2.5,
     // 22 pieces for $60 (not a whole-cent multiple of 22).
     tierPrices: { 22: 60 },
+    // Emails read "Assorted Box — Malpuri & Malai Khaja (11:11)" so the team packs 11 + 11.
+    packingNote: '11:11',
     image: '/images/products/texas-limited-gift-box-closed.jpg',
     imageFit: 'contain',
     // Shown side by side with the closed box, like the Sweet Memories gift box.

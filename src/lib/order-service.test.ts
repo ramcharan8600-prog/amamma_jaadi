@@ -432,3 +432,20 @@ it.each([['TX', 0, false], ['OK', 8.99, false], ['NY', 11.99, false]] as const)(
       expect(sqlite.prepare('SELECT times_used FROM influencer_coupons').get()?.times_used).toBe(1);
     } finally { sqlite.close(); }
   });
+
+it('labels the Assorted Box "(11:11)" in the email but keeps the plain name on the order', async () => {
+  const { db, sqlite, session } = setup({
+    cart_data: [{ productId: 'sweet-assorted-box', quantity: 1, selectedTier: 22, lineTotal: 60 }],
+    fulfillment_data: { type: 'delivery', addressLine1: '100 Test St', city: 'New York', state: 'NY', zip: '10001', country: 'USA', shippingMethod: 'standard' },
+    total_amount: 69.99, tax: 0, shipping: 9.99, coupon_code: null,
+  });
+  try {
+    await createOrderFromSession(db, session, 'PAY-ASSORTED-1111');
+    const outbox = sqlite.prepare('SELECT html FROM email_outbox').get();
+    expect(outbox?.html).toContain('Assorted Box — Malpuri &amp; Malai Khaja (11:11)');
+    expect(sqlite.prepare('SELECT product_name FROM order_items').get())
+      .toEqual({ product_name: 'Assorted Box — Malpuri & Malai Khaja' });
+  } finally {
+    sqlite.close();
+  }
+});

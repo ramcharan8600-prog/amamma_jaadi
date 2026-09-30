@@ -200,7 +200,11 @@ export async function createOrderFromSession(
   const attemptId = newId();
   const pickup = fulfillment.type === 'pickup' && fulfillment.locationId
     ? getPickupLocationById(fulfillment.locationId) : null;
-  const emailItems = lines.map((line) => ({ name: line.name, quantity: line.quantity, price: line.lineTotal }));
+  // Emails add the product's packing note (e.g. "(11:11)"); saved order items keep the plain name for reports.
+  const emailItems = lines.map((line) => {
+    const packingNote = getProductById(line.productId)?.packingNote;
+    return { name: packingNote ? `${line.name} (${packingNote})` : line.name, quantity: line.quantity, price: line.lineTotal };
+  });
   if (bonus) emailItems.push({ name: `${bonus.bonusQty} complimentary ${bonus.bonusItem} (FREE)`, quantity: 1, price: 0 });
   const emailParams = {
     orderNumber, squarePaymentId, total: session.total_amount,
