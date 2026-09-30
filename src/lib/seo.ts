@@ -126,7 +126,7 @@ export function getFaqSchema() {
   };
 }
 
-export function getProductListSchema(products: Array<{ name: string; unitPrice: number; tierPrices?: Partial<Record<number, number>>; image: string; description?: string }>) {
+export function getProductListSchema(products: Array<{ name: string; unitPrice: number; tierPrices?: Partial<Record<number, number>>; quantityOptions?: number[]; image: string; description?: string }>) {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -140,8 +140,9 @@ export function getProductListSchema(products: Array<{ name: string; unitPrice: 
         description: p.description ? plainDescription(p.description) : `Fresh ${p.name} by ${BRAND_NAME}`,
         offers: {
           '@type': 'Offer',
-          // A fixed-price box (tierPrices) is listed at its box price, not per piece.
-          price: (Object.values(p.tierPrices ?? {})[0] ?? p.unitPrice).toFixed(2),
+          // A fixed-price box (its only size has a tier price) is listed at the box
+          // price; everything else at the per-piece price.
+          price: (p.tierPrices?.[p.quantityOptions?.[0] ?? -1] ?? p.unitPrice).toFixed(2),
           priceCurrency: 'USD',
           availability: 'https://schema.org/InStock',
         },

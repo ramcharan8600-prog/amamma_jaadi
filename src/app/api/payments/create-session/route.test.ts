@@ -582,3 +582,17 @@ describe('authoritative coupon benefits at payment', () => {
     expect((await response.json()).shipping).toBe(6.99);
   });
 });
+
+describe('Bobbatlu pack prices', () => {
+  it.each([[16, 48], [25, 70], [50, 135]])('charges %i Bobbatlu at $%i', async (tier, subtotal) => {
+    const response = await post(checkout([{ productId: 'sweet-bobbatlu', quantity: 1, selectedTier: tier }], pickup));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal, shipping: 0, tax: 0, totalAmount: subtotal });
+  });
+
+  it.each([12, 20])('rejects a %i-piece Bobbatlu pack, which is not sold', async (tier) => {
+    const response = await post(checkout([{ productId: 'sweet-bobbatlu', quantity: 1, selectedTier: tier }], pickup));
+    expect(response.status).toBe(400);
+    expect(mocks.inserts).toHaveLength(0);
+  });
+});

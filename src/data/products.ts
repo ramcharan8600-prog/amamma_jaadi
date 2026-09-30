@@ -145,6 +145,8 @@ export const PRODUCTS: Product[] = [
     unitPrice: 3,
     image: '/images/products/bobbatlu.jpg',
     quantityOptions: [16, 25, 50],
+    // Bigger packs are discounted; the regular $3/pc price shows struck through.
+    tierPrices: { 25: 70, 50: 135 },
     inStock: true,
     prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
@@ -343,6 +345,12 @@ export function productNamesFromIds(ids: string[]): string {
 
 export function calculateSweetPrice(product: Pick<Product, 'unitPrice' | 'tierPrices'>, tier: number): number {
   return product.tierPrices?.[tier] ?? product.unitPrice * tier;
+}
+
+/** The regular price (unitPrice × pieces) when a pack is discounted below it, else null. */
+export function regularSweetPrice(product: Pick<Product, 'unitPrice' | 'tierPrices'>, tier: number): number | null {
+  const regular = product.unitPrice * tier;
+  return calculateSweetPrice(product, tier) < regular ? regular : null;
 }
 
 /** Total pieces across all cart items (for large-order restriction) */

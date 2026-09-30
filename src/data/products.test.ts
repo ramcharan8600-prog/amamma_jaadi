@@ -18,14 +18,17 @@ import {
 } from '@/data/products';
 
 describe('product catalog integrity', () => {
-  it('offers Kova Bobbatlu with the same image, tiers, price and prep time as Bobbatlu', () => {
+  it('offers Kova Bobbatlu with the same image, price and prep time as Bobbatlu', () => {
     const original = getProductById('sweet-bobbatlu')!;
     const kovaBobbatlu = getProductBySlug('kova-bobbatlu')!;
     expect(kovaBobbatlu.name).toBe('Kova Bobbatlu');
-    for (const key of ['category', 'image', 'unitPrice', 'quantityOptions', 'inStock', 'prepNotice'] as const) {
+    for (const key of ['category', 'image', 'unitPrice', 'inStock', 'prepNotice'] as const) {
       expect(kovaBobbatlu[key]).toEqual(original[key]);
     }
+    // Only plain Bobbatlu has the discounted 25/50 packs.
     expect(kovaBobbatlu.quantityOptions?.map(tier => calculateSweetPrice(kovaBobbatlu, tier))).toEqual([48, 75, 150]);
+    expect(kovaBobbatlu.quantityOptions).toEqual(original.quantityOptions);
+    expect(original.quantityOptions?.map(tier => calculateSweetPrice(original, tier))).toEqual([48, 70, 135]);
     expect(isStockTracked(kovaBobbatlu)).toBe(true);
     expect(isProductTaxExempt(kovaBobbatlu)).toBe(true);
   });

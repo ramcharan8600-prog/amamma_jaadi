@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Leaf, Heart, Sparkles, Truck } from 'lucide-react';
-import { ASSORTED_BOX_PRODUCT_ID, PRODUCTS } from '@/data/products';
+import { ASSORTED_BOX_PRODUCT_ID, PRODUCTS, calculateSweetPrice } from '@/data/products';
 import { renderDescription } from '@/lib/description';
 
 export const metadata: Metadata = {
@@ -163,7 +163,7 @@ export default function HomePage() {
                     {renderDescription(product.description)}
                   </p>
                   <p className="font-body text-sm font-semibold text-brand-maroon mt-3">
-                    Starting at ${product.unitPrice * (product.quantityOptions?.[0] ?? 16)}
+                    Starting at ${calculateSweetPrice(product, product.quantityOptions?.[0] ?? 16)}
                   </p>
                 </div>
               </Link>

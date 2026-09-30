@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles, Gift } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
-import { ASSORTED_BOX_PRODUCT_ID, calculateSweetPrice, isBobbatluProduct } from '@/data/products';
+import { ASSORTED_BOX_PRODUCT_ID, calculateSweetPrice, isBobbatluProduct, regularSweetPrice } from '@/data/products';
 import { useStock } from '@/hooks/useStock';
 import { formatCurrency } from '@/lib/utils';
 import { renderDescription } from '@/lib/description';
@@ -33,6 +33,7 @@ export default function SweetCard({ product }: SweetCardProps) {
   const freshNotice = readyFromStock || product.prepNoticeTone === 'fresh';
 
   const currentPrice = calculateSweetPrice(product, selectedTier);
+  const regularPrice = regularSweetPrice(product, selectedTier);
 
   const boxLimit = isAssortedBox && loaded && count !== null ? count : null;
   const soldOut = !product.inStock || (boxLimit !== null && boxLimit <= 0);
@@ -136,11 +137,16 @@ export default function SweetCard({ product }: SweetCardProps) {
             onChange={(e) => setSelectedTier(Number(e.target.value))}
             className="input-field"
           >
-            {tiers.map((tier) => (
-              <option key={tier} value={tier}>
-                {tier} pcs — {formatCurrency(calculateSweetPrice(product, tier))}
-              </option>
-            ))}
+            {tiers.map((tier) => {
+              // <option> can't show a strike-through, so the regular price reads "was".
+              const regular = regularSweetPrice(product, tier);
+              return (
+                <option key={tier} value={tier}>
+                  {tier} pcs — {formatCurrency(calculateSweetPrice(product, tier))}
+                  {regular !== null ? ` (was ${formatCurrency(regular)})` : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -149,6 +155,11 @@ export default function SweetCard({ product }: SweetCardProps) {
           <span className="font-display text-2xl font-bold text-brand-maroon">
             {formatCurrency(currentPrice)}
           </span>
+          {regularPrice !== null && (
+            <s className="font-body text-sm text-brand-charcoal/50" aria-label={`Regular price ${formatCurrency(regularPrice)}`}>
+              {formatCurrency(regularPrice)}
+            </s>
+          )}
           <span className="font-body text-xs text-brand-charcoal/50">
             for {selectedTier} pieces
           </span>

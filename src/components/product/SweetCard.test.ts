@@ -16,8 +16,10 @@ it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu'].flatMap(productId => [0, 15, 2
   const root=createRoot(host);
   try{
     await act(async()=>root.render(createElement(SweetCard,{product:getProductById(productId)!})));
-    expect(host.textContent?.includes('1 day for preparation')).toBe(count<16);
-    expect(host.textContent?.includes('Freshly made and in stock')).toBe(count>=16);
+    // The smallest box (16 pcs) is pre-selected.
+    const smallest=getProductById(productId)!.quantityOptions![0];
+    expect(host.textContent?.includes('1 day for preparation')).toBe(count<smallest);
+    expect(host.textContent?.includes('Freshly made and in stock')).toBe(count>=smallest);
     expect(host.querySelector('button')?.disabled).toBe(false);
     expect(host.textContent).not.toContain('2 days');
     const select=host.querySelector('select')!;
@@ -85,4 +87,30 @@ it('limits Assorted Boxes in the cart to the box count',async()=>{
     expect(add().disabled).toBe(true);
     expect(add().textContent).toContain('All available boxes in cart');
   }finally{await cleanup();}
+});
+
+it('offers Bobbatlu in 16/25/50 packs with the bigger packs discounted and the regular price struck through',async()=>{
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({stock:{'sweet-bobbatlu':0}})));
+  invalidateStock();
+  const host=document.createElement('div');document.body.append(host);
+  const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(SweetCard,{product:getProductById('sweet-bobbatlu')!})));
+    expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual([
+      '16 pcs — $48.00', '25 pcs — $70.00 (was $75.00)', '50 pcs — $135.00 (was $150.00)',
+    ]);
+    expect(host.querySelector('s')).toBeNull();
+    const select=host.querySelector('select')!;
+    for (const [tier, price, regular] of [['25','$70.00','$75.00'],['50','$135.00','$150.00']]) {
+      await act(async()=>{
+        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(select,tier);
+        select.dispatchEvent(new Event('change',{bubbles:true}));
+      });
+      expect(host.textContent).toContain(`${price}${regular}for ${tier} pieces`);
+      expect(host.querySelector('s')?.textContent).toBe(regular);
+    }
+  }finally{
+    await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
+  }
 });
