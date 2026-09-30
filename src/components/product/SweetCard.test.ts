@@ -125,11 +125,27 @@ it('shows the Assorted Bobbatlu Box as a single $49.99 box with bold contents an
     await act(async()=>root.render(createElement(SweetCard,{product:getProductById('sweet-assorted-bobbatlu-box')!})));
     expect(host.querySelector('h3')?.textContent).toBe('Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu');
     expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['16 pcs — $49.99']);
-    expect(Array.from(host.querySelectorAll('strong')).map(s=>s.textContent)).toEqual(['8:8 Bobbatlu cravings','8 Bobbatlu','8 Kova Bobbatlu']);
+    expect(Array.from(host.querySelectorAll('strong')).map(s=>s.textContent)).toEqual(['8:8 Bobbatlu cravings','Ghee','8 Bobbatlu','8 Kova Bobbatlu']);
     expect(host.textContent).toContain('Made fresh to order — please allow 1 day for preparation.');
     expect(host.textContent).not.toContain('/pc');
     expect(host.querySelector('s')).toBeNull();
     expect(host.querySelector('button')?.disabled).toBe(false);
+  }finally{
+    await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
+  }
+});
+
+it.each(['sweet-bobbatlu','sweet-kova-bobbatlu'])('puts a bold Ghee at the start of the %s description so the two-line card shows it',async(productId)=>{
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({stock:{}})));
+  invalidateStock();
+  const host=document.createElement('div');document.body.append(host);
+  const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(SweetCard,{product:getProductById(productId)!})));
+    const description=host.querySelector('p.line-clamp-2')!;
+    expect(description.textContent?.startsWith('Made with pure Ghee — ')).toBe(true);
+    expect(description.querySelector('strong')?.textContent).toBe('Ghee');
   }finally{
     await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
   }

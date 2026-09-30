@@ -142,11 +142,11 @@ export const PRODUCTS: Product[] = [
     slug: 'assorted-bobbatlu-box',
     name: 'Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu',
     description:
-      'Made for your **8:8 Bobbatlu cravings**, with ghee\n* **8 Bobbatlu**\n* **8 Kova Bobbatlu**',
+      'Made for your **8:8 Bobbatlu cravings**, with **Ghee**\n* **8 Bobbatlu**\n* **8 Kova Bobbatlu**',
     category: 'sweets',
     unitPrice: 3,
     tierPrices: { 16: 49.99 },
-    emailDetails: ['Made for your 8:8 Bobbatlu cravings, with ghee', '• 8 Bobbatlu', '• 8 Kova Bobbatlu'],
+    emailDetails: ['Made for your 8:8 Bobbatlu cravings, with Ghee', '• 8 Bobbatlu', '• 8 Kova Bobbatlu'],
     image: '/images/products/bobbatlu.jpg',
     quantityOptions: [16],
     inStock: true,
@@ -158,7 +158,7 @@ export const PRODUCTS: Product[] = [
     slug: 'bobbatlu',
     name: 'Bobbatlu',
     description:
-      'Thin, golden flatbreads stuffed with a sweet filling of chana dal and jaggery, cooked on a griddle with pure ghee. Amamma\'s recipe, made with patience and love.',
+      'Made with pure **Ghee** — thin, golden flatbreads stuffed with a sweet filling of chana dal and jaggery, cooked on a griddle. Amamma\'s recipe, made with patience and love.',
     category: 'sweets',
     unitPrice: 3,
     image: '/images/products/bobbatlu.jpg',
@@ -174,7 +174,7 @@ export const PRODUCTS: Product[] = [
     slug: 'kova-bobbatlu',
     name: 'Kova Bobbatlu',
     description:
-      'Thin, golden flatbreads stuffed with a rich, sweet kova filling and cooked on a griddle with pure ghee. A creamy twist on a traditional favourite.',
+      'Made with pure **Ghee** — thin, golden flatbreads stuffed with a rich, sweet kova filling, cooked on a griddle. A creamy twist on a traditional favourite.',
     category: 'sweets',
     unitPrice: 3,
     image: '/images/products/bobbatlu.jpg',
