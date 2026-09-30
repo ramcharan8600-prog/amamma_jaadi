@@ -41,6 +41,13 @@ export function isEmailConfigured(): boolean {
   return isEmailOutboxConfigured();
 }
 
+/** Small grey lines under an item name, e.g. what goes in a box. */
+function itemDetailsHtml(details: string[] | undefined): string {
+  return details?.length
+    ? details.map((line) => `<br /><span style="font-size:12px; color:#666;">${escapeHtml(line)}</span>`).join('')
+    : '';
+}
+
 /** Escape user-influenced values before interpolating into email HTML. */
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -161,7 +168,7 @@ export interface OrderConfirmationParams {
   /** Delivery fee charged (0 / omitted = free or pickup). */
   shipping?: number;
   maintenanceFee?: number;
-  items: Array<{ name: string; quantity: number; price: number }>;
+  items: Array<{ name: string; quantity: number; price: number; details?: string[] }>;
   fulfillmentType: 'pickup' | 'delivery';
   shippingMethod?: DeliveryShippingMethod;
   /** Trusted paid-cart classification; older callers fall back to catalog names. */
@@ -180,7 +187,7 @@ export interface OrderConfirmationParams {
 export function buildOrderConfirmationEmail(params: OrderConfirmationParams): EmailOutboxPayload {
   const picklesOnly = params.picklesOnly ?? containsOnlyPickles(params.items);
   const itemsHtml = params.items
-    .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
+    .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}${itemDetailsHtml(i.details)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
     .join('');
 
   const fulfillmentHtml =
@@ -259,7 +266,7 @@ export interface OwnerOrderAlertParams {
   customerName: string;
   phone: string;
   customerEmail: string | null;
-  items: Array<{ name: string; quantity: number; price: number }>;
+  items: Array<{ name: string; quantity: number; price: number; details?: string[] }>;
   fulfillmentType: 'pickup' | 'delivery';
   shippingMethod?: DeliveryShippingMethod;
   /** Trusted paid-cart classification; older callers fall back to catalog names. */
@@ -275,7 +282,7 @@ export function buildOwnerOrderAlertEmail(params: OwnerOrderAlertParams): EmailO
 
   const picklesOnly = params.picklesOnly ?? containsOnlyPickles(params.items);
   const itemsHtml = params.items
-    .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
+    .map((i) => `<tr><td style="padding:8px 0;">${escapeHtml(i.name)}${itemDetailsHtml(i.details)}</td><td style="text-align:center;">${Number(i.quantity) || 0}</td><td style="text-align:right;">$${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
     .join('');
 
   const fulfillmentHtml =

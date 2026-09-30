@@ -433,7 +433,7 @@ it.each([['TX', 0, false], ['OK', 8.99, false], ['NY', 11.99, false]] as const)(
     } finally { sqlite.close(); }
   });
 
-it('labels the Assorted Box "(11:11)" in the email but keeps the plain name on the order', async () => {
+it('lists the Assorted Box contents under the item in the email and keeps the plain name on the order', async () => {
   const { db, sqlite, session } = setup({
     cart_data: [{ productId: 'sweet-assorted-box', quantity: 1, selectedTier: 22, lineTotal: 60 }],
     fulfillment_data: { type: 'delivery', addressLine1: '100 Test St', city: 'New York', state: 'NY', zip: '10001', country: 'USA', shippingMethod: 'standard' },
@@ -442,7 +442,11 @@ it('labels the Assorted Box "(11:11)" in the email but keeps the plain name on t
   try {
     await createOrderFromSession(db, session, 'PAY-ASSORTED-1111');
     const outbox = sqlite.prepare('SELECT html FROM email_outbox').get();
-    expect(outbox?.html).toContain('Assorted Box — Malpuri &amp; Malai Khaja (11:11)');
+    expect(outbox?.html).toContain('Assorted Box — Malpuri &amp; Malai Khaja<br /><span style="font-size:12px; color:#666;">Made for your 11:11 sweet cravings</span>'
+      + '<br /><span style="font-size:12px; color:#666;">• 11 Guntur Malpuri</span>'
+      + '<br /><span style="font-size:12px; color:#666;">• 11 Nellore Malai Khaja</span>');
+    expect(outbox?.html).not.toContain('(11:11)');
+    expect(outbox?.html).not.toContain('Shipping throughout the USA');
     expect(sqlite.prepare('SELECT product_name FROM order_items').get())
       .toEqual({ product_name: 'Assorted Box — Malpuri & Malai Khaja' });
   } finally {
