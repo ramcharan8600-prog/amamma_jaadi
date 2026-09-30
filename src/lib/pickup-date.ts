@@ -1,5 +1,5 @@
 import { businessDateUtcRange, toBusinessDateString } from '@/lib/date';
-import { isBobbatluProduct } from '@/data/products';
+import { ASSORTED_BOBBATLU_BOX_PRODUCT_ID, isBobbatluProduct } from '@/data/products';
 
 export const MAX_PICKUP_DAYS_AHEAD = 90;
 export const SAME_DAY_PICKUP_CUTOFF_HOUR = 13;
@@ -12,7 +12,8 @@ export function isPickupClosedDate(date: string): boolean {
 
 /** Product presence decides pickup lead time, independently of ready stock. */
 export function requiresNextDayPickup(items: Array<{ productId: string }>): boolean {
-  return items.some(({ productId }) => isBobbatluProduct(productId) || productId === 'sweet-kova');
+  return items.some(({ productId }) =>
+    isBobbatluProduct(productId) || productId === ASSORTED_BOBBATLU_BOX_PRODUCT_ID || productId === 'sweet-kova');
 }
 
 function pickupTimeBoundaries(now: Date) {

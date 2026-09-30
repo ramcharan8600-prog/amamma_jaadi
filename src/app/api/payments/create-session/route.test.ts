@@ -596,3 +596,25 @@ describe('Bobbatlu pack prices', () => {
     expect(mocks.inserts).toHaveLength(0);
   });
 });
+
+describe('Assorted Bobbatlu Box', () => {
+  const box = { productId: 'sweet-assorted-bobbatlu-box', quantity: 1, selectedTier: 16 };
+
+  it('costs $49.99 and needs a day of preparation for pickup', async () => {
+    vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
+    const sameDay = await post(checkout([box], { ...pickup, date: '2026-09-08' }));
+    expect(sameDay.status).toBe(400);
+    expect((await sameDay.json()).error).toContain('from tomorrow');
+    const nextDay = await post(checkout([box], { ...pickup, date: '2026-09-09' }));
+    expect(nextDay.status).toBe(201);
+    expect(await nextDay.json()).toMatchObject({ subtotal: 49.99, tax: 0, shipping: 0, totalAmount: 49.99 });
+  });
+
+  it.each([['TX', 201, 6.99], ['OK', 201, 11.99], ['NY', 400, 0]])('follows the normal sweets delivery rules in %s', async (state, status, shipping) => {
+    const response = await post(checkout([box], delivery(state)));
+    expect(response.status).toBe(status);
+    const body = await response.json();
+    if (status === 201) expect(body).toMatchObject({ subtotal: 49.99, shipping, totalAmount: Math.round((49.99 + shipping) * 100) / 100 });
+    else expect(body.error).toContain('Add $30.01 more');
+  });
+});

@@ -136,6 +136,24 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'gifting'],
   },
   {
+    // 8 Bobbatlu + 8 Kova Bobbatlu in one box at $49.99. Made to order like
+    // Bobbatlu (not stock-limited) and needs a day's notice (requiresNextDayPickup).
+    id: 'sweet-assorted-bobbatlu-box',
+    slug: 'assorted-bobbatlu-box',
+    name: 'Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu',
+    description:
+      'Made for your **8:8 Bobbatlu cravings**, with ghee\n* **8 Bobbatlu**\n* **8 Kova Bobbatlu**',
+    category: 'sweets',
+    unitPrice: 3,
+    tierPrices: { 16: 49.99 },
+    emailDetails: ['Made for your 8:8 Bobbatlu cravings, with ghee', '• 8 Bobbatlu', '• 8 Kova Bobbatlu'],
+    image: '/images/products/bobbatlu.jpg',
+    quantityOptions: [16],
+    inStock: true,
+    prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
+    tags: ['traditional', 'andhra', 'festival', 'ghee'],
+  },
+  {
     id: 'sweet-bobbatlu',
     slug: 'bobbatlu',
     name: 'Bobbatlu',
@@ -232,6 +250,12 @@ export const BOBBATLU_PRODUCT_ID = 'sweet-bobbatlu';
 export const KOVA_BOBBATLU_PRODUCT_ID = 'sweet-kova-bobbatlu';
 /** Counted in whole boxes, separately from the loose sweets it contains. */
 export const ASSORTED_BOX_PRODUCT_ID = 'sweet-assorted-box';
+export const ASSORTED_BOBBATLU_BOX_PRODUCT_ID = 'sweet-assorted-bobbatlu-box';
+
+/** A single-size box sold at a fixed price (e.g. the Assorted Boxes), not per piece. */
+export function isFixedPriceBox(product: Pick<Product, 'quantityOptions' | 'tierPrices'>): boolean {
+  return product.quantityOptions?.length === 1 && product.tierPrices?.[product.quantityOptions[0]] !== undefined;
+}
 
 export function isBobbatluProduct(productId: string): boolean {
   return productId === BOBBATLU_PRODUCT_ID || productId === KOVA_BOBBATLU_PRODUCT_ID;

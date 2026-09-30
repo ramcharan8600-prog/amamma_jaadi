@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Leaf, Heart, Sparkles, Truck } from 'lucide-react';
-import { ASSORTED_BOX_PRODUCT_ID, PRODUCTS, calculateSweetPrice } from '@/data/products';
+import { PRODUCTS, calculateSweetPrice, isFixedPriceBox } from '@/data/products';
 import { renderDescription } from '@/lib/description';
 
 export const metadata: Metadata = {
@@ -17,8 +17,8 @@ const PROMISES = [
 ];
 
 export default function HomePage() {
-  // The Assorted Box lives on the Sweets page; the homepage keeps featuring single sweets.
-  const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && p.id !== ASSORTED_BOX_PRODUCT_ID).slice(0, 3);
+  // Assorted boxes live on the Sweets page; the homepage keeps featuring single sweets.
+  const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && !isFixedPriceBox(p)).slice(0, 3);
 
   return (
     <>

@@ -114,3 +114,23 @@ it('offers Bobbatlu in 16/25/50 packs with the bigger packs discounted and the r
     await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
   }
 });
+
+it('shows the Assorted Bobbatlu Box as a single $49.99 box with bold contents and no per-piece badge',async()=>{
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({stock:{}})));
+  invalidateStock();
+  const host=document.createElement('div');document.body.append(host);
+  const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(SweetCard,{product:getProductById('sweet-assorted-bobbatlu-box')!})));
+    expect(host.querySelector('h3')?.textContent).toBe('Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu');
+    expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['16 pcs — $49.99']);
+    expect(Array.from(host.querySelectorAll('strong')).map(s=>s.textContent)).toEqual(['8:8 Bobbatlu cravings','8 Bobbatlu','8 Kova Bobbatlu']);
+    expect(host.textContent).toContain('Made fresh to order — please allow 1 day for preparation.');
+    expect(host.textContent).not.toContain('/pc');
+    expect(host.querySelector('s')).toBeNull();
+    expect(host.querySelector('button')?.disabled).toBe(false);
+  }finally{
+    await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
+  }
+});

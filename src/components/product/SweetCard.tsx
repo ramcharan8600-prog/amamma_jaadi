@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles, Gift } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
-import { ASSORTED_BOX_PRODUCT_ID, calculateSweetPrice, isBobbatluProduct, regularSweetPrice } from '@/data/products';
+import { ASSORTED_BOX_PRODUCT_ID, calculateSweetPrice, isBobbatluProduct, isFixedPriceBox, regularSweetPrice } from '@/data/products';
 import { useStock } from '@/hooks/useStock';
 import { formatCurrency } from '@/lib/utils';
 import { renderDescription } from '@/lib/description';
@@ -97,9 +97,12 @@ export default function SweetCard({ product }: SweetCardProps) {
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className={`${product.imageFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
           />
-          <span className="absolute top-3 right-3 bg-brand-gold text-white text-xs font-medium px-2.5 py-1 rounded-full">
-            {formatCurrency(product.unitPrice)}/pc
-          </span>
+          {/* A fixed-price box isn't sold per piece, so it gets no per-piece badge. */}
+          {!isFixedPriceBox(product) && (
+            <span className="absolute top-3 right-3 bg-brand-gold text-white text-xs font-medium px-2.5 py-1 rounded-full">
+              {formatCurrency(product.unitPrice)}/pc
+            </span>
+          )}
           {outOfStockOverlay}
         </div>
       )}
