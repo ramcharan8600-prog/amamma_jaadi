@@ -618,3 +618,18 @@ describe('Assorted Bobbatlu Box', () => {
     else expect(body.error).toContain('Add $30.01 more');
   });
 });
+
+describe('Assorted Bobbatlu Box stock', () => {
+  const box = { productId: 'sweet-assorted-bobbatlu-box', quantity: 1, selectedTier: 16 };
+  it('rejects the box when its box stock is 0', async () => {
+    mocks.getStockMap.mockResolvedValue({ 'sweet-assorted-bobbatlu-box': 0 });
+    const response = await post(checkout([box], pickup));
+    expect(response.status).toBe(409);
+    expect(mocks.inserts).toHaveLength(0);
+  });
+  it('allows boxes within stock and rejects more than are left', async () => {
+    mocks.getStockMap.mockResolvedValue({ 'sweet-assorted-bobbatlu-box': 2 });
+    expect((await post(checkout([{ ...box, quantity: 2 }], pickup))).status).toBe(201);
+    expect((await post(checkout([{ ...box, quantity: 3 }], pickup))).status).toBe(409);
+  });
+});

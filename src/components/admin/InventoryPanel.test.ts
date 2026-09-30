@@ -66,3 +66,33 @@ it.each([
     vi.unstubAllGlobals();
   }
 });
+
+it('lists both assorted boxes under Box stock, counted in whole boxes', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({
+    stock: { 'sweet-assorted-box': 4, 'sweet-assorted-bobbatlu-box': 0, 'sweet-bobbatlu': 10 },
+  })));
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(createElement(InventoryPanel)));
+    await act(async () => {});
+    const section = host.querySelector('section[aria-labelledby="assorted-box-stock"]')!;
+    expect(section.querySelector('h3')?.textContent).toBe('Box stock');
+    const rows = Array.from(section.querySelectorAll('div.flex')).map((row) => row.textContent);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toContain('Count whole boxes (11 Malpuri + 11 Malai Khaja each).');
+    expect(rows[0]).toContain('4 boxes in stock');
+    expect(rows[1]).toContain('Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu');
+    expect(rows[1]).toContain('Count whole boxes (8 Bobbatlu + 8 Kova Bobbatlu each).');
+    expect(rows[1]).toContain('Out of stock');
+    expect(section.querySelector<HTMLInputElement>('input[aria-label="Stock count for Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu"]')?.value).toBe('0');
+    // Loose Bobbatlu stays in the main list, not under Box stock.
+    expect(section.textContent).not.toContain('pieces ready');
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    vi.unstubAllGlobals();
+  }
+});

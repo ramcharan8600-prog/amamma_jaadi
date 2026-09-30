@@ -136,8 +136,8 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'gifting'],
   },
   {
-    // 8 Bobbatlu + 8 Kova Bobbatlu in one box at $49.99. Made to order like
-    // Bobbatlu (not stock-limited) and needs a day's notice (requiresNextDayPickup).
+    // 8 Bobbatlu + 8 Kova Bobbatlu in one box at $49.99. Stock is counted in
+    // whole boxes like the Assorted Box; needs a day's notice (requiresNextDayPickup).
     id: 'sweet-assorted-bobbatlu-box',
     slug: 'assorted-bobbatlu-box',
     name: 'Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu',
@@ -251,6 +251,12 @@ export const KOVA_BOBBATLU_PRODUCT_ID = 'sweet-kova-bobbatlu';
 /** Counted in whole boxes, separately from the loose sweets it contains. */
 export const ASSORTED_BOX_PRODUCT_ID = 'sweet-assorted-box';
 export const ASSORTED_BOBBATLU_BOX_PRODUCT_ID = 'sweet-assorted-bobbatlu-box';
+/** Boxes whose stock is counted in whole boxes, separately from loose sweets. */
+export const BOX_STOCK_PRODUCT_IDS: readonly string[] = [ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID];
+
+export function isBoxStockProduct(productId: string): boolean {
+  return BOX_STOCK_PRODUCT_IDS.includes(productId);
+}
 
 /** A single-size box sold at a fixed price (e.g. the Assorted Boxes), not per piece. */
 export function isFixedPriceBox(product: Pick<Product, 'quantityOptions' | 'tierPrices'>): boolean {
@@ -263,7 +269,7 @@ export function isBobbatluProduct(productId: string): boolean {
 
 export function isStockTracked(product: Product): boolean {
   return product.category === TRACKED_CATEGORY || isBobbatluProduct(product.id) ||
-    product.id === ASSORTED_BOX_PRODUCT_ID;
+    isBoxStockProduct(product.id);
 }
 
 /** Jars for pickles; individual pieces for Bobbatlu's variable box sizes. */

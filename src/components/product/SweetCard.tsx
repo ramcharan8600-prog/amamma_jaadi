@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles, Gift } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
-import { ASSORTED_BOX_PRODUCT_ID, calculateSweetPrice, isBobbatluProduct, isFixedPriceBox, regularSweetPrice } from '@/data/products';
+import { calculateSweetPrice, isBobbatluProduct, isBoxStockProduct, isFixedPriceBox, regularSweetPrice } from '@/data/products';
 import { useStock } from '@/hooks/useStock';
 import { formatCurrency } from '@/lib/utils';
 import { renderDescription } from '@/lib/description';
@@ -21,9 +21,9 @@ export default function SweetCard({ product }: SweetCardProps) {
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
   const isBobbatlu = isBobbatluProduct(product.id);
-  // The Assorted Box has a hard limit in whole boxes; Bobbatlu stock only
+  // Assorted boxes have a hard limit in whole boxes; Bobbatlu stock only
   // changes the preparation notice. `count === null` means untracked.
-  const isAssortedBox = product.id === ASSORTED_BOX_PRODUCT_ID;
+  const isAssortedBox = isBoxStockProduct(product.id);
   const { count, loaded } = useStock(isBobbatlu || isAssortedBox ? product.id : null);
   const boxesInCart = useCartStore((s) => s.items
     .filter((item) => item.productId === product.id)

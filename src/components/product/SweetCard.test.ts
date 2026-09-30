@@ -150,3 +150,19 @@ it.each(['sweet-bobbatlu','sweet-kova-bobbatlu'])('puts a bold Ghee at the start
     await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
   }
 });
+
+it.each([[0,'Out of Stock',true],[2,'Only 2 boxes left',false]])('limits the Assorted Bobbatlu Box to its box count %i',async(count,text,disabled)=>{
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({stock:{'sweet-assorted-bobbatlu-box':count}})));
+  invalidateStock();
+  const host=document.createElement('div');document.body.append(host);
+  const root=createRoot(host);
+  try{
+    await act(async()=>root.render(createElement(SweetCard,{product:getProductById('sweet-assorted-bobbatlu-box')!})));
+    await act(async()=>{});
+    expect(host.textContent).toContain(text);
+    expect(host.querySelector('button')?.disabled).toBe(disabled);
+  }finally{
+    await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
+  }
+});

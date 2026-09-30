@@ -273,6 +273,8 @@ INSERT OR IGNORE INTO inventory (product_id, stock_count) VALUES ('sweet-bobbatl
 INSERT OR IGNORE INTO inventory (product_id, stock_count) VALUES ('sweet-kova-bobbatlu', 0);
 -- Assorted Box: whole boxes, separate from loose sweets; 0 = Out of Stock.
 INSERT OR IGNORE INTO inventory (product_id, stock_count) VALUES ('sweet-assorted-box', 0);
+-- Assorted Bobbatlu Box: whole boxes, separate from loose Bobbatlu pieces; 0 = Out of Stock.
+INSERT OR IGNORE INTO inventory (product_id, stock_count) VALUES ('sweet-assorted-bobbatlu-box', 0);
 
 -- Owner-confirmed tests stay in order history but are excluded from sales/tax reports.
 CREATE TABLE IF NOT EXISTS order_reporting_exclusions (

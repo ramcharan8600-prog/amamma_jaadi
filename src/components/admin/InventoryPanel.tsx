@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Boxes, Check, Loader2 } from 'lucide-react';
-import { ASSORTED_BOX_PRODUCT_ID, PRODUCTS, isStockTracked, isBobbatluProduct } from '@/data/products';
+import { ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, PRODUCTS, isStockTracked, isBobbatluProduct, isBoxStockProduct } from '@/data/products';
 import type { Product } from '@/types';
 import { invalidateStock } from '@/hooks/useStock';
 
 /**
  * Admin stock editor for pickle jars, ready-made Bobbatlu pieces and, in its
- * own section, whole Assorted Boxes (never mixed with loose-sweet counts).
+ * own section, whole assorted boxes (never mixed with loose-sweet counts).
  * Counts decrement automatically on each paid order; this panel is for
  * restocking and corrections.
  */
@@ -69,18 +69,22 @@ export default function InventoryPanel() {
     }
   };
 
-  const tracked = PRODUCTS.filter((p) => isStockTracked(p) && p.id !== ASSORTED_BOX_PRODUCT_ID);
-  const boxes = PRODUCTS.filter((p) => p.id === ASSORTED_BOX_PRODUCT_ID);
+  const tracked = PRODUCTS.filter((p) => isStockTracked(p) && !isBoxStockProduct(p.id));
+  const boxes = PRODUCTS.filter((p) => isBoxStockProduct(p.id));
+  const boxContents: Record<string, string> = {
+    [ASSORTED_BOX_PRODUCT_ID]: '11 Malpuri + 11 Malai Khaja',
+    [ASSORTED_BOBBATLU_BOX_PRODUCT_ID]: '8 Bobbatlu + 8 Kova Bobbatlu',
+  };
 
   const renderRow = (p: Product) => {
     const current = stock[p.id] ?? 0;
     const isBobbatlu = isBobbatluProduct(p.id);
-    const isBox = p.id === ASSORTED_BOX_PRODUCT_ID;
+    const isBox = isBoxStockProduct(p.id);
     const isOut = current <= 0;
     const isLow = current > 0 && current <= 5;
     const hint = isBobbatlu
       ? 'Count individual pieces. Orders beyond stock need 1 day to prepare.'
-      : isBox ? 'Count whole boxes (11 Malpuri + 11 Malai Khaja each).' : 'Count jars.';
+      : isBox ? `Count whole boxes (${boxContents[p.id]} each).` : 'Count jars.';
     const status = isOut
       ? (isBobbatlu ? '1-day preparation' : 'Out of stock')
       : `${current} ${isBobbatlu ? 'pieces ready' : isBox ? (current === 1 ? 'box in stock' : 'boxes in stock') : 'in stock'}`;
@@ -153,10 +157,10 @@ export default function InventoryPanel() {
           {boxes.length > 0 && (
             <section aria-labelledby="assorted-box-stock" className="mt-6 pt-5 border-t border-brand-cream-dark">
               <h3 id="assorted-box-stock" className="font-display text-base font-semibold text-brand-charcoal">
-                Assorted Box stock
+                Box stock
               </h3>
               <p className="font-body text-xs text-brand-charcoal/60 mt-0.5 mb-3">
-                Separate from loose Malpuri and Malai Khaja. At 0 the box shows Out of Stock on the website.
+                Separate from loose sweets. At 0 a box shows Out of Stock on the website.
               </p>
               <div className="space-y-2">{boxes.map(renderRow)}</div>
             </section>

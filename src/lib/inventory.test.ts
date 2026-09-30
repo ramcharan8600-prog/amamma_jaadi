@@ -155,7 +155,7 @@ describe('inventory — stock map', () => {
     expect(await getStockMap(db)).toEqual({ 'pickle-chicken': 7, 'pickle-mutton': 0 });
   });
 
-  it('tracks all four pickles, the Assorted Box and both Bobbatlu products', () => {
-    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-assorted-box', 'sweet-bobbatlu', 'sweet-kova-bobbatlu']);
+  it('tracks all four pickles, both assorted boxes and both Bobbatlu products', () => {
+    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-assorted-box', 'sweet-assorted-bobbatlu-box', 'sweet-bobbatlu', 'sweet-kova-bobbatlu']);
   });
 });
