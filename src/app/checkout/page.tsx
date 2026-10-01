@@ -365,6 +365,7 @@ export default function CheckoutPage() {
       shippingCoupon: appliedCoupon?.type === 'free_delivery' ? appliedCoupon : undefined,
       picklesOnly,
       groundShipping,
+      groundPieces: groundShipping ? calculateTotalPieces(items) : undefined,
       pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,

@@ -130,6 +130,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
       legacyPickleRates: !['texas_v2', 'texas_v3'].includes(String(session.pricing_policy)),
       picklesOnly,
       groundShipping,
+      groundPieces: groundShipping ? getTotalPieces(cart.items) : undefined,
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       taxableSubtotal: cart.taxableSubtotal, fulfillmentType: delivery ? 'delivery' : 'pickup',
       deliveryState: delivery ? state : undefined,

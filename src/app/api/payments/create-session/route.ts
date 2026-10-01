@@ -205,6 +205,7 @@ export async function POST(request: NextRequest) {
       taxableSubtotal: taxableTotal,
       picklesOnly,
       groundShipping,
+      groundPieces: groundShipping ? getTotalPieces(cart.items) : undefined,
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       deliveryState,
       shippingMethod,

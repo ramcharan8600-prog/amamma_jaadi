@@ -21,6 +21,8 @@ import {
   SHIPPING_FAR,
   SHIPPING_GROUND_OUT_OF_STATE,
   SHIPPING_ASSORTED_BOX_NEARBY,
+  SHIPPING_MALAI_KHAJA_50,
+  SHIPPING_MALAI_KHAJA_FAR_25,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod } from '@/types';
 import { ASSORTED_BOX_PRODUCT_ID } from '@/data/products';
@@ -190,6 +192,8 @@ export interface ShippingOptions {
   picklesOnly?: boolean;
   /** Cart holds only Malai Khaja or only the Assorted Box: out-of-state shipping is capped at $9.99. */
   groundShipping?: GroundShippingKind;
+  /** Total pieces in a ground-shipped cart; Malai Khaja rates step down at 25 and 50 pieces. */
+  groundPieces?: number;
   pickleJarCount?: number;
   deliveryState?: string;
   shippingMethod?: DeliveryShippingMethod;
@@ -225,12 +229,17 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else {
       regularShipping = SHIPPING_FAR;
     }
-    // Malai Khaja never pays more than the regular rate (nearby $8.99 / $7.99
-    // stay); the Assorted Box is a flat $7.99 to nearby states and $9.99 to far ones.
-    if (opts.groundShipping && !opts.picklesOnly && zone !== 'texas') {
-      regularShipping = opts.groundShipping === 'assorted-box'
-        ? (zone === 'nearby' ? SHIPPING_ASSORTED_BOX_NEARBY : SHIPPING_GROUND_OUT_OF_STATE)
-        : Math.min(regularShipping, SHIPPING_GROUND_OUT_OF_STATE);
+    if (opts.groundShipping === 'malai-khaja' && !opts.picklesOnly) {
+      // By total Malai Khaja pieces: 50+ is $5.99 everywhere (Texas included);
+      // far states pay $8.99 from 25 pieces, else $9.99; nearby states never pay
+      // more than the regular tier, capped at $9.99; Texas otherwise stays $6.99.
+      const pieces = Number.isFinite(opts.groundPieces) ? opts.groundPieces! : 0;
+      if (pieces >= 50) regularShipping = SHIPPING_MALAI_KHAJA_50;
+      else if (zone === 'far') regularShipping = pieces >= 25 ? SHIPPING_MALAI_KHAJA_FAR_25 : SHIPPING_GROUND_OUT_OF_STATE;
+      else if (zone === 'nearby') regularShipping = Math.min(regularShipping, SHIPPING_GROUND_OUT_OF_STATE);
+    } else if (opts.groundShipping === 'assorted-box' && !opts.picklesOnly && zone !== 'texas') {
+      // The Assorted Box is a flat $7.99 to nearby states and $9.99 to far ones.
+      regularShipping = zone === 'nearby' ? SHIPPING_ASSORTED_BOX_NEARBY : SHIPPING_GROUND_OUT_OF_STATE;
     }
   }
   const coupon = opts.shippingCoupon;
@@ -258,7 +267,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/KS/LA/MS/NM/OK/TN): $11.99 below $60, $8.99 from $60, $7.99 from $100.
  * Sweets/mixed in far states: $11.99 flat, with a $60 merchandise minimum.
- * Only Malai Khaja outside Texas: the lower of $9.99 and the rate above, no minimum.
+ * Only Malai Khaja: 50+ pieces $5.99 everywhere; otherwise Texas $6.99, nearby the lower of
+ * $9.99 and the rate above, far $8.99 from 25 pieces else $9.99; no minimum.
  * Only the Assorted Box outside Texas: a flat $7.99 to nearby states, $9.99 to far states, no minimum.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.

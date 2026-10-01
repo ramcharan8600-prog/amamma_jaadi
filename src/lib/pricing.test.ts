@@ -450,3 +450,29 @@ describe('pricing — Assorted Box-only carts', () => {
     expect(getDeliveryMinimumShortfall(60, 'NY', false, 'assorted-box')).toBe(0);
   });
 });
+
+describe('pricing — Malai Khaja-only rates by total pieces', () => {
+  const ship = (subtotal: number, deliveryState: string, groundPieces: number) =>
+    calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0,
+      groundShipping: 'malai-khaja', groundPieces }).shipping;
+
+  it.each([
+    // [pieces, subtotal, Texas, nearby (GA), far (NY)]
+    [16, 40, 6.99, 9.99, 9.99],
+    [25, 62.5, 6.99, 8.99, 8.99],
+    [50, 125, 5.99, 5.99, 5.99],
+    [32, 80, 6.99, 8.99, 8.99],   // 2 × 16
+    [48, 120, 6.99, 7.99, 8.99],  // 3 × 16: nearby keeps the cheaper $100 tier
+    [50, 125, 5.99, 5.99, 5.99],  // 2 × 25
+    [100, 250, 5.99, 5.99, 5.99], // 2 × 50
+  ])('%i pieces ($%s): Texas $%s, nearby $%s, far $%s', (pieces, subtotal, tx, nearby, far) => {
+    expect(ship(subtotal, 'TX', pieces)).toBe(tx);
+    expect(ship(subtotal, 'GA', pieces)).toBe(nearby);
+    expect(ship(subtotal, 'NY', pieces)).toBe(far);
+  });
+
+  it('keeps a Texas shipping coupon on a 50-piece order (free + $0.99)', () => {
+    expect(calculateShippingQuote(125, { fulfillmentType: 'delivery', deliveryState: 'TX', groundShipping: 'malai-khaja',
+      groundPieces: 50, shippingCoupon: { minSubtotal: 70, shippingPolicy: 'texas_v3' } })).toMatchObject({ shipping: 0, maintenanceFee: 0.99 });
+  });
+});

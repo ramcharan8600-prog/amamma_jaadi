@@ -650,3 +650,26 @@ describe('far-state $60 minimum', () => {
     expect((await response.json()).error).toBe('A minimum product subtotal of $60.00 is required for delivery to this state. Add $12.00 more to continue.');
   });
 });
+
+describe('Malai Khaja-only shipping by pack size', () => {
+  const mk = (tier: number, quantity = 1) => ({ productId: 'sweet-malai-khaja', quantity, selectedTier: tier });
+  it.each([
+    ['16 to NY', [mk(16)], 'NY', 9.99],
+    ['25 to NY', [mk(25)], 'NY', 8.99],
+    ['50 to NY', [mk(50)], 'NY', 5.99],
+    ['50 to GA', [mk(50)], 'GA', 5.99],
+    ['50 to TX', [mk(50)], 'TX', 5.99],
+    ['2 x 25 to CA', [mk(25, 2)], 'CA', 5.99],
+    ['16 to TX', [mk(16)], 'TX', 6.99],
+  ])('charges Malai Khaja %s at $%s', async (_name, items, state, shipping) => {
+    const response = await post(checkout(items, delivery(String(state))));
+    expect(response.status).toBe(201);
+    expect((await response.json()).shipping).toBe(shipping);
+  });
+
+  it('uses the normal rules once anything else is in the cart', async () => {
+    const response = await post(checkout([mk(50), sweet], delivery('NY')));
+    expect(response.status).toBe(201);
+    expect((await response.json()).shipping).toBe(11.99);
+  });
+});
