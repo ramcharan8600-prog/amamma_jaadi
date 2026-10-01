@@ -891,11 +891,13 @@ describe('coupon benefits in checkout', () => {
     expect(tastePackLine()).toBeUndefined();
   });
 
-  it('offers the Ghee Bobbatlu Taste Pack once the coupon minimum is met', async () => {
+  it('shows no Taste Pack suggestion once the cart is at or over the coupon minimum', async () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
     await apply();
-    expect(tastePackLine()?.textContent).toContain('Try our Ghee Bobbatlu Taste Pack (6 pcs) — $14.99 →');
+    expect(host.textContent).toContain('SHIP70: Shipping offer');
+    expect(tastePackLine()).toBeUndefined();
+    expect(host.textContent).not.toContain('Taste Pack');
   });
 
   it('shows the Taste Pack only for Texas delivery with a shipping coupon', async () => {

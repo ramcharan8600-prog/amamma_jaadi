@@ -429,14 +429,16 @@ export default function CheckoutPage() {
   const nextDayProductNames = Array.from(new Set(
     items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
   )).join(' and ');
-  // Temporary Taste Pack add-on: only offered next to a Texas shipping coupon
-  // (state not chosen yet, or Texas), before payment, and once per cart.
+  // Temporary Taste Pack add-on: only offered while the cart is under a Texas
+  // shipping coupon's minimum (state not chosen yet, or Texas), before payment,
+  // and once per cart. Carts already at the minimum see nothing.
   const tastePack = getProductById(BOBBATLU_TASTE_PACK_PRODUCT_ID);
   const offerCoupon = appliedCoupon?.type === 'free_delivery' ? appliedCoupon : appliedCoupon ? null : couponShortfall;
   const tastePackOffer = tastePack && offerCoupon && step !== 'payment' &&
     fulfillmentType !== 'pickup' && (!deliveryState || deliveryState === 'TX') &&
     items.some(({ product }) => !product.addOnOnly) &&
-    !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)
+    !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID) &&
+    subtotal < offerCoupon.minSubtotal
     ? {
         product: tastePack,
         tier: tastePack.quantityOptions![0],
@@ -562,9 +564,7 @@ export default function CheckoutPage() {
   const renderTastePackOffer = () => tastePackOffer && (
     <div className="flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2">
       <p className="text-brand-charcoal">
-        {tastePackOffer.gap > 0
-          ? <>You&apos;re <strong>{formatCurrency(tastePackOffer.gap)}</strong> away from free shipping. Add a <strong>{tastePackOffer.product.name}</strong> {formatCurrency(tastePackOffer.price)} →</>
-          : <>Try our <strong>Ghee {tastePackOffer.product.name}</strong> — {formatCurrency(tastePackOffer.price)} →</>}
+        You&apos;re <strong>{formatCurrency(tastePackOffer.gap)}</strong> away from free shipping. Add a <strong>{tastePackOffer.product.name}</strong> {formatCurrency(tastePackOffer.price)} →
       </p>
       <button type="button" disabled={submitting || paying || promoApplying}
         className="btn-primary shrink-0 text-xs py-1.5 px-3"
