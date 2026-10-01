@@ -199,3 +199,10 @@ describe('pickup locations', () => {
     expect(getPickupLocationById('irving-biryanify')?.address).toBe('9400 N MacArthur Blvd #150');
   });
 });
+
+it('keeps the Bobbatlu Taste Pack off the product pages', () => {
+  const pack = getProductById('sweet-bobbatlu-taste-pack')!;
+  expect(pack).toMatchObject({ name: 'Bobbatlu Taste Pack (6 pcs)', addOnOnly: true, quantityOptions: [6] });
+  expect(calculateSweetPrice(pack, 6)).toBe(14.99);
+  expect(getProductsByCategory('sweets').map(p => p.id)).not.toContain('sweet-bobbatlu-taste-pack');
+});

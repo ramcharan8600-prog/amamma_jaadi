@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { ok, fail } from '@/lib/api';
@@ -42,7 +42,11 @@ export async function POST(request: NextRequest) {
       const cart = validateCart(body.items);
       if (!cart.ok) return fail(cart.error, cart.status);
       if (cart.subtotal < benefit.minSubtotal) {
-        return fail(couponMinimumMessage(benefit.minSubtotal), 400);
+        // Also say which shipping coupon and minimum, so checkout can suggest an add-on.
+        return NextResponse.json({
+          error: couponMinimumMessage(benefit.minSubtotal),
+          belowMinimum: { code: benefit.code, minSubtotal: benefit.minSubtotal },
+        }, { status: 400 });
       }
     }
     return ok(benefit);

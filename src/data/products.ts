@@ -154,6 +154,23 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
   },
   {
+    // Temporary checkout add-on (Oct 2026): offered only next to a Texas shipping
+    // coupon, never listed on the Sweets page, and never sold on its own.
+    id: 'sweet-bobbatlu-taste-pack',
+    slug: 'bobbatlu-taste-pack',
+    name: 'Bobbatlu Taste Pack (6 pcs)',
+    description: 'Six Bobbatlu made with pure **Ghee** — a taste of Amamma\'s recipe.',
+    category: 'sweets',
+    unitPrice: 3,
+    tierPrices: { 6: 14.99 },
+    image: '/images/products/bobbatlu.jpg',
+    quantityOptions: [6],
+    inStock: true,
+    addOnOnly: true,
+    prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
+    tags: ['traditional', 'andhra', 'ghee'],
+  },
+  {
     id: 'sweet-bobbatlu',
     slug: 'bobbatlu',
     name: 'Bobbatlu',
@@ -251,6 +268,8 @@ export const KOVA_BOBBATLU_PRODUCT_ID = 'sweet-kova-bobbatlu';
 /** Counted in whole boxes, separately from the loose sweets it contains. */
 export const ASSORTED_BOX_PRODUCT_ID = 'sweet-assorted-box';
 export const ASSORTED_BOBBATLU_BOX_PRODUCT_ID = 'sweet-assorted-bobbatlu-box';
+/** Checkout add-on offered alongside a Texas shipping coupon (temporary promotion). */
+export const BOBBATLU_TASTE_PACK_PRODUCT_ID = 'sweet-bobbatlu-taste-pack';
 /** Boxes whose stock is counted in whole boxes, separately from loose sweets. */
 export const BOX_STOCK_PRODUCT_IDS: readonly string[] = [ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID];
 
@@ -333,8 +352,9 @@ export function getProductBySlug(slug: string): Product | undefined {
   return PRODUCTS.find((p) => p.slug === slug);
 }
 
+/** Products listed on a category page; checkout-only add-ons are never listed. */
 export function getProductsByCategory(category: string): Product[] {
-  return PRODUCTS.filter((p) => p.category === category);
+  return PRODUCTS.filter((p) => p.category === category && !p.addOnOnly);
 }
 
 export function getPickupLocationById(id: string): PickupLocation | undefined {

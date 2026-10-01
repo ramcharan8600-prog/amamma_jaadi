@@ -18,7 +18,7 @@ const PROMISES = [
 
 export default function HomePage() {
   // Assorted boxes live on the Sweets page; the homepage keeps featuring single sweets.
-  const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && !isFixedPriceBox(p)).slice(0, 3);
+  const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && !isFixedPriceBox(p) && !p.addOnOnly).slice(0, 3);
 
   return (
     <>

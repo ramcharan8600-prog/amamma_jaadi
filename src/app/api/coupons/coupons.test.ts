@@ -48,7 +48,10 @@ describe('coupon administration and validation', () => {
     await update(request({ code: 'SHIP', minSubtotal: 40.01 }));
     const rejected = await validate(request({ code: 'SHIP', subtotal: 999, items: items.map(item => ({ ...item, lineTotal: 999 })) }));
     expect(rejected.status).toBe(400);
-    expect((await rejected.json()).error).toContain('$40.01');
+    const body = await rejected.json();
+    expect(body.error).toContain('$40.01');
+    // Tells checkout which coupon and minimum, so it can suggest an add-on.
+    expect(body.belowMinimum).toEqual({ code: 'SHIP', minSubtotal: 40.01 });
   });
 
   it('preserves existing complimentary coupon creation and rejects a minimum on it', async () => {

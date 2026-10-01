@@ -18,7 +18,7 @@ const EVENT_TYPES = [
 ];
 
 export default function EventsPage() {
-  const sweets = PRODUCTS.filter((p) => p.category === 'sweets');
+  const sweets = PRODUCTS.filter((p) => p.category === 'sweets' && !p.addOnOnly);
   const minDate = getMinEventDate();
 
   const [customerName, setCustomerName] = useState('');

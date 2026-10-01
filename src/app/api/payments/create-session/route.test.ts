@@ -673,3 +673,29 @@ describe('Malai Khaja-only shipping by pack size', () => {
     expect((await response.json()).shipping).toBe(11.99);
   });
 });
+
+describe('Bobbatlu Taste Pack add-on', () => {
+  const pack = { productId: 'sweet-bobbatlu-taste-pack', quantity: 1, selectedTier: 6 };
+  it('cannot be bought on its own', async () => {
+    const response = await post(checkout([pack], delivery('TX')));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('Bobbatlu Taste Pack (6 pcs) can only be added to an order with other items.');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+  it('adds $14.99 to another order', async () => {
+    const response = await post(checkout([sweet, pack], delivery('TX')));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 54.99, shipping: 6.99, totalAmount: 61.98 });
+  });
+  it('lifts a $60 Assorted Box cart over a $70 Texas shipping coupon', async () => {
+    mocks.coupon.mockResolvedValue({ code: 'SHIP', active: 1, coupon_type: 'free_delivery', bonus_item: '', bonus_qty: 0, min_subtotal: 70 });
+    const response = await post({ ...checkout([assorted, pack], delivery('TX')), couponCode: 'SHIP' });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 74.99, shipping: 0, maintenanceFee: 0.99, totalAmount: 75.98 });
+  });
+  it('needs a day of preparation for pickup', async () => {
+    vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
+    expect((await post(checkout([sweet, pack], { ...pickup, date: '2026-09-08' }))).status).toBe(400);
+    expect((await post(checkout([sweet, pack], { ...pickup, date: '2026-09-09' }))).status).toBe(201);
+  });
+});

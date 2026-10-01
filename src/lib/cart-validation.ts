@@ -110,6 +110,11 @@ export function validateCart(input: unknown): CartValidationResult {
     });
   }
 
+  // A checkout add-on can only join another order, never be bought alone.
+  if (items.every(({ product }) => product.addOnOnly)) {
+    return invalid(`${items[0].product.name} can only be added to an order with other items.`);
+  }
+
   return {
     ok: true,
     items,

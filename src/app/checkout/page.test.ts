@@ -857,6 +857,61 @@ describe('coupon benefits in checkout', () => {
   function maintenanceRow() {
     return Array.from(host.querySelectorAll('span')).find(item => item.textContent === 'Maintenance fee')?.parentElement?.textContent;
   }
+  const tastePackLine = () => Array.from(host.querySelectorAll('div')).find(d => /Taste Pack/.test(d.textContent ?? '') && d.querySelector('button')?.textContent === 'Add');
+
+  it('suggests the Bobbatlu Taste Pack when a Texas shipping coupon is under its minimum, and adds it', async () => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    await apply();
+    expect(tastePackLine()?.textContent).toContain("You're $30.00 away from free shipping. Add a Bobbatlu Taste Pack (6 pcs) $14.99 →");
+    await act(async () => tastePackLine()!.querySelector('button')!.click());
+    expect(useCartStore.getState().items.map(i => [i.productId, i.selectedTier, i.lineTotal]))
+      .toEqual([['sweet-malpuri', 16, 40], ['sweet-bobbatlu-taste-pack', 6, 14.99]]);
+    expect(tastePackLine()).toBeUndefined();
+  });
+
+  it('offers the Taste Pack when the coupon is refused for being under its minimum, then applies the coupon after adding it', async () => {
+    let checks = 0;
+    couponResult = async () => ++checks === 1
+      ? Response.json({ error: 'This coupon requires a minimum cart value of $70.00 before tax and shipping.',
+          belowMinimum: { code: 'SHIP70', minSubtotal: 70 } }, { status: 400 })
+      : Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
+    await apply();
+    expect(host.textContent).toContain('This coupon requires a minimum cart value of $70.00');
+    expect(tastePackLine()?.textContent).toContain("You're $10.00 away from free shipping. Add a Bobbatlu Taste Pack (6 pcs) $14.99 →");
+    await act(async () => tastePackLine()!.querySelector('button')!.click());
+    await act(async () => {});
+    expect(useCartStore.getState().items.map(i => i.productId)).toEqual(['sweet-assorted-box', 'sweet-bobbatlu-taste-pack']);
+    expect(checks).toBe(2);
+    const reCheck = calls('/api/coupons/validate')[1][1]!.body as string;
+    expect(JSON.parse(reCheck).items.map((i: { productId: string }) => i.productId)).toEqual(['sweet-assorted-box', 'sweet-bobbatlu-taste-pack']);
+    expect(host.textContent).toContain('SHIP70: Shipping offer');
+    expect(host.textContent).not.toContain('This coupon requires a minimum');
+    expect(tastePackLine()).toBeUndefined();
+  });
+
+  it('offers the Ghee Bobbatlu Taste Pack once the coupon minimum is met', async () => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    await apply();
+    expect(tastePackLine()?.textContent).toContain('Try our Ghee Bobbatlu Taste Pack (6 pcs) — $14.99 →');
+  });
+
+  it('shows the Taste Pack only for Texas delivery with a shipping coupon', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    await render();
+    expect(tastePackLine()).toBeUndefined();
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    await input('input[placeholder="Enter code"]', 'ship');
+    await click('Apply');
+    expect(tastePackLine()).toBeDefined();
+    await delivery();
+    expect(tastePackLine()).toBeDefined();
+    await input('#delivery-state', 'OK');
+    expect(tastePackLine()).toBeUndefined();
+  });
+
   it.each([
     { cart: 'sweets', sweets: 2, jars: 0, fee: '$0.99', total: '$80.99' },
     { cart: 'mixed', sweets: 1, jars: 4, fee: '$0.99', total: '$119.01' },

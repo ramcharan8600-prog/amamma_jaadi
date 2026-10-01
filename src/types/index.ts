@@ -22,6 +22,11 @@ export interface Product {
   quantityOptions?: number[];
   /** Diagonal corner ribbon on the card photo, e.g. "Special Edition". */
   ribbon?: string;
+  /**
+   * Add-on only: never listed on product pages, only offered at checkout, and
+   * a cart made only of add-ons is refused (it must join another order).
+   */
+  addOnOnly?: boolean;
   /** Extra lines shown under this item in order emails only (e.g. box contents). */
   emailDetails?: string[];
   /** Fixed price for a tier, overriding unitPrice × pieces (e.g. a $60 box of 22). */

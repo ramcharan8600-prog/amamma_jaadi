@@ -24,7 +24,10 @@ import {
   isProductTaxExempt,
   getBobbatluPieces,
   BOBBATLU_PRODUCT_ID,
+  BOBBATLU_TASTE_PACK_PRODUCT_ID,
   KOVA_BOBBATLU_PRODUCT_ID,
+  calculateSweetPrice,
+  getProductById,
 } from '@/data/products';
 import { useStock, invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
@@ -72,7 +75,7 @@ const STEP_LABELS: { key: Step | 'done'; label: string }[] = [
 
 export default function CheckoutPage() {
   const [mounted, setMounted] = useState(false);
-  const { items, fulfillment, setFulfillment, clearCart, removeItem } =
+  const { items, fulfillment, setFulfillment, clearCart, removeItem, addItem } =
     useCartStore();
 
   const [step, setStep] = useState<Step>('cart');
@@ -123,6 +126,8 @@ export default function CheckoutPage() {
   const [promoMsg, setPromoMsg] = useState('');
   const [promoApplying, setPromoApplying] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<CouponBenefit | null>(null);
+  // A shipping coupon refused only because the cart is under its minimum.
+  const [couponShortfall, setCouponShortfall] = useState<{ code: string; minSubtotal: number } | null>(null);
   const [cardReady, setCardReady] = useState(false);
   const [applePayReady, setApplePayReady] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -424,6 +429,21 @@ export default function CheckoutPage() {
   const nextDayProductNames = Array.from(new Set(
     items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
   )).join(' and ');
+  // Temporary Taste Pack add-on: only offered next to a Texas shipping coupon
+  // (state not chosen yet, or Texas), before payment, and once per cart.
+  const tastePack = getProductById(BOBBATLU_TASTE_PACK_PRODUCT_ID);
+  const offerCoupon = appliedCoupon?.type === 'free_delivery' ? appliedCoupon : appliedCoupon ? null : couponShortfall;
+  const tastePackOffer = tastePack && offerCoupon && step !== 'payment' &&
+    fulfillmentType !== 'pickup' && (!deliveryState || deliveryState === 'TX') &&
+    items.some(({ product }) => !product.addOnOnly) &&
+    !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)
+    ? {
+        product: tastePack,
+        tier: tastePack.quantityOptions![0],
+        price: calculateSweetPrice(tastePack, tastePack.quantityOptions![0]),
+        gap: Math.max(0, Math.round((offerCoupon.minSubtotal - subtotal) * 100) / 100),
+      }
+    : null;
   const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, hasNextDayProduct);
   const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
@@ -506,6 +526,56 @@ export default function CheckoutPage() {
       </div>
     );
   }
+
+  // ── Promo codes ────────────────────────────────────────────────────
+  const applyCoupon = async (code: string, cartItems: typeof items) => {
+    if (!code.trim()) return;
+    setPromoApplying(true);
+    setPromoMsg('');
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, items: cartItems }),
+      });
+      const data = await res.json();
+      if (res.ok && data.code) {
+        setPromoCode(data.code);
+        setAppliedCoupon(data as CouponBenefit);
+        setCouponShortfall(null);
+        setPromoMsg('');
+      } else {
+        setAppliedCoupon(null);
+        setCouponShortfall(data.belowMinimum ?? null);
+        setPromoMsg(data.error || "That promo code isn't valid.");
+      }
+    } catch {
+      setAppliedCoupon(null);
+      setCouponShortfall(null);
+      setPromoMsg('Could not verify code. Please try again.');
+    }
+    setPromoApplying(false);
+  };
+
+  // Temporary Taste Pack add-on line. Adding it re-applies a shipping coupon that
+  // was refused only for being under its minimum.
+  const renderTastePackOffer = () => tastePackOffer && (
+    <div className="flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2">
+      <p className="text-brand-charcoal">
+        {tastePackOffer.gap > 0
+          ? <>You&apos;re <strong>{formatCurrency(tastePackOffer.gap)}</strong> away from free shipping. Add a <strong>{tastePackOffer.product.name}</strong> {formatCurrency(tastePackOffer.price)} →</>
+          : <>Try our <strong>Ghee {tastePackOffer.product.name}</strong> — {formatCurrency(tastePackOffer.price)} →</>}
+      </p>
+      <button type="button" disabled={submitting || paying || promoApplying}
+        className="btn-primary shrink-0 text-xs py-1.5 px-3"
+        onClick={() => {
+          addItem(tastePackOffer.product, 1, tastePackOffer.tier);
+          if (!appliedCoupon && couponShortfall) applyCoupon(couponShortfall.code, useCartStore.getState().items);
+        }}>
+        Add
+      </button>
+    </div>
+  );
 
   // ── Session creation (never used to recover an uncertain payment) ──
   const requestSession = async (
@@ -862,8 +932,9 @@ export default function CheckoutPage() {
                       : 'This coupon offers free shipping within Texas only. Regular shipping rates apply to your state.'}
             </p>
           )}
+          {renderTastePackOffer()}
           {step !== 'payment' && <button type="button" disabled={submitting || paying} className="underline text-brand-charcoal/60"
-            onClick={() => { setAppliedCoupon(null); setPromoCode(''); setPromoMsg(''); }}>Remove promo code</button>}
+            onClick={() => { setAppliedCoupon(null); setCouponShortfall(null); setPromoCode(''); setPromoMsg(''); }}>Remove promo code</button>}
         </div>
       )}
 
@@ -962,6 +1033,7 @@ export default function CheckoutPage() {
                 onChange={(e) => {
                   setPromoCode(e.target.value);
                   setPromoMsg('');
+                  setCouponShortfall(null);
                   if (appliedCoupon) setAppliedCoupon(null);
                 }}
                 placeholder="Enter code"
@@ -969,31 +1041,7 @@ export default function CheckoutPage() {
               />
               <button
                 type="button"
-                onClick={async () => {
-                  if (!promoCode.trim()) return;
-                  setPromoApplying(true);
-                  setPromoMsg('');
-                  try {
-                    const res = await fetch('/api/coupons/validate', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ code: promoCode, items }),
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.code) {
-                      setPromoCode(data.code);
-                      setAppliedCoupon(data as CouponBenefit);
-                      setPromoMsg('');
-                    } else {
-                      setAppliedCoupon(null);
-                      setPromoMsg(data.error || "That promo code isn't valid.");
-                    }
-                  } catch {
-                    setAppliedCoupon(null);
-                    setPromoMsg('Could not verify code. Please try again.');
-                  }
-                  setPromoApplying(false);
-                }}
+                onClick={() => applyCoupon(promoCode, items)}
                 disabled={!promoCode.trim() || promoApplying}
                 className="btn-secondary px-5"
               >
@@ -1005,6 +1053,7 @@ export default function CheckoutPage() {
                 {promoMsg}
               </p>
             )}
+            {!appliedCoupon && <div className="font-body text-sm">{renderTastePackOffer()}</div>}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
