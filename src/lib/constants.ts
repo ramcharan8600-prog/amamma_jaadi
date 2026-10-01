@@ -36,7 +36,7 @@ export const STANDARD_SHIPPING_THRESHOLD = 60;
 export const NEARBY_SHIPPING_TOP_THRESHOLD = 100;
 
 /** Minimum merchandise subtotal for far-state delivery when sweets are included. */
-export const FAR_SHIPPING_MINIMUM = 80;
+export const FAR_SHIPPING_MINIMUM = 60;
 
 /** Flat UPS shipping within Texas. */
 export const SHIPPING_TX = 6.99;

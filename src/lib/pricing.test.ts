@@ -124,11 +124,11 @@ describe('pricing — far-state delivery', () => {
       .toBe(11.99);
   });
 
-  it('requires an $80 merchandise subtotal', () => {
-    expect(getDeliveryMinimumSubtotal('NY')).toBe(80);
-    expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(40);
-    expect(getDeliveryMinimumShortfall(79.99, 'NY')).toBe(0.01);
-    expect(getDeliveryMinimumShortfall(80, 'NY')).toBe(0);
+  it('requires a $60 merchandise subtotal', () => {
+    expect(getDeliveryMinimumSubtotal('NY')).toBe(60);
+    expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(20);
+    expect(getDeliveryMinimumShortfall(59.99, 'NY')).toBe(0.01);
+    expect(getDeliveryMinimumShortfall(60, 'NY')).toBe(0);
     expect(getDeliveryMinimumShortfall(100, 'NY')).toBe(0);
     expect(getDeliveryMinimumSubtotal('TX')).toBe(0);
     expect(getDeliveryMinimumSubtotal('AL')).toBe(0);
@@ -300,9 +300,9 @@ describe('pickle-only nationwide rates and minimum exemption', () => {
     }
   });
   it('restores the far-state minimum when sweets are present', () => {
-    expect(getDeliveryMinimumSubtotal('NY', false)).toBe(80);
-    expect(getDeliveryMinimumShortfall(59, 'NY', false)).toBe(21);
-    expect(getDeliveryMinimumShortfall(80, 'NY', false)).toBe(0);
+    expect(getDeliveryMinimumSubtotal('NY', false)).toBe(60);
+    expect(getDeliveryMinimumShortfall(59, 'NY', false)).toBe(1);
+    expect(getDeliveryMinimumShortfall(60, 'NY', false)).toBe(0);
   });
 });
 
@@ -362,7 +362,7 @@ describe('pricing — nearby states with the $100 tier', () => {
     expect(calculateOrderTotals(120, { fulfillmentType: 'delivery', deliveryState: 'TX', taxableSubtotal: 0 }).shipping).toBe(6.99);
     expect(calculateOrderTotals(120, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0 }).shipping).toBe(11.99);
     expect(calculateOrderTotals(18, { fulfillmentType: 'delivery', deliveryState: 'FL', picklesOnly: true, pickleJarCount: 1 }).shipping).toBe(6.99);
-    expect(getDeliveryMinimumSubtotal('NC')).toBe(80);
+    expect(getDeliveryMinimumSubtotal('NC')).toBe(60);
   });
 
   it('gives no shipping-coupon discount on the $7.99 nearby tier', () => {
@@ -414,7 +414,7 @@ describe('pricing — Malai Khaja-only carts', () => {
   it('leaves every other cart on the regular rates and minimum', () => {
     expect(ship(40, 'FL', false)).toBe(11.99);
     expect(ship(80, 'NY', false)).toBe(11.99);
-    expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(40);
+    expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(20);
   });
 
   it('gives no shipping-coupon discount on the $9.99 rate', () => {

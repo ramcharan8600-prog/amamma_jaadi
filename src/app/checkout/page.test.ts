@@ -806,8 +806,8 @@ describe('nationwide pickle-only delivery', () => {
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
     await enterDeliveryDetails('NY');
-    expect(host.textContent).toContain('A minimum product subtotal of $80.00');
-    expect(host.textContent).toContain('$21.00');
+    expect(host.textContent).toContain('A minimum product subtotal of $60.00');
+    expect(host.textContent).toContain('Add $1.00 more');
     expect(button('Continue to payment').disabled).toBe(true);
     await click('Continue to payment');
     expect(calls('/api/payments/create-session')).toHaveLength(0);

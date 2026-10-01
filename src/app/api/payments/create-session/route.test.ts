@@ -284,21 +284,20 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     expect(await response.json()).toMatchObject({ subtotal: 40, tax: 0, shipping, totalAmount: 40 + shipping });
   });
 
-  it('keeps the far-state minimum when Malai Khaja is mixed with another sweet', async () => {
+  it('keeps the far-state minimum when Malai Khaja is mixed with another item', async () => {
     const response = await post(checkout([
       { productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16 },
-      { productId: 'sweet-kova', quantity: 1, selectedTier: 16 },
+      { productId: 'pickle-chicken', quantity: 1 },
     ], delivery('NY')));
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('Add $8.00 more');
-    expect(mocks.inserts).toHaveLength(0);
-  });
-
-  it('keeps the far-state minimum for an Assorted Box mixed with a pickle', async () => {
-    const response = await post(checkout([assorted, { productId: 'pickle-chicken', quantity: 1 }], delivery('NY')));
     expect(response.status).toBe(400);
     expect((await response.json()).error).toContain('Add $2.00 more');
     expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it('uses the regular far-state rate for an Assorted Box mixed with a pickle', async () => {
+    const response = await post(checkout([assorted, { productId: 'pickle-chicken', quantity: 1 }], delivery('NY')));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 78, tax: 1.49, shipping: 11.99, totalAmount: 91.48 });
   });
 
   it('rejects the Assorted Box when its box stock is 0', async () => {
@@ -333,7 +332,7 @@ describe('create-session retains approved shipping and gift-box rules', () => {
   it('does not let a forged line total bypass the far-state minimum', async () => {
     const response = await post(checkout([{ ...sweet, lineTotal: 1000 }], delivery('NC')));
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('$80.00');
+    expect((await response.json()).error).toContain('$60.00');
     expect(mocks.inserts).toHaveLength(0);
   });
 
@@ -492,13 +491,13 @@ describe('pickle-only orders have no destination minimum', () => {
       taxCents: Math.round(tax * 100), policyVersion: '2026-09-23-texas-coupon-v5',
     });
   });
-  it('keeps the $80 minimum on mixed carts even with forged category and flags', async () => {
+  it('keeps the $60 minimum on mixed carts even with forged category and flags', async () => {
     const response = await post({ ...checkout([
       { ...sweet, product: { category: 'pickles' } },
       { productId: 'pickle-gongura-chicken', quantity: 1 },
     ], delivery('NY')), picklesOnly: true });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('$80.00');
+    expect((await response.json()).error).toContain('$60.00');
     expect(mocks.inserts).toHaveLength(0);
   });
   it.each(['AK', 'HI', 'PR'])('does not waive destination eligibility for %s pickles', async (state) => {
@@ -562,7 +561,7 @@ describe('authoritative coupon benefits at payment', () => {
     mocks.coupon.mockResolvedValue(free);
     const response = await post({ ...checkout([sweet], delivery('NY')), couponCode: 'SHIP' });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('$80.00');
+    expect((await response.json()).error).toContain('$60.00');
   });
 
   it('rejects a free-delivery coupon for pickup', async () => {
@@ -615,7 +614,7 @@ describe('Assorted Bobbatlu Box', () => {
     expect(response.status).toBe(status);
     const body = await response.json();
     if (status === 201) expect(body).toMatchObject({ subtotal: 49.99, shipping, totalAmount: Math.round((49.99 + shipping) * 100) / 100 });
-    else expect(body.error).toContain('Add $30.01 more');
+    else expect(body.error).toContain('Add $10.01 more');
   });
 });
 
@@ -631,5 +630,23 @@ describe('Assorted Bobbatlu Box stock', () => {
     mocks.getStockMap.mockResolvedValue({ 'sweet-assorted-bobbatlu-box': 2 });
     expect((await post(checkout([{ ...box, quantity: 2 }], pickup))).status).toBe(201);
     expect((await post(checkout([{ ...box, quantity: 3 }], pickup))).status).toBe(409);
+  });
+});
+
+describe('far-state $60 minimum', () => {
+  it.each([
+    ['Malpuri 25', [{ ...sweet, selectedTier: 25 }], 62.5, 74.49],
+    ['Bobbatlu 25', [{ productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 25 }], 70, 81.99],
+    ['Malpuri + Kova', [sweet, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], 72, 83.99],
+  ])('now accepts %s to a far state at $11.99', async (_name, items, subtotal, totalAmount) => {
+    const response = await post(checkout(items, delivery('NY')));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal, shipping: 11.99, totalAmount });
+  });
+
+  it('still blocks a far-state sweets cart under $60', async () => {
+    const response = await post(checkout([{ productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 16 }], delivery('CA')));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('A minimum product subtotal of $60.00 is required for delivery to this state. Add $12.00 more to continue.');
   });
 });

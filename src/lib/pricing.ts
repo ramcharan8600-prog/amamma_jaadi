@@ -159,7 +159,7 @@ export function isGroundShippingCart(items: ReadonlyArray<{ productId: string }>
   return groundShippingKind(items) !== undefined;
 }
 
-/** Pickle-only and ground-shipped carts have no minimum; other far-state orders require $80. */
+/** Pickle-only and ground-shipped carts have no minimum; other far-state orders require $60. */
 export function getDeliveryMinimumSubtotal(
   state: string | undefined | null,
   picklesOnly = false,
@@ -257,7 +257,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/KS/LA/MS/NM/OK/TN): $11.99 below $60, $8.99 from $60, $7.99 from $100.
- * Sweets/mixed in far states: $11.99 flat, with an $80 merchandise minimum.
+ * Sweets/mixed in far states: $11.99 flat, with a $60 merchandise minimum.
  * Only Malai Khaja outside Texas: the lower of $9.99 and the rate above, no minimum.
  * Only the Assorted Box outside Texas: a flat $7.99 to nearby states, $9.99 to far states, no minimum.
  *
