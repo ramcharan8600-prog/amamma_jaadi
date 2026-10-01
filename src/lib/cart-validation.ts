@@ -1,4 +1,4 @@
-import { PRODUCTS, isProductTaxExempt } from '@/data/products';
+import { PRODUCTS, getProductById, isProductTaxExempt } from '@/data/products';
 import type { CartItem } from '@/types';
 
 export const MAX_CART_LINES = 50;
@@ -110,9 +110,16 @@ export function validateCart(input: unknown): CartValidationResult {
     });
   }
 
-  // A checkout add-on can only join another order, never be bought alone.
+  // A checkout add-on can only join another order, never be bought alone, and
+  // only alongside the product it was made for.
   if (items.every(({ product }) => product.addOnOnly)) {
     return invalid(`${items[0].product.name} can only be added to an order with other items.`);
+  }
+  const strandedAddOn = items.find(({ product }) =>
+    product.addOnFor && !items.some(({ productId }) => productId === product.addOnFor));
+  if (strandedAddOn) {
+    const partner = getProductById(strandedAddOn.product.addOnFor!);
+    return invalid(`${strandedAddOn.product.name} can only be added to an order with the ${partner?.name ?? 'matching item'}.`);
   }
 
   return {

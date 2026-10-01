@@ -202,7 +202,7 @@ describe('pickup locations', () => {
 
 it('keeps the Bobbatlu Taste Pack off the product pages', () => {
   const pack = getProductById('sweet-bobbatlu-taste-pack')!;
-  expect(pack).toMatchObject({ name: 'Bobbatlu Taste Pack (6 pcs)', addOnOnly: true, quantityOptions: [6] });
-  expect(calculateSweetPrice(pack, 6)).toBe(14.99);
+  expect(pack).toMatchObject({ name: 'Bobbatlu Taste Pack', addOnOnly: true, addOnFor: 'sweet-assorted-box', quantityOptions: [8], emailDetails: ['• 8 Bobbatlu'] });
+  expect(calculateSweetPrice(pack, 8)).toBe(24);
   expect(getProductsByCategory('sweets').map(p => p.id)).not.toContain('sweet-bobbatlu-taste-pack');
 });

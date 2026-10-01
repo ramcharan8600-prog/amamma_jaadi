@@ -27,6 +27,8 @@ export interface Product {
    * a cart made only of add-ons is refused (it must join another order).
    */
   addOnOnly?: boolean;
+  /** For an add-on: the product it can only be bought with (and is only offered next to). */
+  addOnFor?: string;
   /** Extra lines shown under this item in order emails only (e.g. box contents). */
   emailDetails?: string[];
   /** Fixed price for a tier, overriding unitPrice × pieces (e.g. a $60 box of 22). */

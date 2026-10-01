@@ -429,24 +429,29 @@ export default function CheckoutPage() {
   const nextDayProductNames = Array.from(new Set(
     items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
   )).join(' and ');
-  // Temporary Taste Pack add-on: only offered when adding it lifts the cart to a
-  // Texas shipping coupon's minimum (e.g. $55.01–$69.99 for a $70 coupon), for
-  // Texas or not-yet-chosen delivery, before payment, and once per cart.
+  // Temporary Taste Pack add-on, only for carts with its partner (the 11:11
+  // Assorted Box), for delivery, before payment, and once per cart:
+  // - Texas (or no state yet): next to a shipping coupon the pack unlocks.
+  // - Out of state: always; it ships at the box's rate, so shipping never rises.
   const tastePack = getProductById(BOBBATLU_TASTE_PACK_PRODUCT_ID);
+  const tastePackTier = tastePack?.quantityOptions?.[0] ?? 0;
+  const tastePackPrice = tastePack ? calculateSweetPrice(tastePack, tastePackTier) : 0;
   const offerCoupon = appliedCoupon?.type === 'free_delivery' ? appliedCoupon : appliedCoupon ? null : couponShortfall;
-  const tastePackOffer = tastePack && offerCoupon && step !== 'payment' &&
-    fulfillmentType !== 'pickup' && (!deliveryState || deliveryState === 'TX') &&
-    items.some(({ product }) => !product.addOnOnly) &&
-    !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID) &&
-    subtotal < offerCoupon.minSubtotal &&
-    subtotal + calculateSweetPrice(tastePack, tastePack.quantityOptions![0]) >= offerCoupon.minSubtotal
-    ? {
-        product: tastePack,
-        tier: tastePack.quantityOptions![0],
-        price: calculateSweetPrice(tastePack, tastePack.quantityOptions![0]),
-        gap: Math.max(0, Math.round((offerCoupon.minSubtotal - subtotal) * 100) / 100),
-      }
-    : null;
+  const outOfState = isSupportedDeliveryState(deliveryState) && deliveryState !== 'TX';
+  const tastePackEligible = tastePack && step !== 'payment' && fulfillmentType !== 'pickup' &&
+    items.some(({ productId }) => productId === tastePack.addOnFor) &&
+    !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID);
+  const tastePackOffer = !tastePackEligible ? null
+    : outOfState ? { product: tastePack, tier: tastePackTier, price: tastePackPrice, gap: null }
+    : offerCoupon && (!deliveryState || deliveryState === 'TX') &&
+      subtotal < offerCoupon.minSubtotal && subtotal + tastePackPrice >= offerCoupon.minSubtotal
+      ? {
+          product: tastePack,
+          tier: tastePackTier,
+          price: tastePackPrice,
+          gap: Math.max(0, Math.round((offerCoupon.minSubtotal - subtotal) * 100) / 100),
+        }
+      : null;
   const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, hasNextDayProduct);
   const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
@@ -565,7 +570,10 @@ export default function CheckoutPage() {
   const renderTastePackOffer = () => tastePackOffer && (
     <div className="flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2">
       <p className="text-brand-charcoal">
-        You&apos;re <strong>{formatCurrency(tastePackOffer.gap)}</strong> away from free shipping. Add a <strong>{tastePackOffer.product.name}</strong> {formatCurrency(tastePackOffer.price)} →
+        {tastePackOffer.gap === null
+          ? <>Ships with your 11:11 box at no extra shipping. </>
+          : <>You&apos;re <strong>{formatCurrency(tastePackOffer.gap)}</strong> away from free shipping. </>}
+        Add a <strong>{tastePackOffer.product.name} ({tastePackOffer.tier} pcs)</strong> {formatCurrency(tastePackOffer.price)} →
       </p>
       <button type="button" disabled={submitting || paying || promoApplying}
         className="btn-primary shrink-0 text-xs py-1.5 px-3"
@@ -1461,6 +1469,8 @@ export default function CheckoutPage() {
               </p>
             </div>
           )}
+
+          {!appliedCoupon && <div className="font-body text-sm">{renderTastePackOffer()}</div>}
 
           {deliveryState.trim() && (
             <div className="card p-4 space-y-1.5">

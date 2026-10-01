@@ -63,4 +63,4 @@ export const SHIPPING_GROUND_OUT_OF_STATE = 9.99;
 export const SHIPPING_MALAI_KHAJA_50 = 5.99;
 export const SHIPPING_MALAI_KHAJA_FAR_25 = 8.99;
 /** Flat rate for an Assorted Box-only cart to a nearby state (far states pay SHIPPING_GROUND_OUT_OF_STATE). */
-export const SHIPPING_ASSORTED_BOX_NEARBY = 7.99;
+export const SHIPPING_ASSORTED_BOX_NEARBY = 8.99;

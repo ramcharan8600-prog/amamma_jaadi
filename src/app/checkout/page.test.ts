@@ -863,18 +863,24 @@ describe('coupon benefits in checkout', () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await apply();
-    expect(tastePackLine()?.textContent).toContain("You're $10.00 away from free shipping. Add a Bobbatlu Taste Pack (6 pcs) $14.99 →");
+    expect(tastePackLine()?.textContent).toContain("You're $10.00 away from free shipping. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →");
     await act(async () => tastePackLine()!.querySelector('button')!.click());
     expect(useCartStore.getState().items.map(i => [i.productId, i.selectedTier, i.lineTotal]))
-      .toEqual([['sweet-assorted-box', 22, 60], ['sweet-bobbatlu-taste-pack', 6, 14.99]]);
+      .toEqual([['sweet-assorted-box', 22, 60], ['sweet-bobbatlu-taste-pack', 8, 24]]);
     expect(tastePackLine()).toBeUndefined();
+    // The cart line adds the tier once, like every other sweet.
+    expect(host.textContent).toContain('Bobbatlu Taste Pack (8 pcs) × 1');
+    expect(host.textContent).not.toContain('(8 pcs) (8 pcs)');
   });
 
   it.each([
-    ['$40 (too far from $70)', 'sweet-malpuri', 1, 16, false],
-    ['$48 (too far from $70)', 'sweet-bobbatlu', 1, 16, false],
-    ['$62.50 (pack reaches $70)', 'sweet-malpuri', 1, 25, true],
-  ])('only suggests the Taste Pack when it unlocks the coupon: %s', async (_label, productId, quantity, tier, shown) => {
+    ['$40 Malpuri', 'sweet-malpuri', 1, 16, false],
+    ['$48 Bobbatlu', 'sweet-bobbatlu', 1, 16, false],
+    ['$62.50 Malpuri (no 11:11 box)', 'sweet-malpuri', 1, 25, false],
+    ['$49.99 Assorted Bobbatlu Box', 'sweet-assorted-bobbatlu-box', 1, 16, false],
+    ['$60 11:11 box', 'sweet-assorted-box', 1, 22, true],
+    ['two 11:11 boxes (already $120)', 'sweet-assorted-box', 2, 22, false],
+  ])('only suggests the Taste Pack with the 11:11 box under the coupon minimum: %s', async (_label, productId, quantity, tier, shown) => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
     useCartStore.getState().addItem(getProductById(productId)!, quantity, tier);
     await apply();
@@ -890,7 +896,7 @@ describe('coupon benefits in checkout', () => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await apply();
     expect(host.textContent).toContain('This coupon requires a minimum cart value of $70.00');
-    expect(tastePackLine()?.textContent).toContain("You're $10.00 away from free shipping. Add a Bobbatlu Taste Pack (6 pcs) $14.99 →");
+    expect(tastePackLine()?.textContent).toContain("You're $10.00 away from free shipping. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →");
     await act(async () => tastePackLine()!.querySelector('button')!.click());
     await act(async () => {});
     expect(useCartStore.getState().items.map(i => i.productId)).toEqual(['sweet-assorted-box', 'sweet-bobbatlu-taste-pack']);
@@ -911,17 +917,39 @@ describe('coupon benefits in checkout', () => {
     expect(host.textContent).not.toContain('Taste Pack');
   });
 
-  it('shows the Taste Pack only for Texas delivery with a shipping coupon', async () => {
+  it('needs the shipping coupon in Texas', async () => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await render();
     expect(tastePackLine()).toBeUndefined();
-    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
-    await input('input[placeholder="Enter code"]', 'ship');
-    await click('Apply');
-    expect(tastePackLine()).toBeDefined();
     await delivery();
-    expect(tastePackLine()).toBeDefined();
-    await input('#delivery-state', 'OK');
+    await input('#delivery-state', 'TX');
+    expect(tastePackLine()).toBeUndefined();
+  });
+
+  it.each([
+    ['nearby', 'OK', '$8.99'],
+    ['far', 'NY', '$9.99'],
+  ])('offers the Taste Pack with the 11:11 box out of state (%s) without a coupon, at the box rate', async (_zone, state, rate) => {
+    useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
+    await render();
+    await delivery();
+    await input('#delivery-state', state);
+    expect(tastePackLine()?.textContent).toContain('Ships with your 11:11 box at no extra shipping. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →');
+    expect(host.textContent).toContain(rate);
+    await act(async () => tastePackLine()!.querySelector('button')!.click());
+    expect(useCartStore.getState().items.map(i => [i.productId, i.lineTotal]))
+      .toEqual([['sweet-assorted-box', 60], ['sweet-bobbatlu-taste-pack', 24]]);
+    expect(tastePackLine()).toBeUndefined();
+    const summary = Array.from(host.querySelectorAll('.card')).find(c => c.textContent?.startsWith('Subtotal'))!.textContent;
+    expect(summary).toContain('$84.00');
+    expect(summary).toContain(`Standard shipping${rate}`);
+  });
+
+  it('does not offer the Taste Pack out of state without the 11:11 box', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 25);
+    await render();
+    await delivery();
+    await input('#delivery-state', 'GA');
     expect(tastePackLine()).toBeUndefined();
   });
 

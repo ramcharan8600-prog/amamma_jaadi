@@ -388,6 +388,11 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(isGroundShippingCart([])).toBe(false);
     expect(groundShippingKind([{ productId: 'sweet-malai-khaja' }])).toBe('malai-khaja');
     expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-assorted-box' }])).toBe('assorted-box');
+    // The Bobbatlu Taste Pack ships with the 11:11 box at the box's rate, never on its own terms.
+    expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-bobbatlu-taste-pack' }])).toBe('assorted-box');
+    expect(groundShippingKind([{ productId: 'sweet-bobbatlu-taste-pack' }])).toBeUndefined();
+    expect(groundShippingKind([{ productId: 'sweet-malpuri' }, { productId: 'sweet-bobbatlu-taste-pack' }])).toBeUndefined();
+    expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-malpuri' }, { productId: 'sweet-bobbatlu-taste-pack' }])).toBeUndefined();
   });
 
   it('keeps $6.99 in Texas', () => {
@@ -432,10 +437,11 @@ describe('pricing — Assorted Box-only carts', () => {
     expect(ship(120, 'TX')).toBe(6.99);
   });
 
-  it('charges a flat $7.99 to nearby states, ignoring the nearby tiers', () => {
+  it('charges a flat $8.99 to nearby states, ignoring the nearby tiers', () => {
     for (const state of ['GA', 'OK', 'FL', 'KS', 'AL', 'TN']) {
-      expect(ship(60, state)).toBe(7.99);
-      expect(ship(120, state)).toBe(7.99);
+      expect(ship(60, state)).toBe(8.99);
+      expect(ship(84, state)).toBe(8.99);
+      expect(ship(120, state)).toBe(8.99);
     }
   });
 

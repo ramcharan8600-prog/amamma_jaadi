@@ -154,19 +154,21 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
   },
   {
-    // Temporary checkout add-on (Oct 2026): offered only next to a Texas shipping
-    // coupon, never listed on the Sweets page, and never sold on its own.
+    // Temporary checkout add-on (Oct 2026), only with the 11:11 Assorted Box: in
+    // Texas next to a shipping coupon, out of state for anyone with the box (it
+    // ships at the box's rate). Never listed on the Sweets page or sold alone.
     id: 'sweet-bobbatlu-taste-pack',
     slug: 'bobbatlu-taste-pack',
-    name: 'Bobbatlu Taste Pack (6 pcs)',
-    description: 'Six Bobbatlu made with pure **Ghee** — a taste of Amamma\'s recipe.',
+    name: 'Bobbatlu Taste Pack',
+    description: 'Eight Bobbatlu made with pure **Ghee** — a taste of Amamma\'s recipe.',
     category: 'sweets',
     unitPrice: 3,
-    tierPrices: { 6: 14.99 },
     image: '/images/products/bobbatlu.jpg',
-    quantityOptions: [6],
+    quantityOptions: [8],
     inStock: true,
     addOnOnly: true,
+    addOnFor: 'sweet-assorted-box',
+    emailDetails: ['• 8 Bobbatlu'],
     prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
     tags: ['traditional', 'andhra', 'ghee'],
   },
