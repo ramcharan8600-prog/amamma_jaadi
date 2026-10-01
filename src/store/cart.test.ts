@@ -84,6 +84,19 @@ describe('cart store', () => {
     expect(items[0].selectedTier).toBe(50);
   });
 
+  it('removes the Taste Pack with the last 11:11 box, but keeps it while a box remains', () => {
+    const box = getProductById('sweet-assorted-box')!;
+    const pack = getProductById('sweet-bobbatlu-taste-pack')!;
+    useCartStore.getState().addItem(box, 2, 22);
+    useCartStore.getState().addItem(pack, 1, 8);
+    useCartStore.getState().addItem(sweet, 1, 16);
+    useCartStore.getState().updateQuantity(box.id, 1, 22);
+    useCartStore.getState().removeItem(sweet.id, 16);
+    expect(useCartStore.getState().items.map(i => i.productId)).toEqual([box.id, pack.id]);
+    useCartStore.getState().updateQuantity(box.id, 0, 22);
+    expect(useCartStore.getState().items).toEqual([]);
+  });
+
   it('updateQuantity to 0 removes the line', () => {
     useCartStore.getState().addItem(pickle, 1);
     useCartStore.getState().updateQuantity(pickle.id, 0);

@@ -92,13 +92,17 @@ export const useCartStore = create<CartState>()(
       },
 
       removeItem: (productId, selectedTier, selectedVariant) => {
-        set((state) => ({
-          items: state.items.filter(
+        set((state) => {
+          const kept = state.items.filter(
             (i) =>
               lineKey(i.productId, i.selectedTier, i.selectedVariant) !==
               lineKey(productId, selectedTier, selectedVariant)
-          ),
-        }));
+          );
+          // An add-on leaves with the item it was bought for (the Taste Pack with the 11:11 box).
+          return {
+            items: kept.filter((i) => !i.product.addOnFor || kept.some((k) => k.productId === i.product.addOnFor)),
+          };
+        });
       },
 
       updateQuantity: (productId, quantity, selectedTier, selectedVariant) => {
