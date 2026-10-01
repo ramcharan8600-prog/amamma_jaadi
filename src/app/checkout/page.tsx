@@ -429,16 +429,17 @@ export default function CheckoutPage() {
   const nextDayProductNames = Array.from(new Set(
     items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
   )).join(' and ');
-  // Temporary Taste Pack add-on: only offered while the cart is under a Texas
-  // shipping coupon's minimum (state not chosen yet, or Texas), before payment,
-  // and once per cart. Carts already at the minimum see nothing.
+  // Temporary Taste Pack add-on: only offered when adding it lifts the cart to a
+  // Texas shipping coupon's minimum (e.g. $55.01–$69.99 for a $70 coupon), for
+  // Texas or not-yet-chosen delivery, before payment, and once per cart.
   const tastePack = getProductById(BOBBATLU_TASTE_PACK_PRODUCT_ID);
   const offerCoupon = appliedCoupon?.type === 'free_delivery' ? appliedCoupon : appliedCoupon ? null : couponShortfall;
   const tastePackOffer = tastePack && offerCoupon && step !== 'payment' &&
     fulfillmentType !== 'pickup' && (!deliveryState || deliveryState === 'TX') &&
     items.some(({ product }) => !product.addOnOnly) &&
     !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID) &&
-    subtotal < offerCoupon.minSubtotal
+    subtotal < offerCoupon.minSubtotal &&
+    subtotal + calculateSweetPrice(tastePack, tastePack.quantityOptions![0]) >= offerCoupon.minSubtotal
     ? {
         product: tastePack,
         tier: tastePack.quantityOptions![0],

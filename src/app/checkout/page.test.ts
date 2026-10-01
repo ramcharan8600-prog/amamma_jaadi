@@ -861,13 +861,24 @@ describe('coupon benefits in checkout', () => {
 
   it('suggests the Bobbatlu Taste Pack when a Texas shipping coupon is under its minimum, and adds it', async () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await apply();
-    expect(tastePackLine()?.textContent).toContain("You're $30.00 away from free shipping. Add a Bobbatlu Taste Pack (6 pcs) $14.99 →");
+    expect(tastePackLine()?.textContent).toContain("You're $10.00 away from free shipping. Add a Bobbatlu Taste Pack (6 pcs) $14.99 →");
     await act(async () => tastePackLine()!.querySelector('button')!.click());
     expect(useCartStore.getState().items.map(i => [i.productId, i.selectedTier, i.lineTotal]))
-      .toEqual([['sweet-malpuri', 16, 40], ['sweet-bobbatlu-taste-pack', 6, 14.99]]);
+      .toEqual([['sweet-assorted-box', 22, 60], ['sweet-bobbatlu-taste-pack', 6, 14.99]]);
     expect(tastePackLine()).toBeUndefined();
+  });
+
+  it.each([
+    ['$40 (too far from $70)', 'sweet-malpuri', 1, 16, false],
+    ['$48 (too far from $70)', 'sweet-bobbatlu', 1, 16, false],
+    ['$62.50 (pack reaches $70)', 'sweet-malpuri', 1, 25, true],
+  ])('only suggests the Taste Pack when it unlocks the coupon: %s', async (_label, productId, quantity, tier, shown) => {
+    couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
+    useCartStore.getState().addItem(getProductById(productId)!, quantity, tier);
+    await apply();
+    expect(Boolean(tastePackLine())).toBe(shown);
   });
 
   it('offers the Taste Pack when the coupon is refused for being under its minimum, then applies the coupon after adding it', async () => {
@@ -901,7 +912,7 @@ describe('coupon benefits in checkout', () => {
   });
 
   it('shows the Taste Pack only for Texas delivery with a shipping coupon', async () => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await render();
     expect(tastePackLine()).toBeUndefined();
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
