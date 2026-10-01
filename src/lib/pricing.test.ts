@@ -432,8 +432,15 @@ describe('pricing — Assorted Box-only carts', () => {
     expect(ship(120, 'TX')).toBe(6.99);
   });
 
-  it('charges a flat $9.99 to every other state, nearby tiers and $100 tier included', () => {
-    for (const state of ['GA', 'OK', 'FL', 'KS', 'NY', 'CA']) {
+  it('charges a flat $7.99 to nearby states, ignoring the nearby tiers', () => {
+    for (const state of ['GA', 'OK', 'FL', 'KS', 'AL', 'TN']) {
+      expect(ship(60, state)).toBe(7.99);
+      expect(ship(120, state)).toBe(7.99);
+    }
+  });
+
+  it('charges a flat $9.99 to far states', () => {
+    for (const state of ['NY', 'CA', 'WA', 'NC']) {
       expect(ship(60, state)).toBe(9.99);
       expect(ship(120, state)).toBe(9.99);
     }

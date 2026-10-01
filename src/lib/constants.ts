@@ -59,3 +59,5 @@ export const SHIPPING_FAR = 11.99;
  * Box (shipped UPS Ground). No minimum applies. Deliberately not advertised.
  */
 export const SHIPPING_GROUND_OUT_OF_STATE = 9.99;
+/** Flat rate for an Assorted Box-only cart to a nearby state (far states pay SHIPPING_GROUND_OUT_OF_STATE). */
+export const SHIPPING_ASSORTED_BOX_NEARBY = 7.99;

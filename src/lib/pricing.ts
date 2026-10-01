@@ -20,6 +20,7 @@ import {
   SHIPPING_NEARBY_100,
   SHIPPING_FAR,
   SHIPPING_GROUND_OUT_OF_STATE,
+  SHIPPING_ASSORTED_BOX_NEARBY,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod } from '@/types';
 import { ASSORTED_BOX_PRODUCT_ID } from '@/data/products';
@@ -145,7 +146,7 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box';
  * adding anything else, restores the regular rates. Intentionally quiet: no
  * banner or copy mentions either rate.
  * - Only Malai Khaja: the lower of $9.99 and the regular rate.
- * - Only the Assorted Box: exactly $9.99 (Texas stays $6.99).
+ * - Only the Assorted Box: Texas $6.99, nearby states $7.99, far states $9.99.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
@@ -225,9 +226,10 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
       regularShipping = SHIPPING_FAR;
     }
     // Malai Khaja never pays more than the regular rate (nearby $8.99 / $7.99
-    // stay); the Assorted Box is a flat $9.99 everywhere outside Texas.
+    // stay); the Assorted Box is a flat $7.99 to nearby states and $9.99 to far ones.
     if (opts.groundShipping && !opts.picklesOnly && zone !== 'texas') {
-      regularShipping = opts.groundShipping === 'assorted-box' ? SHIPPING_GROUND_OUT_OF_STATE
+      regularShipping = opts.groundShipping === 'assorted-box'
+        ? (zone === 'nearby' ? SHIPPING_ASSORTED_BOX_NEARBY : SHIPPING_GROUND_OUT_OF_STATE)
         : Math.min(regularShipping, SHIPPING_GROUND_OUT_OF_STATE);
     }
   }
@@ -257,7 +259,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/KS/LA/MS/NM/OK/TN): $11.99 below $60, $8.99 from $60, $7.99 from $100.
  * Sweets/mixed in far states: $11.99 flat, with an $80 merchandise minimum.
  * Only Malai Khaja outside Texas: the lower of $9.99 and the rate above, no minimum.
- * Only the Assorted Box outside Texas: a flat $9.99, no minimum.
+ * Only the Assorted Box outside Texas: a flat $7.99 to nearby states, $9.99 to far states, no minimum.
  *
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */
