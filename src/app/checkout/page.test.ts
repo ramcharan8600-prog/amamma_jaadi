@@ -913,7 +913,7 @@ describe('coupon benefits in checkout', () => {
     ['$40 Malpuri', 'sweet-malpuri', 1, 16, false],
     ['$48 Bobbatlu', 'sweet-bobbatlu', 1, 16, false],
     ['$62.50 Malpuri (no 11:11 box)', 'sweet-malpuri', 1, 25, false],
-    ['$49.99 Assorted Bobbatlu Box', 'sweet-assorted-bobbatlu-box', 1, 16, false],
+    ['$48.99 Assorted Bobbatlu Box', 'sweet-assorted-bobbatlu-box', 1, 16, false],
     ['$60 11:11 box', 'sweet-assorted-box', 1, 22, true],
     ['two 11:11 boxes (already $120)', 'sweet-assorted-box', 2, 22, false],
   ])('only suggests the Taste Pack with the 11:11 box under the coupon minimum: %s', async (_label, productId, quantity, tier, shown) => {

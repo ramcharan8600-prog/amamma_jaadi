@@ -599,22 +599,22 @@ describe('Bobbatlu pack prices', () => {
 describe('Assorted Bobbatlu Box', () => {
   const box = { productId: 'sweet-assorted-bobbatlu-box', quantity: 1, selectedTier: 16 };
 
-  it('costs $49.99 and needs a day of preparation for pickup', async () => {
+  it('costs $48.99 and needs a day of preparation for pickup', async () => {
     vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
     const sameDay = await post(checkout([box], { ...pickup, date: '2026-09-08' }));
     expect(sameDay.status).toBe(400);
     expect((await sameDay.json()).error).toContain('from tomorrow');
     const nextDay = await post(checkout([box], { ...pickup, date: '2026-09-09' }));
     expect(nextDay.status).toBe(201);
-    expect(await nextDay.json()).toMatchObject({ subtotal: 49.99, tax: 0, shipping: 0, totalAmount: 49.99 });
+    expect(await nextDay.json()).toMatchObject({ subtotal: 48.99, tax: 0, shipping: 0, totalAmount: 48.99 });
   });
 
   it.each([['TX', 201, 6.99], ['OK', 201, 11.99], ['NY', 400, 0]])('follows the normal sweets delivery rules in %s', async (state, status, shipping) => {
     const response = await post(checkout([box], delivery(state)));
     expect(response.status).toBe(status);
     const body = await response.json();
-    if (status === 201) expect(body).toMatchObject({ subtotal: 49.99, shipping, totalAmount: Math.round((49.99 + shipping) * 100) / 100 });
-    else expect(body.error).toContain('Add $10.01 more');
+    if (status === 201) expect(body).toMatchObject({ subtotal: 48.99, shipping, totalAmount: Math.round((48.99 + shipping) * 100) / 100 });
+    else expect(body.error).toContain('Add $11.01 more');
   });
 });
 
@@ -725,7 +725,7 @@ describe('Texas shipping coupon on boxes and ground-shipped carts', () => {
     ['two 11:11 Assorted Boxes', [{ ...assorted, quantity: 2 }], 120],
     ['Assorted Box + Malai Khaja 16', [assorted, { productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16 }], 100],
     ['Malai Khaja 50', [{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 50 }], 125],
-    ['two Assorted Bobbatlu Boxes', [{ productId: 'sweet-assorted-bobbatlu-box', quantity: 2, selectedTier: 16 }], 99.98],
+    ['two Assorted Bobbatlu Boxes', [{ productId: 'sweet-assorted-bobbatlu-box', quantity: 2, selectedTier: 16 }], 97.98],
   ])('ships %s free in Texas at $70+ with the $0.99 fee', async (_name, items, subtotal) => {
     mocks.coupon.mockResolvedValue(coupon70);
     const response = await post({ ...checkout(items, delivery('TX')), couponCode: 'SHIP' });

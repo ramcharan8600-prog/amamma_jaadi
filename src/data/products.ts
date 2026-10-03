@@ -136,7 +136,7 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'gifting'],
   },
   {
-    // 8 Bobbatlu + 8 Kova Bobbatlu in one box at $49.99. Stock is counted in
+    // 8 Bobbatlu + 8 Kova Bobbatlu in one box at $48.99. Stock is counted in
     // whole boxes like the Assorted Box; needs a day's notice (requiresNextDayPickup).
     id: 'sweet-assorted-bobbatlu-box',
     slug: 'assorted-bobbatlu-box',
@@ -145,7 +145,7 @@ export const PRODUCTS: Product[] = [
       'Made for your **8:8 Bobbatlu cravings**, with **Ghee**\n* **8 Bobbatlu**\n* **8 Kova Bobbatlu**',
     category: 'sweets',
     unitPrice: 3,
-    tierPrices: { 16: 49.99 },
+    tierPrices: { 16: 48.99 },
     emailDetails: ['Made for your 8:8 Bobbatlu cravings, with Ghee', '• 8 Bobbatlu', '• 8 Kova Bobbatlu'],
     image: '/images/products/bobbatlu.jpg',
     quantityOptions: [16],
