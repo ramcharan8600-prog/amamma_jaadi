@@ -247,10 +247,10 @@ describe('create-session retains approved shipping and gift-box rules', () => {
   it.each([
     { name: 'pickup gift box', items: [gift], fulfillment: pickup, subtotal: 30, shipping: 0 },
     { name: 'Texas gift box', items: [gift], fulfillment: delivery('TX'), subtotal: 30, shipping: 6.99 },
-    { name: 'nearby below $60', items: [sweet], fulfillment: delivery('AL'), subtotal: 40, shipping: 11.99 },
+    { name: 'nearby below $60', items: [sweet], fulfillment: delivery('AL'), subtotal: 40, shipping: 10.99 },
     { name: 'nearby at $60 including gift box', items: [{ ...gift, quantity: 2 }], fulfillment: delivery('CO'), subtotal: 60, shipping: 8.99 },
     { name: 'far at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('NC'), subtotal: 80, shipping: 11.99 },
-    { name: 'Florida (now nearby) below $60 with no minimum', items: [sweet], fulfillment: delivery('FL'), subtotal: 40, shipping: 11.99 },
+    { name: 'Florida (now nearby) below $60 with no minimum', items: [sweet], fulfillment: delivery('FL'), subtotal: 40, shipping: 10.99 },
     { name: 'Tennessee (now nearby) at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('TN'), subtotal: 80, shipping: 8.99 },
     { name: 'Georgia (now nearby) at $120', items: [{ ...sweet, quantity: 3 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 7.99 },
     { name: 'Oklahoma at exactly $100', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 50 }], fulfillment: delivery('OK'), subtotal: 100, shipping: 7.99 },
@@ -609,7 +609,7 @@ describe('Assorted Bobbatlu Box', () => {
     expect(await nextDay.json()).toMatchObject({ subtotal: 48.99, tax: 0, shipping: 0, totalAmount: 48.99 });
   });
 
-  it.each([['TX', 201, 6.99], ['OK', 201, 11.99], ['NY', 400, 0]])('follows the normal sweets delivery rules in %s', async (state, status, shipping) => {
+  it.each([['TX', 201, 6.99], ['OK', 201, 10.99], ['NY', 400, 0]])('follows the normal sweets delivery rules in %s', async (state, status, shipping) => {
     const response = await post(checkout([box], delivery(state)));
     expect(response.status).toBe(status);
     const body = await response.json();

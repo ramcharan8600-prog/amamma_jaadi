@@ -818,12 +818,12 @@ describe('nationwide pickle-only delivery', () => {
     expect(button('Continue to payment').disabled).toBe(false);
   });
 
-  it('treats Florida as nearby: no minimum and $11.99 below $60', async () => {
+  it('treats Florida as nearby: no minimum and $10.99 below $60', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
     await enterDeliveryDetails('FL');
     expect(host.textContent).not.toContain('A minimum product subtotal');
-    expect(host.textContent).toContain('$11.99');
-    expect(host.textContent).toContain('$51.99');
+    expect(host.textContent).toContain('$10.99');
+    expect(host.textContent).toContain('$50.99');
     expect(button('Continue to payment').disabled).toBe(false);
   });
 

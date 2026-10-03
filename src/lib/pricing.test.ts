@@ -105,9 +105,9 @@ describe('pricing — Texas delivery (in-state)', () => {
 
 describe('pricing — nearby-state delivery', () => {
   for (const deliveryState of ['AL', 'AR', 'CO', 'LA', 'NM', 'OK']) {
-    it(`${deliveryState}: $11.99 below $60 and $8.99 at $60+`, () => {
+    it(`${deliveryState}: $10.99 below $60 and $8.99 at $60+`, () => {
       expect(calculateOrderTotals(59.99, { fulfillmentType: 'delivery', deliveryState }).shipping)
-        .toBe(11.99);
+        .toBe(10.99);
       expect(calculateOrderTotals(60, { fulfillmentType: 'delivery', deliveryState }).shipping)
         .toBe(8.99);
     });
@@ -281,7 +281,7 @@ describe('Texas pickle shipping by total jars', () => {
   it('keeps mixed-cart regional rates and free pickup unchanged', () => {
     expect(calculateOrderTotals(68, {fulfillmentType:'delivery',deliveryState:'TX',taxableSubtotal:38,picklesOnly:false,pickleJarCount:2}).shipping).toBe(6.99);
     expect(calculateOrderTotals(38, {fulfillmentType:'pickup',taxableSubtotal:38,picklesOnly:true,pickleJarCount:2}).shipping).toBe(0);
-    for (const [deliveryState, subtotal, shipping] of [['OK',38,11.99],['OK',76,8.99],['CA',95,11.99]] as const) {
+    for (const [deliveryState, subtotal, shipping] of [['OK',38,10.99],['OK',76,8.99],['CA',95,11.99]] as const) {
       expect(calculateOrderTotals(subtotal,{fulfillmentType:'delivery',deliveryState,taxableSubtotal:19,picklesOnly:false,pickleJarCount:1}).shipping).toBe(shipping);
     }
   });
@@ -347,11 +347,11 @@ describe('pricing — nearby states with the $100 tier', () => {
     }
   });
 
-  it.each(nearby)('%s: $11.99 below $60, $8.99 from $60, $7.99 from $100', (deliveryState) => {
+  it.each(nearby)('%s: $10.99 below $60, $8.99 from $60, $7.99 from $100', (deliveryState) => {
     const ship = (subtotal: number) =>
       calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0 }).shipping;
-    expect(ship(40)).toBe(11.99);
-    expect(ship(59.99)).toBe(11.99);
+    expect(ship(40)).toBe(10.99);
+    expect(ship(59.99)).toBe(10.99);
     expect(ship(60)).toBe(8.99);
     expect(ship(99.99)).toBe(8.99);
     expect(ship(100)).toBe(7.99);
@@ -417,7 +417,7 @@ describe('pricing — Malai Khaja-only carts', () => {
   });
 
   it('leaves every other cart on the regular rates and minimum', () => {
-    expect(ship(40, 'FL', false)).toBe(11.99);
+    expect(ship(40, 'FL', false)).toBe(10.99);
     expect(ship(80, 'NY', false)).toBe(11.99);
     expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(20);
   });
