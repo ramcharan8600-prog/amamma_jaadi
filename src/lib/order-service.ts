@@ -139,6 +139,12 @@ function canonicalPaidLines(session: PaymentSessionRow): CanonicalLine[] {
   return lines;
 }
 
+/** Pieces in a sweet pack for emails: "16 pcs", or "16 pcs × 2 = 32 pcs" for several packs. */
+function packPiecesLine(tier: number | null, quantity: number): string[] | undefined {
+  if (!tier) return undefined;
+  return [quantity > 1 ? `${tier} pcs × ${quantity} = ${tier * quantity} pcs` : `${tier} pcs`];
+}
+
 function buildDeliveryAddress(f: FulfillmentData): string | null {
   if (f.type !== 'delivery') return null;
   return [f.addressLine1, f.addressLine2, f.city && `${f.city}, ${f.state} ${f.zip}`, f.country]
@@ -200,10 +206,12 @@ export async function createOrderFromSession(
   const attemptId = newId();
   const pickup = fulfillment.type === 'pickup' && fulfillment.locationId
     ? getPickupLocationById(fulfillment.locationId) : null;
-  // Emails can show extra lines under an item (e.g. box contents); saved order items keep the plain name for reports.
+  // Emails show extra lines under an item: a box's contents, or how many pieces
+  // a sweet pack holds (the name alone doesn't say 16 or 25). Saved order items
+  // keep the plain name for reports.
   const emailItems: Array<{ name: string; quantity: number; price: number; details?: string[] }> = lines.map((line) => ({
     name: line.name, quantity: line.quantity, price: line.lineTotal,
-    details: getProductById(line.productId)?.emailDetails,
+    details: getProductById(line.productId)?.emailDetails ?? packPiecesLine(line.selectedTier, line.quantity),
   }));
   if (bonus) emailItems.push({ name: `${bonus.bonusQty} complimentary ${bonus.bonusItem} (FREE)`, quantity: 1, price: 0 });
   const emailParams = {
