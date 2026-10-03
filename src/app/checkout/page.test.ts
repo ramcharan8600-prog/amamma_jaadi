@@ -8,6 +8,12 @@ import { PENDING_PAYMENT_KEY, readPendingPayment, rememberPendingPayment } from 
 import CheckoutPage from './page';
 import { invalidateStock } from '@/hooks/useStock';
 
+// Resend dropped Pay requests without waiting in tests; payment-recovery.test covers the real pauses.
+vi.mock('@/lib/payment-recovery', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/payment-recovery')>(),
+  PAYMENT_RESEND_DELAYS_MS: [0, 0],
+}));
+
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: { children: ReactNode; href: string }) =>
     createElement('a', props, children),
@@ -440,7 +446,11 @@ describe('checkout payment recovery wiring', () => {
     expect(calls('/api/payments/create-session')).toHaveLength(1);
   });
 
-  it.each(['connection lost', 'generic 409', 'bad JSON'])('retains the original attempt after %s', async (failure) => {
+  it.each([
+    ['connection lost', 3],
+    ['generic 409', 1],
+    ['bad JSON', 1],
+  ])('retains the original attempt after %s', async (failure, sends) => {
     paymentResult = async () => {
       if (failure === 'connection lost') throw new Error('Network connection lost');
       if (failure === 'generic 409') return Response.json({ error: 'Invalid session' }, { status: 409 });
@@ -448,15 +458,41 @@ describe('checkout payment recovery wiring', () => {
     };
     await readyToPay();
     await click('Pay $40.00');
+    // Let the (zero-delay) resends of a dropped request finish.
+    await act(() => vi.waitFor(() => expect(calls('/api/payments/create-payment')).toHaveLength(sends)));
     expect(readPendingPayment(localStorage)?.sessionId).toBe(firstSession);
     expect(host.textContent).toContain('Confirming your payment');
     expect(calls('/api/payments/create-session')).toHaveLength(1);
+    // Only a dropped connection is resent (twice), always with the same body.
+    expect(calls('/api/payments/create-payment')).toHaveLength(sends);
+    const firstBody = calls('/api/payments/create-payment')[0][1]!.body;
+    for (const [, init] of calls('/api/payments/create-payment')) expect(init!.body).toBe(firstBody);
     paymentResult = async () => pending();
     await click('Check / finish this payment');
-    expect(calls('/api/payments/create-payment')).toHaveLength(2);
-    expect(JSON.parse(calls('/api/payments/create-payment')[1][1]!.body as string))
+    expect(calls('/api/payments/create-payment')).toHaveLength(sends + 1);
+    expect(JSON.parse(calls('/api/payments/create-payment')[sends][1]!.body as string))
       .toEqual({ sessionId: firstSession, retry: true });
     expect(calls('/api/payments/create-session')).toHaveLength(1);
+  });
+
+  it('resends a Pay request the browser dropped and completes the order without a status screen', async () => {
+    let sends = 0;
+    paymentResult = async () => {
+      if (++sends === 1) throw new TypeError('Load failed');
+      return completed();
+    };
+    await readyToPay();
+    await click('Pay $40.00');
+    await act(() => vi.waitFor(() => expect(host.textContent).toContain('AJ-1234')));
+    expect(tokenize).toHaveBeenCalledTimes(1);
+    const bodies = calls('/api/payments/create-payment').map(([, init]) => JSON.parse(String(init!.body)));
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toEqual(bodies[0]);
+    expect(bodies[0]).toMatchObject({ sessionId: firstSession });
+    expect(bodies[0].sourceId).toBeTruthy();
+    expect(host.textContent).toContain('AJ-1234');
+    expect(host.textContent).not.toContain('Confirming your payment');
+    expect(readPendingPayment(localStorage)).toBeNull();
   });
 
   it('restores recovery on reload even when the cart is empty', async () => {

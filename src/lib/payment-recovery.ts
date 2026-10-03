@@ -69,6 +69,35 @@ export async function requestPaymentStatus(path: string, body: object, timeoutMs
   }
 }
 
+/** Pauses before resending a Pay request the browser dropped (see sendPaymentRequest). */
+export const PAYMENT_RESEND_DELAYS_MS: readonly number[] = [800, 2000];
+
+/**
+ * Send the first charge request, resending the identical body when the browser
+ * drops it without any answer. Safari can fail a POST on a stale connection in
+ * milliseconds, before it reaches the server, and never retries it itself.
+ * Repeating is safe: the server keeps one attempt per checkout, checks the card
+ * token matches, and replays Square's idempotency key, so a request that did
+ * arrive is answered with its original result. A timeout is not resent: that
+ * request may still be running.
+ */
+export async function sendPaymentRequest(
+  body: object,
+  onResend: (resend: number) => void = () => {},
+  delays: readonly number[] = PAYMENT_RESEND_DELAYS_MS
+): Promise<{ status: number; body: unknown }> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await requestPaymentStatus('/api/payments/create-payment', body);
+    } catch (error) {
+      const timedOut = (error as { name?: unknown } | null)?.name === 'AbortError';
+      if (timedOut || attempt >= delays.length) throw error;
+      onResend(attempt + 1);
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+  }
+}
+
 export function classifyPaymentOutcome(status: number, body: unknown): PaymentOutcome {
   const data = body && typeof body === 'object' ? body as Record<string, unknown> : {};
   if (status === 200 && data.success === true && data.status === 'completed' &&

@@ -298,6 +298,21 @@ describe('durable payment recovery using real SQLite transactions', () => {
     expect((await first).success).toBe(true);
   });
 
+  it('answers a resent identical Pay request with the original order after its response was lost', async () => {
+    const execute = vi.fn(async () => ({ paymentId: 'payment-one', status: 'COMPLETED' as const }));
+    const body = { sessionId: 'test-session', sourceId: 'one-token' };
+    const first = await runPaymentAttempt(fixture.db, body, { execute, finalize });
+    // The browser lost this answer and sends the very same request again.
+    const resent = await runPaymentAttempt(fixture.db, body, { execute, finalize });
+    expect(first).toMatchObject({ success: true, orderNumber: 'AJ-TEST' });
+    expect(resent).toMatchObject({ success: true, status: 'completed', orderNumber: 'AJ-TEST' });
+    // Square is charged once; the repeat only re-reads the saved payment (order
+    // finalization is idempotent per Square payment id).
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(new Set(finalize.mock.calls.map(([, , paymentId]) => paymentId))).toEqual(new Set(['payment-one']));
+    expect(attempt()).toMatchObject({ state: 'completed', square_payment_id: 'payment-one' });
+  });
+
   it('recovers an uncertain attempt after checkout expiry using the same token/key', async () => {
     const execute = vi.fn().mockRejectedValueOnce(new SquarePaymentError('PAYMENT_RESPONSE_UNKNOWN'))
       .mockResolvedValue({ paymentId: 'payment-one', status: 'COMPLETED' });

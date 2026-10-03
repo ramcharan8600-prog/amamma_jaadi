@@ -53,8 +53,8 @@ import ShippingCharge from '@/components/checkout/ShippingCharge';
 import MaintenanceFee from '@/components/checkout/MaintenanceFee';
 import PickupDateCalendar from '@/components/checkout/PickupDateCalendar';
 import {
-  claimPendingPayment, classifyPaymentOutcome, forgetPendingPayment, PENDING_PAYMENT_KEY,
-  readPendingPayment, requestPaymentStatus, type PendingPayment,
+  claimPendingPayment, classifyPaymentOutcome, forgetPendingPayment, PAYMENT_RESEND_DELAYS_MS,
+  PENDING_PAYMENT_KEY, readPendingPayment, sendPaymentRequest, type PendingPayment,
 } from '@/lib/payment-recovery';
 import type {
   FulfillmentType,
@@ -712,7 +712,9 @@ export default function CheckoutPage() {
     setPaymentRequestActive(true);
     mark('charging', 'saved original payment reference');
     try {
-      const res = await requestPaymentStatus('/api/payments/create-payment', { sessionId, sourceId: token, verificationToken });
+      const res = await sendPaymentRequest({ sessionId, sourceId: token, verificationToken },
+        (resend) => mark('payment_resend', `connection dropped; resending the same request (${resend})`),
+        PAYMENT_RESEND_DELAYS_MS);
       const outcome = classifyPaymentOutcome(res.status, res.body);
       if (outcome.kind === 'completed') completePayment(sessionId, outcome.orderNumber);
       else if (outcome.kind === 'released') releasePayment(sessionId, outcome.message);
