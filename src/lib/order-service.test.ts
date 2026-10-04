@@ -401,7 +401,7 @@ it('persists and reconciles the separate maintenance fee through the paid order 
     expect(sqlite.prepare('SELECT shipping_cents,taxable_shipping_cents,total_cents FROM order_tax_records').get())
       .toEqual({ shipping_cents: 199, taxable_shipping_cents: 199, total_cents: 8009 });
     const html = String(sqlite.prepare('SELECT html FROM email_outbox').get()?.html);
-    expect(html.match(/Maintenance fee/g)).toHaveLength(1);
+    expect(html.match(/Operational fee/g)).toHaveLength(1);
     expect(html).toContain('$1.99');
     expect(html).toContain('$80.09');
     expect(html).toContain('Free');
@@ -427,7 +427,7 @@ it.each([['TX', 0, false], ['OK', 8.99, false], ['NY', 11.99, false]] as const)(
       const gifts = sqlite.prepare('SELECT product_name,quantity FROM order_items WHERE line_total=0').all();
       expect(gifts).toEqual(gift ? [{ product_name: 'Malai Khaja (Complimentary)', quantity: 2 }] : []);
       const html = String(sqlite.prepare('SELECT html FROM email_outbox').get()?.html);
-      expect(html.includes('Maintenance fee')).toBe(state === 'TX');
+      expect(html.includes('Operational fee')).toBe(state === 'TX');
       expect(html.includes('2 complimentary Malai Khaja (FREE)')).toBe(gift);
       expect(sqlite.prepare('SELECT times_used FROM influencer_coupons').get()?.times_used).toBe(1);
     } finally { sqlite.close(); }

@@ -658,7 +658,7 @@ describe('Malai Khaja-only shipping by pack size', () => {
     ['25 to NY', [mk(25)], 'NY', 8.99],
     ['50 to NY', [mk(50)], 'NY', 5.99],
     ['50 to GA', [mk(50)], 'GA', 5.99],
-    ['50 to TX', [mk(50)], 'TX', 5.99],
+    ['50 to TX (free from $110)', [mk(50)], 'TX', 0],
     ['2 x 25 to CA', [mk(25, 2)], 'CA', 5.99],
     ['16 to TX', [mk(16)], 'TX', 6.99],
   ])('charges Malai Khaja %s at $%s', async (_name, items, state, shipping) => {
@@ -716,6 +716,23 @@ describe('Bobbatlu Taste Pack add-on', () => {
     vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
     expect((await post(checkout([assorted, pack], { ...pickup, date: '2026-09-08' }))).status).toBe(400);
     expect((await post(checkout([assorted, pack], { ...pickup, date: '2026-09-09' }))).status).toBe(201);
+  });
+});
+
+describe('free Texas shipping from $110 without a coupon', () => {
+  it.each([
+    ['sweets', [{ ...sweet, quantity: 3 }], 120, 0, 0, 120.99],
+    ['pickles only', [{ productId: 'pickle-chicken', quantity: 7 }], 126, 10.48, 0, 137.47],
+  ])('ships %s free with the $0.99 operational fee', async (_name, items, subtotal, tax, shipping, totalAmount) => {
+    const response = await post(checkout(items, delivery('TX')));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal, tax, shipping, maintenanceFee: 0.99, totalAmount });
+  });
+  it('keeps $6.99 just under $110 and in other states', async () => {
+    expect(await (await post(checkout([{ ...sweet, quantity: 2 }], delivery('TX')))).json()).toMatchObject({ shipping: 6.99, totalAmount: 86.99 });
+    const ga = await (await post(checkout([{ ...sweet, quantity: 3 }], delivery('GA')))).json();
+    expect(ga).toMatchObject({ shipping: 7.99, totalAmount: 127.99 });
+    expect(ga.maintenanceFee ?? 0).toBe(0);
   });
 });
 

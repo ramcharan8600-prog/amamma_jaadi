@@ -768,14 +768,17 @@ it('charges a far-state Malai Khaja-only order below $80 at $9.99 shipping', asy
   expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(4999);
 });
 
-it.each([['NY', 130.99], ['TX', 130.99]])('charges a 50-piece Malai Khaja-only order to %s at $5.99 shipping', async (state, total) => {
-  fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=5.99,tax=0,total_amount=?')
+it.each([
+  ['NY', 5.99, 0, 130.99],
+  ['TX', 0, 0.99, 125.99], // Texas $110+ ships free with the operational fee
+])('charges a 50-piece Malai Khaja-only order to %s at $%s shipping + $%s fee', async (state, shipping, fee, total) => {
+  fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=?,maintenance_fee=?,tax=0,total_amount=?')
     .run(JSON.stringify([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 50, lineTotal: 125 }]),
-      JSON.stringify({ type: 'delivery', state }), total);
+      JSON.stringify({ type: 'delivery', state }), shipping, fee, total);
   const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(
     async () => ({ paymentId: `payment-malai-khaja-50-${state}`, status: 'COMPLETED' }));
   expect(await runPaymentAttempt(fixture.db,
     { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
     .toMatchObject({ status: 'completed' });
-  expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(13099);
+  expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
 });

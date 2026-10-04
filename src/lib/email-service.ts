@@ -145,7 +145,7 @@ function totalsFooterRows(params: {
   }
 
   if (Number(params.maintenanceFee) > 0) {
-    rows.push(`<tr><td colspan="2" style="${cell}">Maintenance fee</td>
+    rows.push(`<tr><td colspan="2" style="${cell}">Operational fee</td>
       <td style="text-align:right; ${cell}">$${Number(params.maintenanceFee).toFixed(2)}</td></tr>`);
   }
 

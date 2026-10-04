@@ -41,6 +41,11 @@ export const FAR_SHIPPING_MINIMUM = 60;
 /** Flat UPS shipping within Texas. */
 export const SHIPPING_TX = 6.99;
 
+/** Texas deliveries at or above this merchandise subtotal ship free, plus the operational fee. */
+export const TEXAS_FREE_SHIPPING_MINIMUM = 110;
+/** Charged instead of shipping when a Texas delivery ships free (packaging, drop-off, label, digital operations). */
+export const OPERATIONAL_FEE = 0.99;
+
 /** Shipping to any supported state for orders containing only pickle jars. */
 export const SHIPPING_PICKLES_SINGLE = 6.99;
 export const SHIPPING_PICKLES_DOUBLE = 5.99;

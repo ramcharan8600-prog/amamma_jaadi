@@ -12,6 +12,8 @@ import {
   NEARBY_SHIPPING_TOP_THRESHOLD,
   FAR_SHIPPING_MINIMUM,
   SHIPPING_TX,
+  TEXAS_FREE_SHIPPING_MINIMUM,
+  OPERATIONAL_FEE,
   SHIPPING_PICKLES_SINGLE,
   SHIPPING_PICKLES_DOUBLE,
   SHIPPING_PICKLES_THREE_PLUS,
@@ -212,8 +214,11 @@ export interface ShippingQuote {
   regularShipping: number;
   /** Shipping before the coupon; shown struck through when a coupon applies. */
   referenceShipping: number;
+  /** Shipping saved by a coupon or the Texas free-shipping minimum. */
   couponSavings: number;
   maintenanceFee?: number;
+  /** Set when the Texas order minimum (not a coupon) made shipping free. */
+  freeShippingMinimum?: number;
 }
 
 /** One quote for the checkout display, session amount, tax, and first charge. */
@@ -249,16 +254,24 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   const coupon = opts.shippingCoupon;
   const eligible = opts.fulfillmentType === 'delivery' && !!coupon &&
     Number.isFinite(coupon.minSubtotal) && coupon.minSubtotal >= 0 && subtotal >= coupon.minSubtotal;
+  // Any Texas delivery of $110+ ships free with the $0.99 operational fee, no coupon needed.
+  const texasMinimumMet = opts.fulfillmentType === 'delivery' && zone === 'texas' &&
+    subtotal >= TEXAS_FREE_SHIPPING_MINIMUM;
   // Shipping coupons are Texas-only: other states always pay the regular rate.
-  let shipping = eligible && zone === 'texas' ? 0 : regularShipping;
+  let shipping = (eligible && zone === 'texas') || texasMinimumMet ? 0 : regularShipping;
   if (opts.freeDelivery) shipping = 0;
+  const couponFee = eligible && zone === 'texas' &&
+    (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
+    ? (opts.picklesOnly ? 1.99 : 0.99) : undefined;
+  // The $110 rule's fee is $0.99 for every cart, even where a coupon would charge more.
+  const maintenanceFee = texasMinimumMet ? OPERATIONAL_FEE : couponFee;
   return {
     shipping,
     regularShipping,
     referenceShipping: regularShipping,
     couponSavings: roundMoney(regularShipping - shipping),
-    ...(eligible && zone === 'texas' && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
-      ? { maintenanceFee: opts.picklesOnly ? 1.99 : 0.99 } : {}),
+    ...(maintenanceFee !== undefined ? { maintenanceFee } : {}),
+    ...(texasMinimumMet ? { freeShippingMinimum: TEXAS_FREE_SHIPPING_MINIMUM } : {}),
   };
 }
 
@@ -266,7 +279,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Break a subtotal into subtotal + tax + shipping + total.
  *
  * Pickle-only, all supported states, no minimum: $6.99 for any number of jars.
- * Texas sweets and mixed carts: $6.99.
+ * Texas sweets and mixed carts: $6.99; any Texas delivery of $110+ ships free plus a $0.99 operational fee.
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/IL/KS/LA/MO/MS/NM/OK/TN): $10.99 below $60, $8.99 from $60, $7.99 from $100.
