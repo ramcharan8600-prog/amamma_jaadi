@@ -136,7 +136,7 @@ describe('pricing — far-state delivery', () => {
   });
 
   it('classifies named examples as far states', () => {
-    for (const state of ['NY', 'DE', 'MA', 'WA', 'DC', 'NC', 'MI', 'MO']) {
+    for (const state of ['NY', 'DE', 'MA', 'WA', 'DC', 'NC', 'MI']) {
       expect(getShippingZone(state)).toBe('far');
     }
   });
@@ -338,7 +338,7 @@ describe('shipping coupons are Texas-only', () => {
 });
 
 describe('pricing — nearby states with the $100 tier', () => {
-  const nearby = ['AL', 'AR', 'CO', 'FL', 'GA', 'IL', 'KS', 'LA', 'MS', 'NM', 'OK', 'TN'];
+  const nearby = ['AL', 'AR', 'CO', 'FL', 'GA', 'IL', 'KS', 'LA', 'MO', 'MS', 'NM', 'OK', 'TN'];
 
   it('treats every nearby state as nearby with no minimum', () => {
     for (const state of nearby) {
