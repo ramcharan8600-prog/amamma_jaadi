@@ -16,8 +16,8 @@ export default function ShippingCharge({ label, shipping, quote }: {
       </span>
     </div>
     {discounted && <p className="mt-1 text-xs text-green-800">
-      {quote.freeShippingMinimum
-        ? `Free Texas shipping on orders of ${formatCurrency(quote.freeShippingMinimum)}+`
+      {quote.discountedShippingMinimum
+        ? `${formatCurrency(quote.shipping)} Texas shipping on orders of ${formatCurrency(quote.discountedShippingMinimum)}+`
         : `Coupon savings: ${formatCurrency(quote.couponSavings)}`}
     </p>}
   </div>;
