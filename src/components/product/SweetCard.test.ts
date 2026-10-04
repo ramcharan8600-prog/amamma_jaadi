@@ -97,8 +97,14 @@ it('offers Bobbatlu in 16/25/50 packs with the bigger packs discounted and the r
   const root=createRoot(host);
   try{
     await act(async()=>root.render(createElement(SweetCard,{product:getProductById('sweet-bobbatlu')!})));
+    // Bulk tiers show the regular price struck through, never "(was ...)".
+    const strike = (text: string) => Array.from(text, ch => ch + '\u0336').join('');
     expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual([
-      '16 pcs — $48.00', '25 pcs — $70.00 (was $75.00)', '50 pcs — $135.00 (was $150.00)',
+      '16 pcs — $48.00', `25 pcs — $70.00  ${strike('$75.00')}`, `50 pcs — $135.00  ${strike('$150.00')}`,
+    ]);
+    expect(host.textContent).not.toContain('was');
+    expect(Array.from(host.querySelectorAll('option')).map(o=>o.getAttribute('aria-label'))).toEqual([
+      null, '25 pcs, $70.00, regular price $75.00', '50 pcs, $135.00, regular price $150.00',
     ]);
     expect(host.querySelector('s')).toBeNull();
     const select=host.querySelector('select')!;

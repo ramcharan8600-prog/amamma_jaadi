@@ -5,6 +5,7 @@ import {
   getMinPickupDate,
   getTodayString,
   getMinEventDate,
+  strikeThrough,
 } from '@/lib/utils';
 
 describe('formatCurrency', () => {
@@ -45,5 +46,13 @@ describe('pickup business rules', () => {
 
   it('getMinEventDate is at least two days out', () => {
     expect(getMinEventDate() > getTodayString()).toBe(true);
+  });
+});
+
+describe('strikeThrough', () => {
+  it('overlays a stroke on every character, keeping the text readable', () => {
+    expect(strikeThrough('$75.00')).toBe('$\u03367\u03365\u0336.\u03360\u03360\u0336');
+    expect(strikeThrough('$75.00').replace(/\u0336/g, '')).toBe('$75.00');
+    expect(strikeThrough('')).toBe('');
   });
 });

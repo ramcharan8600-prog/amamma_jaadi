@@ -8,7 +8,7 @@ import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
 import { calculateSweetPrice, isBobbatluProduct, isBoxStockProduct, isFixedPriceBox, regularSweetPrice } from '@/data/products';
 import { useStock } from '@/hooks/useStock';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, strikeThrough } from '@/lib/utils';
 import { renderDescription } from '@/lib/description';
 
 interface SweetCardProps {
@@ -141,12 +141,16 @@ export default function SweetCard({ product }: SweetCardProps) {
             className="input-field"
           >
             {tiers.map((tier) => {
-              // <option> can't show a strike-through, so the regular price reads "was".
+              // A bulk discount shows the regular price struck through. <option>
+              // can't be styled, so the line is drawn with characters; screen
+              // readers get the plain wording from aria-label.
+              const price = formatCurrency(calculateSweetPrice(product, tier));
               const regular = regularSweetPrice(product, tier);
               return (
-                <option key={tier} value={tier}>
-                  {tier} pcs — {formatCurrency(calculateSweetPrice(product, tier))}
-                  {regular !== null ? ` (was ${formatCurrency(regular)})` : ''}
+                <option key={tier} value={tier}
+                  aria-label={regular !== null ? `${tier} pcs, ${price}, regular price ${formatCurrency(regular)}` : undefined}>
+                  {tier} pcs — {price}
+                  {regular !== null ? `  ${strikeThrough(formatCurrency(regular))}` : ''}
                 </option>
               );
             })}

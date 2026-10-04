@@ -16,6 +16,14 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Strike text through with combining overlay characters, for places that can't
+ * be styled, like a dropdown's <option>: "$75.00" → "$̶7̶5̶.̶0̶0̶".
+ */
+export function strikeThrough(text: string): string {
+  return Array.from(text, (char) => `${char}\u0336`).join('');
+}
+
 export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
