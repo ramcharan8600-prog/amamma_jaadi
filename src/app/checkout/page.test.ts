@@ -755,7 +755,7 @@ describe('nationwide pickle-only delivery', () => {
   it('shows free Texas shipping and the $0.99 operational fee on a $120 cart without a coupon', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 3, 16);
     await enterDeliveryDetails('TX');
-    expect(host.textContent).toContain('Free Texas shipping on orders of $110.00+');
+    expect(host.textContent).toContain('Free Texas shipping on orders of $120.00+');
     expect(host.textContent).toContain('Operational fee$0.99');
     expect(host.textContent).toContain('$120.99');
     await enterDeliveryDetails('GA');
@@ -1002,8 +1002,7 @@ describe('coupon benefits in checkout', () => {
 
   it.each([
     { cart: 'sweets', sweets: 2, jars: 0, fee: '$0.99', total: '$80.99', savings: 'Coupon savings: $6.99' },
-    // $112 is past the Texas $110 free-shipping minimum, which names itself instead of the coupon.
-    { cart: 'mixed', sweets: 1, jars: 4, fee: '$0.99', total: '$119.01', savings: 'Free Texas shipping on orders of $110.00+' },
+    { cart: 'mixed', sweets: 1, jars: 4, fee: '$0.99', total: '$119.01', savings: 'Coupon savings: $6.99' },
     { cart: 'pickles', sweets: 0, jars: 4, fee: '$1.99', total: '$80.09', savings: 'Coupon savings: $6.99' },
   ])('itemizes the retained Texas coupon fee when returning to the $cart cart', async ({ sweets, jars, fee, total, savings }) => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });

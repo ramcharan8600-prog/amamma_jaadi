@@ -254,7 +254,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   const coupon = opts.shippingCoupon;
   const eligible = opts.fulfillmentType === 'delivery' && !!coupon &&
     Number.isFinite(coupon.minSubtotal) && coupon.minSubtotal >= 0 && subtotal >= coupon.minSubtotal;
-  // Any Texas delivery of $110+ ships free with the $0.99 operational fee, no coupon needed.
+  // Any Texas delivery of $120+ ships free with the $0.99 operational fee, no coupon needed.
   const texasMinimumMet = opts.fulfillmentType === 'delivery' && zone === 'texas' &&
     subtotal >= TEXAS_FREE_SHIPPING_MINIMUM;
   // Shipping coupons are Texas-only: other states always pay the regular rate.
@@ -263,7 +263,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   const couponFee = eligible && zone === 'texas' &&
     (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
     ? (opts.picklesOnly ? 1.99 : 0.99) : undefined;
-  // The $110 rule's fee is $0.99 for every cart, even where a coupon would charge more.
+  // The $120 rule's fee is $0.99 for every cart, even where a coupon would charge more.
   const maintenanceFee = texasMinimumMet ? OPERATIONAL_FEE : couponFee;
   return {
     shipping,
@@ -279,7 +279,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Break a subtotal into subtotal + tax + shipping + total.
  *
  * Pickle-only, all supported states, no minimum: $6.99 for any number of jars.
- * Texas sweets and mixed carts: $6.99; any Texas delivery of $110+ ships free plus a $0.99 operational fee.
+ * Texas sweets and mixed carts: $6.99; any Texas delivery of $120+ ships free plus a $0.99 operational fee.
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/IL/KS/LA/MO/MS/NM/OK/TN): $10.99 below $60, $8.99 from $60, $7.99 from $100.

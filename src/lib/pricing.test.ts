@@ -291,11 +291,11 @@ describe('pickle-only nationwide rates and minimum exemption', () => {
   it.each(DELIVERY_STATE_OPTIONS)('$code uses a flat pickle rate with no minimum', ({ code }) => {
     for (const [pickleJarCount, shipping] of [[1, 6.99], [2, 6.99], [3, 6.99], [10, 6.99]]) {
       const subtotal = 19 * pickleJarCount;
-      // Texas deliveries of $110+ ship free (with the operational fee) instead.
+      // Texas deliveries of $120+ ship free (with the operational fee) instead.
       expect(calculateOrderTotals(subtotal, {
         fulfillmentType: 'delivery', deliveryState: code, taxableSubtotal: subtotal,
         picklesOnly: true, pickleJarCount,
-      }).shipping).toBe(code === 'TX' && subtotal >= 110 ? 0 : shipping);
+      }).shipping).toBe(code === 'TX' && subtotal >= 120 ? 0 : shipping);
       expect(getDeliveryMinimumSubtotal(code, true)).toBe(0);
       expect(getDeliveryMinimumShortfall(subtotal, code, true)).toBe(0);
     }
@@ -396,7 +396,7 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-malpuri' }, { productId: 'sweet-bobbatlu-taste-pack' }])).toBeUndefined();
   });
 
-  it('keeps $6.99 in Texas below $110, free from $110', () => {
+  it('keeps $6.99 in Texas below $120, free from $120', () => {
     expect(ship(40, 'TX')).toBe(6.99);
     expect(ship(120, 'TX')).toBe(0);
   });
@@ -433,7 +433,7 @@ describe('pricing — Assorted Box-only carts', () => {
   const ship = (subtotal: number, deliveryState: string) =>
     calculateOrderTotals(subtotal, { fulfillmentType: 'delivery', deliveryState, taxableSubtotal: 0, groundShipping: 'assorted-box' }).shipping;
 
-  it('keeps $6.99 in Texas below $110, free from $110', () => {
+  it('keeps $6.99 in Texas below $120, free from $120', () => {
     expect(ship(60, 'TX')).toBe(6.99);
     expect(ship(120, 'TX')).toBe(0);
   });
@@ -464,7 +464,7 @@ describe('pricing — Malai Khaja-only rates by total pieces', () => {
       groundShipping: 'malai-khaja', groundPieces }).shipping;
 
   it.each([
-    // [pieces, subtotal, Texas, nearby (GA), far (NY)]; Texas ships free from $110.
+    // [pieces, subtotal, Texas, nearby (GA), far (NY)]; Texas ships free from $120.
     [16, 40, 6.99, 9.99, 9.99],
     [25, 62.5, 6.99, 8.99, 8.99],
     [50, 125, 0, 5.99, 5.99],
@@ -484,14 +484,15 @@ describe('pricing — Malai Khaja-only rates by total pieces', () => {
   });
 });
 
-describe('pricing — free Texas shipping from $110', () => {
+describe('pricing — free Texas shipping from $120', () => {
   const quote = (subtotal: number, opts: Parameters<typeof calculateShippingQuote>[1] = {}) =>
     calculateShippingQuote(subtotal, { fulfillmentType: 'delivery', deliveryState: 'TX', ...opts });
 
-  it('ships Texas deliveries of $110+ free with the $0.99 operational fee', () => {
-    expect(quote(109.99)).toMatchObject({ shipping: 6.99, couponSavings: 0 });
-    expect(quote(109.99).maintenanceFee).toBeUndefined();
-    expect(quote(110)).toMatchObject({ shipping: 0, maintenanceFee: 0.99, couponSavings: 6.99, freeShippingMinimum: 110 });
+  it('ships Texas deliveries of $120+ free with the $0.99 operational fee', () => {
+    expect(quote(110)).toMatchObject({ shipping: 6.99, couponSavings: 0 });
+    expect(quote(119.99)).toMatchObject({ shipping: 6.99, couponSavings: 0 });
+    expect(quote(119.99).maintenanceFee).toBeUndefined();
+    expect(quote(120)).toMatchObject({ shipping: 0, maintenanceFee: 0.99, couponSavings: 6.99, freeShippingMinimum: 120 });
     expect(quote(250)).toMatchObject({ shipping: 0, maintenanceFee: 0.99 });
   });
 
@@ -501,7 +502,7 @@ describe('pricing — free Texas shipping from $110', () => {
     expect(quote(120, { groundShipping: 'assorted-box' })).toMatchObject({ shipping: 0, maintenanceFee: 0.99 });
   });
 
-  it('uses the $0.99 fee over a pickle coupon fee from $110, and leaves coupons alone below it', () => {
+  it('uses the $0.99 fee over a pickle coupon fee from $120, and leaves coupons alone below it', () => {
     const shippingCoupon = { minSubtotal: 60, shippingPolicy: 'texas_v3' as const };
     expect(quote(126, { picklesOnly: true, pickleJarCount: 6, shippingCoupon })).toMatchObject({ shipping: 0, maintenanceFee: 0.99 });
     expect(quote(84, { picklesOnly: true, pickleJarCount: 4, shippingCoupon })).toMatchObject({ shipping: 0, maintenanceFee: 1.99 });
@@ -517,9 +518,9 @@ describe('pricing — free Texas shipping from $110', () => {
   });
 
   it('taxes the fee with pickles in a Texas order, like shipping', () => {
-    expect(calculateOrderTotals(110, { fulfillmentType: 'delivery', deliveryState: 'TX', taxableSubtotal: 18 }))
-      .toEqual({ subtotal: 110, tax: 1.57, shipping: 0, maintenanceFee: 0.99, total: 112.56 });
-    expect(calculateOrderTotals(110, { fulfillmentType: 'delivery', deliveryState: 'TX', taxableSubtotal: 0 }))
-      .toEqual({ subtotal: 110, tax: 0, shipping: 0, maintenanceFee: 0.99, total: 110.99 });
+    expect(calculateOrderTotals(120, { fulfillmentType: 'delivery', deliveryState: 'TX', taxableSubtotal: 18 }))
+      .toEqual({ subtotal: 120, tax: 1.57, shipping: 0, maintenanceFee: 0.99, total: 122.56 });
+    expect(calculateOrderTotals(120, { fulfillmentType: 'delivery', deliveryState: 'TX', taxableSubtotal: 0 }))
+      .toEqual({ subtotal: 120, tax: 0, shipping: 0, maintenanceFee: 0.99, total: 120.99 });
   });
 });

@@ -42,7 +42,7 @@ export const FAR_SHIPPING_MINIMUM = 60;
 export const SHIPPING_TX = 6.99;
 
 /** Texas deliveries at or above this merchandise subtotal ship free, plus the operational fee. */
-export const TEXAS_FREE_SHIPPING_MINIMUM = 110;
+export const TEXAS_FREE_SHIPPING_MINIMUM = 120;
 /** Charged instead of shipping when a Texas delivery ships free (packaging, drop-off, label, digital operations). */
 export const OPERATIONAL_FEE = 0.99;
 
