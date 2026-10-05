@@ -3,6 +3,8 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Page not found',
+  // Replaces the root layout's "index, follow" so the page doesn't send both.
+  robots: { index: false, follow: true },
 };
 
 /** Shown for any URL the site doesn't have (old links, typos), with the header and footer. */
