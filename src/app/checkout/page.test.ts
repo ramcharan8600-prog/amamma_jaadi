@@ -863,6 +863,7 @@ describe('nationwide pickle-only delivery', () => {
     await enterDeliveryDetails('NY');
     expect(host.textContent).toContain('is delivered within Texas and nearby states only');
     expect(button('Continue to payment').disabled).toBe(true);
+    expect(host.textContent).not.toContain('$11.99');
   });
 
   it('keeps the $30 box pickup only: Delivery is disabled and explains why', async () => {

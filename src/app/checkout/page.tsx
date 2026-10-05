@@ -1507,7 +1507,8 @@ export default function CheckoutPage() {
 
           {!appliedCoupon && <div className="font-body text-sm">{renderTastePackOffer()}</div>}
 
-          {deliveryState.trim() && (
+          {/* No totals while an item can't be delivered here: there is nothing to pay. */}
+          {deliveryState.trim() && !deliveryRestrictionMessage && (
             <div className="card p-4 space-y-1.5">
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
                 <span>Subtotal</span>
