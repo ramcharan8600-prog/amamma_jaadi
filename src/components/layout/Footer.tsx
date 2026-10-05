@@ -12,7 +12,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="flex flex-col items-center md:items-start gap-4">
             <Image
-              src="/images/brand/logo.png"
+              src="/images/web/logo-192.webp"
               alt="Amamma Jaadi"
               width={130}
               height={130}

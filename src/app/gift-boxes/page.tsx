@@ -56,8 +56,8 @@ export default function GiftBoxesPage() {
       {/* Products */}
       <section className="section-padding pb-12">
         <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-          {giftBoxes.map((product) => (
-            <GiftBoxCard key={product.id} product={product} />
+          {giftBoxes.map((product, i) => (
+            <GiftBoxCard key={product.id} product={product} eager={i === 0} />
           ))}
         </div>
       </section>

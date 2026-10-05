@@ -40,7 +40,7 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
             <Image
-              src="/images/brand/logo.png"
+              src="/images/web/logo-192.webp"
               alt="Amamma Jaadi"
               width={86}
               height={86}

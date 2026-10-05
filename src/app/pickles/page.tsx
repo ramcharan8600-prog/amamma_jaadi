@@ -37,8 +37,8 @@ export default function PicklesPage() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {pickles.map((product) => (
-          <PickleCard key={product.id} product={product} />
+        {pickles.map((product, i) => (
+          <PickleCard key={product.id} product={product} eager={i === 0} />
         ))}
       </div>
     </div>

@@ -7,11 +7,12 @@ import '@/styles/globals.css';
 
 // Self-hosted at build time (no third-party request at runtime). Exposed as CSS
 // variables that Tailwind's `font-display` / `font-body` utilities consume.
+// Normal style only: the one italic line (the About page quote) loads its own
+// face there, so no page preloads an italic font it doesn't use.
 const playfair = Playfair_Display({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-display',
-  style: ['normal', 'italic'],
 });
 
 const inter = Inter({
@@ -47,7 +48,7 @@ export const metadata: Metadata = {
     title: 'Amamma Jaadi — Flavors of Home',
     description:
       'Traditional South Indian sweets made with love, just like your grandmother made them. Order fresh sweets, pickles & premium gift boxes in Dallas, TX.',
-    images: [{ url: '/images/brand/logo.png', width: 512, height: 512, alt: 'Amamma Jaadi' }],
+    images: [{ url: '/images/brand/logo.png', width: 360, height: 354, alt: 'Amamma Jaadi' }],
   },
   twitter: {
     card: 'summary_large_image',

@@ -1,11 +1,15 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
+import { Playfair_Display } from 'next/font/google';
 import { MapPin } from 'lucide-react';
 import { WHATSAPP_NUMBER, PHONE_NUMBER } from '@/lib/utils';
 import { DFW_CITIES, WIDER_TEXAS_CITIES } from '@/data/service-areas';
 import { FAQS } from '@/data/faq';
 import JsonLd from '@/components/JsonLd';
 import { getFaqSchema } from '@/lib/seo';
+
+// Italic Playfair is used only for the quote below, so only this page loads it.
+const playfairItalic = Playfair_Display({ subsets: ['latin'], style: 'italic', display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'Our Story, Areas We Serve & FAQs',
@@ -45,7 +49,7 @@ export default function AboutPage() {
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div className="rounded-2xl overflow-hidden aspect-square bg-brand-cream">
               <Image
-                src="/images/products/bobbatlu.jpg"
+                src="/images/web/bobbatlu.webp"
                 alt="Traditional South Indian sweet making"
                 width={500}
                 height={500}
@@ -101,7 +105,7 @@ export default function AboutPage() {
             <div className="space-y-4 md:order-2">
               <div className="rounded-2xl overflow-hidden aspect-square bg-brand-cream">
                 <Image
-                  src="/images/brand/logo.png"
+                  src="/images/web/logo-192.webp"
                   alt="Amamma Jaadi brand"
                   width={500}
                   height={500}
@@ -117,7 +121,7 @@ export default function AboutPage() {
               </p>
 
               <blockquote className="border-l-4 border-brand-gold pl-4 py-2">
-                <p className="font-display text-lg text-brand-charcoal/90 italic">
+                <p className={`${playfairItalic.className} text-lg text-brand-charcoal/90 italic`}>
                   &ldquo;The secret is patience and love — you can taste both in
                   every bite.&rdquo;
                 </p>

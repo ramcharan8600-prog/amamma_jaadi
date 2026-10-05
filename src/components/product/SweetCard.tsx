@@ -13,9 +13,11 @@ import { renderDescription } from '@/lib/description';
 
 interface SweetCardProps {
   product: Product;
+  /** First card on the page: load its photo right away (likely the LCP image). */
+  eager?: boolean;
 }
 
-export default function SweetCard({ product }: SweetCardProps) {
+export default function SweetCard({ product, eager = false }: SweetCardProps) {
   const tiers = product.quantityOptions || [16, 25, 50];
   const [selectedTier, setSelectedTier] = useState(tiers[0]);
   const [added, setAdded] = useState(false);
@@ -63,12 +65,14 @@ export default function SweetCard({ product }: SweetCardProps) {
         // open photos side by side with a Gift Box badge.
         <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-brand-gold/10 to-brand-cream">
           <div className="absolute inset-0 flex">
-            {photos.map((photo) => (
+            {photos.map((photo, i) => (
               <div key={photo.src} className="relative flex-1 min-w-0">
                 <Image
                   src={photo.src}
                   alt={photo.alt}
                   fill
+                  loading={eager ? 'eager' : 'lazy'}
+                  fetchPriority={eager && i === 0 ? 'high' : undefined}
                   sizes="(max-width: 768px) 50vw, 25vw"
                   className={product.imageFit === 'contain' ? 'object-contain' : 'object-cover group-hover:scale-105 transition-transform duration-500'}
                 />
@@ -94,6 +98,8 @@ export default function SweetCard({ product }: SweetCardProps) {
             src={product.image}
             alt={product.name}
             fill
+            loading={eager ? 'eager' : 'lazy'}
+            fetchPriority={eager ? 'high' : undefined}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className={`${product.imageFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
           />

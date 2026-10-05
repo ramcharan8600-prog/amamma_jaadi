@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm mx-auto px-6">
         <div className="text-center mb-8">
           <Image
-            src="/images/brand/logo.png"
+            src="/images/web/logo-192.webp"
             alt="Amamma Jaadi"
             width={64}
             height={64}

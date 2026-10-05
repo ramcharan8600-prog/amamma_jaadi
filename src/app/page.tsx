@@ -76,17 +76,16 @@ export default function HomePage() {
                 <div className="space-y-4">
                   <div className="rounded-2xl overflow-hidden shadow-lg aspect-square">
                     <Image
-                      src="/images/products/bobbatlu.jpg"
+                      src="/images/web/bobbatlu.webp"
                       alt="Bobbatlu"
                       width={400}
                       height={400}
                       className="object-cover w-full h-full"
-                      priority
                     />
                   </div>
                   <div className="rounded-2xl overflow-hidden shadow-lg aspect-[4/3]">
                     <Image
-                      src="/images/products/Pala kova.jpg"
+                      src="/images/web/pala-kova.webp"
                       alt="Kova"
                       width={400}
                       height={300}
@@ -97,7 +96,7 @@ export default function HomePage() {
                 <div className="pt-8 space-y-4">
                   <div className="rounded-2xl overflow-hidden shadow-lg aspect-[4/3]">
                     <Image
-                      src="/images/products/Guntur Malpuri.jpg"
+                      src="/images/web/guntur-malpuri.webp"
                       alt="Guntur Malpuri"
                       width={400}
                       height={300}
@@ -106,7 +105,7 @@ export default function HomePage() {
                   </div>
                   <div className="rounded-2xl overflow-hidden shadow-lg aspect-square">
                     <Image
-                      src="/images/products/nellore malai khaja.jpg"
+                      src="/images/web/nellore-malai-khaja.webp"
                       alt="Malai Khaja"
                       width={400}
                       height={400}
@@ -206,9 +205,9 @@ export default function HomePage() {
         <div className="section-padding">
           <div className="grid sm:grid-cols-3 gap-6">
             {[
-              { title: 'Sweets', desc: 'Bobbatlu, Malai Khaja, Kova & more', href: '/sweets', img: '/images/products/bobbatlu.jpg' },
-              { title: 'Pickles', desc: 'Chicken, Mutton & Prawns', href: '/pickles', img: '/images/products/Chicken Pickle.jpg' },
-              { title: 'Sweets Gift Packs', desc: 'Desi-style matt-finish sweets boxes', href: '/gift-boxes', img: '/images/products/gift box.jpg' },
+              { title: 'Sweets', desc: 'Bobbatlu, Malai Khaja, Kova & more', href: '/sweets', img: '/images/web/bobbatlu.webp' },
+              { title: 'Pickles', desc: 'Chicken, Mutton & Prawns', href: '/pickles', img: '/images/web/chicken-pickle.webp' },
+              { title: 'Sweets Gift Packs', desc: 'Desi-style matt-finish sweets boxes', href: '/gift-boxes', img: '/images/web/gift-box.webp' },
             ].map((cat) => (
               <Link key={cat.href} href={cat.href} className="group relative rounded-2xl overflow-hidden aspect-[3/2]">
                 <Image src={cat.img} alt={cat.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />

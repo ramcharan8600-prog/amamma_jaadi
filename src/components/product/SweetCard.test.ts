@@ -59,8 +59,8 @@ it('offers the Special Edition Assorted Box as a single 22-piece, $60 box with b
     expect(host.querySelector('p.line-clamp-2')).toBeNull();
     expect(host.textContent).not.toContain('**');
     expect(Array.from(host.querySelectorAll('img')).map(img=>img.getAttribute('src'))).toEqual([
-      '/images/products/texas-limited-gift-box-closed.jpg',
-      '/images/products/texas-limited-gift-box-open.jpg',
+      '/images/web/texas-limited-gift-box-closed.webp',
+      '/images/web/texas-limited-gift-box-open.webp',
     ]);
     expect(host.textContent).toContain('Gift Box');
     expect(host.textContent).not.toContain('/pc');

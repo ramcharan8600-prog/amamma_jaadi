@@ -11,9 +11,11 @@ import { renderDescription } from '@/lib/description';
 
 interface GiftBoxCardProps {
   product: Product;
+  /** First card on the page: load its photos right away (likely the LCP image). */
+  eager?: boolean;
 }
 
-export default function GiftBoxCard({ product }: GiftBoxCardProps) {
+export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps) {
   const variants = product.variantOptions ?? [];
   const photos = [{ src: product.image, alt: product.name }, ...(product.additionalImages ?? [])];
   const [quantity, setQuantity] = useState(1);
@@ -34,12 +36,14 @@ export default function GiftBoxCard({ product }: GiftBoxCardProps) {
     <div className="card border-brand-gold/30 group">
       <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-brand-gold/10 to-brand-cream">
         <div className="absolute inset-0 flex">
-          {photos.map((photo) => (
+          {photos.map((photo, i) => (
             <div key={photo.src} className="relative flex-1 min-w-0">
               <Image
                 src={photo.src}
                 alt={photo.alt}
                 fill
+                loading={eager ? 'eager' : 'lazy'}
+                fetchPriority={eager && i === 0 ? 'high' : undefined}
                 sizes={photos.length > 1 ? '(max-width: 768px) 50vw, 25vw' : '(max-width: 768px) 100vw, 50vw'}
                 className={product.imageFit === 'contain' ? 'object-contain' : 'object-cover group-hover:scale-105 transition-transform duration-500'}
               />

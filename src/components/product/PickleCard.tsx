@@ -12,9 +12,11 @@ import { renderDescription } from '@/lib/description';
 
 interface PickleCardProps {
   product: Product;
+  /** First card on the page: load its photo right away (likely the LCP image). */
+  eager?: boolean;
 }
 
-export default function PickleCard({ product }: PickleCardProps) {
+export default function PickleCard({ product, eager = false }: PickleCardProps) {
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
@@ -39,6 +41,8 @@ export default function PickleCard({ product }: PickleCardProps) {
           src={product.image}
           alt={product.name}
           fill
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : undefined}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
