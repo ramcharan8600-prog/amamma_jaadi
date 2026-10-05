@@ -123,12 +123,21 @@ describe('lookups', () => {
     expect(box.deliveryStateCodes).toBeUndefined();
   });
 
+  it('names the $50 box Mini Party Box, open to pickup and delivery at standard rates', () => {
+    const box = getProductById('gift-box-party')!;
+    expect(box).toMatchObject({ name: 'Mini Party Box', slug: 'mini-party-box', unitPrice: 50 });
+    expect(box.name + box.description).not.toMatch(/event/i);
+    expect(box.description).toContain('Available for pickup or delivery; standard delivery charges apply.');
+    expect(box.pickupOnly).toBeUndefined();
+    expect(box.deliveryZones).toBeUndefined();
+    expect(box.deliveryStateCodes).toBeUndefined();
+  });
+
   it('offers the $48 Mini Combo Pack (8 + 8) for delivery in Texas and nearby states', () => {
     const box = getProductById('gift-box-mini-combo')!;
     expect(box).toMatchObject({ unitPrice: 48, category: 'gift-boxes', isFixedQuantity: true, deliveryZones: ['texas', 'nearby'] });
     expect(box.pickupOnly).toBeUndefined();
-    expect(box.variantOptions).toBeUndefined();
-    expect(box.emailDetails).toEqual(['• 8 Guntur Malpuri', '• 8 Nellore Malai Khaja']);
+    expect(box.variantOptions).toEqual(['Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja']);
     expect(isProductTaxExempt(box)).toBe(true);
     // Listed between the $30 and $50 boxes.
     expect(getProductsByCategory('gift-boxes').map((p) => p.unitPrice)).toEqual([30, 48, 50]);

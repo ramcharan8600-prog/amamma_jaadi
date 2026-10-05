@@ -44,7 +44,7 @@ const gift = {
   productId: 'gift-box-sweet-memories', quantity: 1,
   selectedVariant: '12 pcs Guntur Malpuri',
 };
-const mini = { productId: 'gift-box-mini-combo', quantity: 1 };
+const mini = { productId: 'gift-box-mini-combo', quantity: 1, selectedVariant: 'Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja' };
 const pickup = { type: 'pickup', date: '2026-10-10', locationId: 'plano-biryanify' };
 const delivery = (state: string) => ({
   type: 'delivery', addressLine1: '123 Test Street', city: 'Test City',

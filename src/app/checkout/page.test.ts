@@ -851,7 +851,7 @@ describe('nationwide pickle-only delivery', () => {
     ['TX', '$2.99', '$50.99', 'Shipping (estimated 1 business day after dispatch)'],
     ['OK', '$4.99', '$52.99', 'Express shipping (2-day ETA)'],
   ])('ships the Mini Combo Pack to %s for %s', async (state, shipping, total, label) => {
-    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1);
+    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1, undefined, 'Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja');
     await enterDeliveryDetails(state);
     expect(host.textContent).toContain(`${label}${shipping}`);
     expect(host.textContent).toContain(total);
@@ -859,11 +859,21 @@ describe('nationwide pickle-only delivery', () => {
   });
 
   it('refuses far-state delivery of the Mini Combo Pack', async () => {
-    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 2);
+    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 2, undefined, 'Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja');
     await enterDeliveryDetails('NY');
     expect(host.textContent).toContain('is delivered within Texas and nearby states only');
     expect(button('Continue to payment').disabled).toBe(true);
     expect(host.textContent).not.toContain('$11.99');
+  });
+
+  it('applies the pickup-only rule to a $30 box saved in a cart before the rule existed', async () => {
+    const saved = { ...getProductById('gift-box-sweet-memories')!, pickupOnly: undefined };
+    useCartStore.getState().addItem(saved, 1, undefined, '12 pcs Guntur Malpuri');
+    await render();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
+    expect(choice.disabled).toBe(true);
+    expect(choice.textContent).toContain('is pickup only');
   });
 
   it('keeps the $30 box pickup only: Delivery is disabled and explains why', async () => {

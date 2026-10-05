@@ -101,9 +101,11 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
                 </option>
               ))}
             </select>
-            <p className="font-body text-xs text-brand-charcoal/50 mt-1">
-              Same price for every option.
-            </p>
+            {variants.length > 1 && (
+              <p className="font-body text-xs text-brand-charcoal/50 mt-1">
+                Same price for every option.
+              </p>
+            )}
           </div>
         )}
 

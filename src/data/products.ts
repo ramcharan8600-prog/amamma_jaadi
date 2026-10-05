@@ -263,15 +263,16 @@ export const PRODUCTS: Product[] = [
     isFixedQuantity: true,
     inStock: true,
     deliveryZones: ['texas', 'nearby'],
-    emailDetails: ['• 8 Guntur Malpuri', '• 8 Nellore Malai Khaja'],
+    // One choice for now, shown like the other boxes' contents dropdown.
+    variantOptions: ['Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja'],
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {
     id: 'gift-box-party',
-    slug: 'event-mini-party-box',
-    name: 'Event / Mini Party Box',
+    slug: 'mini-party-box',
+    name: 'Mini Party Box',
     description:
-      'Our bigger box for events and parties — 10 Nellore Malai Khaja and 10 Guntur Malpuri in a desi-style matt-finish sweets gift box. Ideal for gatherings, corporate gifting, and making every event sweeter.',
+      'Our bigger box for parties and gatherings: 20 pieces of Guntur Malpuri, Nellore Malai Khaja, or a 10 + 10 mix, in a desi-style matt-finish sweets gift box. Available for pickup or delivery; standard delivery charges apply.',
     category: 'gift-boxes',
     unitPrice: 50,
     image: '/images/web/gift-box.webp',

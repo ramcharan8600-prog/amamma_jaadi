@@ -415,10 +415,13 @@ export default function CheckoutPage() {
     ? getDeliveryMinimumShortfall(subtotal, deliveryState, picklesOnly, groundShipping)
     : 0;
   const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState, picklesOnly, groundShipping);
-  const pickupOnlyItem = items.find(({ product }) => product.pickupOnly);
+  // A saved cart keeps each product as it was when added; delivery rules come
+  // from the current catalog, as on the server.
+  const catalogProducts = items.map((item) => getProductById(item.productId) ?? item.product);
+  const pickupOnlyProduct = catalogProducts.find((product) => product.pickupOnly);
   // Pickup-only items block delivery outright; other limits wait for a valid state and minimum.
-  const deliveryRestrictionMessage = items
-    .map(({ product }) => product.pickupOnly || (isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0)
+  const deliveryRestrictionMessage = catalogProducts
+    .map((product) => product.pickupOnly || (isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0)
       ? deliveryRestriction(product, deliveryState, subtotal)
       : null)
     .find(Boolean) ?? null;
@@ -1128,21 +1131,21 @@ export default function CheckoutPage() {
             </button>
             <button
               onClick={() => {
-                if (pickupOnlyItem) return;
+                if (pickupOnlyProduct) return;
                 setFulfillmentType('delivery');
                 if (pickupName) setDeliveryName(pickupName);
                 if (pickupPhone) setDeliveryPhone(pickupPhone);
                 if (pickupEmail) setDeliveryEmail(pickupEmail);
                 setStep('details');
               }}
-              disabled={!!pickupOnlyItem}
+              disabled={!!pickupOnlyProduct}
               className="card p-6 text-left hover:border-brand-maroon transition-colors group disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-brand-cream-dark"
             >
               <Truck size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
               <h3 className="font-display text-xl font-semibold text-brand-charcoal">Delivery</h3>
-              {pickupOnlyItem ? (
+              {pickupOnlyProduct ? (
                 <p className="font-body text-sm text-brand-maroon mt-1">
-                  Not available for this cart: <strong>{pickupOnlyItem.product.name}</strong> is pickup only.
+                  Not available for this cart: <strong>{pickupOnlyProduct.name}</strong> is pickup only.
                   Remove it to have your order delivered.
                 </p>
               ) : (
