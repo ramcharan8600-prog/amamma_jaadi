@@ -53,7 +53,7 @@ export function isTexas(state: string | undefined | null): boolean {
 }
 
 /** States in the nearby shipping region. */
-export const NEARBY_STATE_CODES = ['AL', 'AR', 'CO', 'FL', 'GA', 'IA', 'IL', 'KS', 'LA', 'MO', 'MS', 'NM', 'OK', 'TN'] as const;
+export const NEARBY_STATE_CODES = ['AL', 'AR', 'CO', 'FL', 'GA', 'IA', 'IL', 'KS', 'LA', 'MO', 'MS', 'NE', 'NM', 'OK', 'TN'] as const;
 
 /**
  * Supported delivery destinations. Alaska and Hawaii intentionally remain
@@ -280,7 +280,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Texas sweets and mixed carts: $6.99; any Texas delivery of $120+ pays $3.99.
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
- * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/IA/IL/KS/LA/MO/MS/NM/OK/TN): $10.99 below $60, $8.99 from $60, $7.99 from $100.
+ * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/IA/IL/KS/LA/MO/MS/NE/NM/OK/TN): $10.99 below $60, $8.99 from $60, $7.99 from $100.
  * Sweets/mixed in far states: $11.99 flat, with a $60 merchandise minimum.
  * Only Malai Khaja: 50+ pieces $5.99 everywhere; otherwise Texas $6.99, nearby the lower of
  * $9.99 and the rate above, far $8.99 from 25 pieces else $9.99; no minimum.
