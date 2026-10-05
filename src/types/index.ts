@@ -40,6 +40,10 @@ export interface Product {
    * box is packed correctly.
    */
   variantOptions?: string[];
+  /** Pickup only: checkout and the server refuse delivery for any cart holding it. */
+  pickupOnly?: boolean;
+  /** When present, delivery is permitted only to these shipping zones (see getShippingZone). */
+  deliveryZones?: Array<'texas' | 'nearby' | 'far'>;
   /** When present, delivery is permitted only to these two-letter state codes. */
   deliveryStateCodes?: string[];
   /** Merchandise minimum that unlocks delivery outside `deliveryStateCodes`. */

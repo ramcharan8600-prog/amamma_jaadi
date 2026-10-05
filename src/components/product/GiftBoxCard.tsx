@@ -56,6 +56,12 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
           <Gift size={14} />
           Gift Box
         </span>
+        {product.ribbon && (
+          // Diagonal sash across the top-left corner of the photo, as on SweetCard.
+          <span className="pointer-events-none absolute top-11 -left-12 w-52 -rotate-45 bg-brand-maroon text-center font-body text-[11px] font-semibold uppercase tracking-wider text-white py-1.5 shadow-md">
+            {product.ribbon}
+          </span>
+        )}
         {soldOut && (
           <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
             <span className="bg-brand-charcoal text-white text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wide">

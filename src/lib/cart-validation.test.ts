@@ -65,7 +65,7 @@ describe('new checkout cart validation', () => {
     expect(result.taxableSubtotal).toBe(36);
     expect(result.items.map(({ lineTotal }) => lineTotal)).toEqual([80, 36, 30]);
     expect(result.items[0].product).toEqual(getProductById('sweet-malpuri'));
-    expect(result.items[2].product.deliveryStateCodes).toEqual(['TX']);
+    expect(result.items[2].product.pickupOnly).toBe(true);
     expect(result.items[2].selectedVariant).toBe(gift.selectedVariant);
     expect(result.requestedByProduct.get('sweet-malpuri')).toBe(2);
   });

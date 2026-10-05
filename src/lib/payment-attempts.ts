@@ -6,7 +6,7 @@ import { isValidPhone } from '@/lib/contact-validation';
 import { isValidCouponMinimum } from '@/lib/coupons';
 import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
-import { calculateOrderTotals, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions } from '@/lib/pricing';
+import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
   executeSquarePaymentRequest,
@@ -107,9 +107,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     const state = normalizeStateCode(fulfillment.state);
     if (delivery && (!isSupportedDeliveryState(state) ||
         getDeliveryMinimumShortfall(cart.subtotal, state, picklesOnly, groundShipping) > 0 ||
-        cart.items.some(item => item.product.deliveryStateCodes?.length &&
-          !item.product.deliveryStateCodes.includes(state) &&
-          cart.subtotal < (item.product.deliveryOutsideStateMinimum ?? Number.POSITIVE_INFINITY)))) return null;
+        cart.items.some(item => deliveryRestriction(item.product, state, cart.subtotal)))) return null;
     // Honor the benefit saved by create-session when checking the first charge.
     // Re-reading the current coupon would change an already accepted quote.
     const coupon = typeof session.coupon_snapshot === 'string'

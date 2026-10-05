@@ -847,6 +847,38 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
   });
 
+  it.each([
+    ['TX', '$2.99', '$50.99', 'Shipping (estimated 1 business day after dispatch)'],
+    ['OK', '$3.99', '$51.99', 'Express shipping (2-day ETA)'],
+  ])('ships the Mini Combo Pack to %s for %s', async (state, shipping, total, label) => {
+    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1);
+    await enterDeliveryDetails(state);
+    expect(host.textContent).toContain(`${label}${shipping}`);
+    expect(host.textContent).toContain(total);
+    expect(button('Continue to payment').disabled).toBe(false);
+  });
+
+  it('refuses far-state delivery of the Mini Combo Pack', async () => {
+    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 2);
+    await enterDeliveryDetails('NY');
+    expect(host.textContent).toContain('is delivered within Texas and nearby states only');
+    expect(button('Continue to payment').disabled).toBe(true);
+  });
+
+  it('keeps the $30 box pickup only: Delivery is disabled and explains why', async () => {
+    useCartStore.getState().addItem(getProductById('gift-box-sweet-memories')!, 1, undefined, '12 pcs Guntur Malpuri');
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    await render();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
+    expect(choice.disabled).toBe(true);
+    expect(choice.textContent).toContain('Sweet Memories Gift Box (Texas Limited Edition) is pickup only');
+    await act(async () => choice.click());
+    expect(host.textContent).not.toContain('Delivery details');
+    const pickupChoice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup')!;
+    expect(pickupChoice.disabled).toBe(false);
+  });
+
   it('quietly ships a Malai Khaja-only cart out of state for $9.99 with no minimum', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 16);
     await enterDeliveryDetails('NY');

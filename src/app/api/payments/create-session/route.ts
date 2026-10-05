@@ -8,6 +8,7 @@ import {
   calculateOrderTotals,
   calculateShippingQuote,
   type ShippingOptions,
+  deliveryRestriction,
   getDeliveryMinimumSubtotal,
   getDeliveryMinimumShortfall,
   groundShippingKind,
@@ -114,6 +115,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (fulfillmentType === 'delivery') {
+      // Pickup-only items block delivery to any address, so say that first.
+      const pickupOnlyProduct = PRODUCTS.find((product) => requestedByProduct.has(product.id) && product.pickupOnly);
+      if (pickupOnlyProduct) return fail(deliveryRestriction(pickupOnlyProduct, null, serverTotal)!, 400);
       const normalizedDeliveryState = normalizeStateCode(rawFulfillment?.state);
       deliveryState = normalizedDeliveryState;
       if (normalizedDeliveryState === 'AK' || normalizedDeliveryState === 'HI') {
@@ -137,21 +141,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const stateRestrictedProduct = PRODUCTS.find(
-        (product) =>
-          requestedByProduct.has(product.id) &&
-          product.deliveryStateCodes?.length &&
-          !product.deliveryStateCodes.includes(normalizedDeliveryState) &&
-          serverTotal < (product.deliveryOutsideStateMinimum ?? Number.POSITIVE_INFINITY)
-      );
-      if (stateRestrictedProduct) {
-        const requiredSubtotal = stateRestrictedProduct.deliveryOutsideStateMinimum ?? 0;
-        const shortfall = Math.max(0, requiredSubtotal - serverTotal);
-        return fail(
-          `${stateRestrictedProduct.name} can be delivered outside Texas when the product subtotal is $${requiredSubtotal.toFixed(2)} or more. Add $${shortfall.toFixed(2)} more, remove it, or select a Texas address.`,
-          400
-        );
-      }
+      const restriction = PRODUCTS
+        .filter((product) => requestedByProduct.has(product.id))
+        .map((product) => deliveryRestriction(product, normalizedDeliveryState, serverTotal))
+        .find(Boolean);
+      if (restriction) return fail(restriction, 400);
 
       const addressLine1 = sanitize(rawFulfillment?.addressLine1, 200);
       const addressLine2 = sanitize(rawFulfillment?.addressLine2, 200);

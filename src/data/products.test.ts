@@ -114,12 +114,24 @@ describe('lookups', () => {
     }
   });
 
-  it('limits the $30 Texas Limited Edition box by state and out-of-state subtotal', () => {
+  it('keeps the $30 Sweet Memories box for pickup only, labelled on its photo', () => {
     const box = getProductById('gift-box-sweet-memories')!;
     expect(box.unitPrice).toBe(30);
-    expect(box.name).toContain('Texas Limited Edition');
-    expect(box.deliveryStateCodes).toEqual(['TX']);
-    expect(box.deliveryOutsideStateMinimum).toBe(60);
+    expect(box.pickupOnly).toBe(true);
+    expect(box.ribbon).toBe('#Pick-up limited');
+    expect(box.description).toContain('Pickup only');
+    expect(box.deliveryStateCodes).toBeUndefined();
+  });
+
+  it('offers the $48 Mini Combo Pack (8 + 8) for delivery in Texas and nearby states', () => {
+    const box = getProductById('gift-box-mini-combo')!;
+    expect(box).toMatchObject({ unitPrice: 48, category: 'gift-boxes', isFixedQuantity: true, deliveryZones: ['texas', 'nearby'] });
+    expect(box.pickupOnly).toBeUndefined();
+    expect(box.variantOptions).toBeUndefined();
+    expect(box.emailDetails).toEqual(['• 8 Guntur Malpuri', '• 8 Nellore Malai Khaja']);
+    expect(isProductTaxExempt(box)).toBe(true);
+    // Listed between the $30 and $50 boxes.
+    expect(getProductsByCategory('gift-boxes').map((p) => p.unitPrice)).toEqual([30, 48, 50]);
   });
 
   it('gift box piece counts match the box size', () => {

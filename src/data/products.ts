@@ -13,6 +13,9 @@ import { Product, PickupLocation, ProductCategory } from '@/types';
 // Product Catalog — Amamma Jaadi
 // ============================================================
 
+/** The $48 Mini Combo Pack: a box-only cart ships $2.99 in Texas, $3.99 to nearby states. */
+export const MINI_COMBO_PACK_PRODUCT_ID = 'gift-box-mini-combo';
+
 export const PRODUCTS: Product[] = [
   // ── Pickles ──────────────────────────────────────────────
   {
@@ -223,7 +226,7 @@ export const PRODUCTS: Product[] = [
     slug: 'sweet-memories-gift-box',
     name: 'Sweet Memories Gift Box (Texas Limited Edition)',
     description:
-      'A desi-style sweets gift box with 12 pieces, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. A single $30 box is available for Texas delivery. It can be included with other items in large out-of-state orders.',
+      'A desi-style sweets gift box with 12 pieces, packed in an elegant matt-finish box. Perfect for festivals, birthdays, and celebrations. Pickup only, at our partner locations in Plano, Frisco and Irving. Need delivery? Choose the Mini Combo Pack.',
     category: 'gift-boxes',
     unitPrice: 30,
     image: '/images/web/texas-limited-gift-box-closed.webp',
@@ -234,13 +237,33 @@ export const PRODUCTS: Product[] = [
     }],
     isFixedQuantity: true,
     inStock: true,
-    deliveryStateCodes: ['TX'],
-    deliveryOutsideStateMinimum: 60,
+    pickupOnly: true,
+    ribbon: '#Pick-up limited',
     variantOptions: [
       '12 pcs Guntur Malpuri',
       '12 pcs Nellore Malai Khaja',
       'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja',
     ],
+    tags: ['gifting', 'festival', 'celebrations'],
+  },
+  {
+    id: MINI_COMBO_PACK_PRODUCT_ID,
+    slug: 'mini-combo-pack',
+    name: 'Mini Combo Pack - #Delivery',
+    description:
+      'Our combo gift box for delivery: 8 Guntur Malpuri + 8 Nellore Malai Khaja (16 pieces) in a desi-style matt-finish box. Ships within Texas for $2.99 and to nearby states for $3.99. Free pickup is available too.',
+    category: 'gift-boxes',
+    unitPrice: 48,
+    image: '/images/web/texas-limited-gift-box-closed.webp',
+    imageFit: 'contain',
+    additionalImages: [{
+      src: '/images/web/texas-limited-gift-box-open.webp',
+      alt: 'Mini Combo Pack open with individually wrapped Malpuri and Malai Khaja',
+    }],
+    isFixedQuantity: true,
+    inStock: true,
+    deliveryZones: ['texas', 'nearby'],
+    emailDetails: ['• 8 Guntur Malpuri', '• 8 Nellore Malai Khaja'],
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {

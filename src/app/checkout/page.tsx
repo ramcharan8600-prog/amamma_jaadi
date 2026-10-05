@@ -46,6 +46,7 @@ import {
   groundShippingKind,
   isSupportedDeliveryState,
   SALES_TAX_LABEL,
+  deliveryRestriction,
   deliveryService,
   deliveryServiceLabel,
   EXPRESS_SWEETS_NOTE,
@@ -414,15 +415,13 @@ export default function CheckoutPage() {
     ? getDeliveryMinimumShortfall(subtotal, deliveryState, picklesOnly, groundShipping)
     : 0;
   const deliveryMinimumSubtotal = getDeliveryMinimumSubtotal(deliveryState, picklesOnly, groundShipping);
-  const stateRestrictedItem = isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0
-    ? items.find(({ product }) =>
-        product.deliveryStateCodes?.length &&
-        !product.deliveryStateCodes.includes(deliveryState) &&
-        subtotal < (product.deliveryOutsideStateMinimum ?? Number.POSITIVE_INFINITY)
-      )
-    : undefined;
-  const stateRestrictedMinimum = stateRestrictedItem?.product.deliveryOutsideStateMinimum ?? 0;
-  const stateRestrictedShortfall = Math.max(0, stateRestrictedMinimum - subtotal);
+  const pickupOnlyItem = items.find(({ product }) => product.pickupOnly);
+  // Pickup-only items block delivery outright; other limits wait for a valid state and minimum.
+  const deliveryRestrictionMessage = items
+    .map(({ product }) => product.pickupOnly || (isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0)
+      ? deliveryRestriction(product, deliveryState, subtotal)
+      : null)
+    .find(Boolean) ?? null;
   const totalPieces = useMemo(
     () => (mounted ? calculateTotalPieces(items) : 0),
     [mounted, items]
@@ -897,7 +896,7 @@ export default function CheckoutPage() {
     /^\d{5}(?:-\d{4})?$/.test(deliveryZip.trim()) &&
     deliveryMinimumShortfall === 0 &&
     !(appliedCoupon?.type === 'free_delivery' && subtotal < appliedCoupon.minSubtotal) &&
-    !stateRestrictedItem
+    !deliveryRestrictionMessage
   );
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === step);
 
@@ -1129,19 +1128,28 @@ export default function CheckoutPage() {
             </button>
             <button
               onClick={() => {
+                if (pickupOnlyItem) return;
                 setFulfillmentType('delivery');
                 if (pickupName) setDeliveryName(pickupName);
                 if (pickupPhone) setDeliveryPhone(pickupPhone);
                 if (pickupEmail) setDeliveryEmail(pickupEmail);
                 setStep('details');
               }}
-              className="card p-6 text-left hover:border-brand-maroon transition-colors group"
+              disabled={!!pickupOnlyItem}
+              className="card p-6 text-left hover:border-brand-maroon transition-colors group disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-brand-cream-dark"
             >
               <Truck size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
               <h3 className="font-display text-xl font-semibold text-brand-charcoal">Delivery</h3>
-              <p className="font-body text-sm text-brand-charcoal/60 mt-1">
-                Nationwide shipping with destination-based rates shown before payment.
-              </p>
+              {pickupOnlyItem ? (
+                <p className="font-body text-sm text-brand-maroon mt-1">
+                  Not available for this cart: <strong>{pickupOnlyItem.product.name}</strong> is pickup only.
+                  Remove it to have your order delivered.
+                </p>
+              ) : (
+                <p className="font-body text-sm text-brand-charcoal/60 mt-1">
+                  Nationwide shipping with destination-based rates shown before payment.
+                </p>
+              )}
             </button>
           </div>
         </div>
@@ -1490,15 +1498,10 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {stateRestrictedItem && (
+          {deliveryRestrictionMessage && (
             <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3.5">
               <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-              <p className="font-body text-sm text-red-700">
-                <strong>{stateRestrictedItem.product.name}</strong> can be delivered outside Texas
-                when the product subtotal is {formatCurrency(stateRestrictedMinimum)} or more. Add{' '}
-                <strong>{formatCurrency(stateRestrictedShortfall)}</strong> more, remove it from your
-                cart, or select a Texas address.
-              </p>
+              <p className="font-body text-sm text-red-700">{deliveryRestrictionMessage}</p>
             </div>
           )}
 

@@ -23,11 +23,13 @@ import {
   SHIPPING_FAR,
   SHIPPING_GROUND_OUT_OF_STATE,
   SHIPPING_ASSORTED_BOX_NEARBY,
+  SHIPPING_MINI_COMBO_TX,
+  SHIPPING_MINI_COMBO_NEARBY,
   SHIPPING_MALAI_KHAJA_50,
   SHIPPING_MALAI_KHAJA_FAR_25,
 } from '@/lib/constants';
-import type { DeliveryShippingMethod } from '@/types';
-import { ASSORTED_BOX_PRODUCT_ID, BOBBATLU_TASTE_PACK_PRODUCT_ID } from '@/data/products';
+import type { DeliveryShippingMethod, Product } from '@/types';
+import { ASSORTED_BOX_PRODUCT_ID, BOBBATLU_TASTE_PACK_PRODUCT_ID, MINI_COMBO_PACK_PRODUCT_ID } from '@/data/products';
 import type { ShippingCouponPolicy } from '@/lib/coupons';
 
 /**
@@ -186,9 +188,38 @@ export function isExpressDeliveryService(service: DeliveryService): boolean {
   return service === 'express' || service === 'second-day-air';
 }
 
+const ZONE_NAMES: Record<ShippingZone, string> = { texas: 'Texas', nearby: 'nearby states', far: 'other states' };
+
+/**
+ * Why `product` can't be delivered to `state` with this merchandise subtotal,
+ * or null when it can. One rule for checkout, create-session and the first charge.
+ */
+export function deliveryRestriction(
+  product: Pick<Product, 'name' | 'pickupOnly' | 'deliveryZones' | 'deliveryStateCodes' | 'deliveryOutsideStateMinimum'>,
+  state: string | undefined | null,
+  subtotal: number
+): string | null {
+  if (product.pickupOnly) {
+    return `${product.name} is pickup only. Choose pickup, or remove it from your cart to have your order delivered.`;
+  }
+  if (product.deliveryZones && !product.deliveryZones.includes(getShippingZone(state))) {
+    const zones = product.deliveryZones.map((zone) => ZONE_NAMES[zone]).join(' and ');
+    return `${product.name} is delivered within ${zones} only. Choose pickup, remove it from your cart, or select an address in ${zones}.`;
+  }
+  const code = normalizeStateCode(state);
+  if (product.deliveryStateCodes?.length && !product.deliveryStateCodes.includes(code) &&
+      subtotal < (product.deliveryOutsideStateMinimum ?? Number.POSITIVE_INFINITY)) {
+    const minimum = product.deliveryOutsideStateMinimum;
+    return minimum === undefined
+      ? `${product.name} can't be delivered to this state. Choose pickup or remove it from your cart.`
+      : `${product.name} can be delivered outside Texas when the product subtotal is $${minimum.toFixed(2)} or more. Add $${roundMoney(minimum - subtotal).toFixed(2)} more, remove it, or select a Texas address.`;
+  }
+  return null;
+}
+
 export const MALAI_KHAJA_PRODUCT_ID = 'sweet-malai-khaja';
 
-export type GroundShippingKind = 'malai-khaja' | 'assorted-box';
+export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'mini-combo';
 
 /**
  * Carts shipped UPS Ground outside Texas, with no minimum. Mixing the two, or
@@ -197,10 +228,13 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box';
  * - Only Malai Khaja: the lower of $9.99 and the regular rate.
  * - Only the Assorted Box: Texas $6.99, nearby states $8.99, far states $9.99.
  *   The Bobbatlu Taste Pack add-on ships with the box at the box's rate.
+ * - Only the Mini Combo Pack (advertised, not quiet): Texas $2.99, nearby
+ *   states $3.99, per order. It isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
   if (items.every(({ productId }) => productId === MALAI_KHAJA_PRODUCT_ID)) return 'malai-khaja';
+  if (items.every(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID)) return 'mini-combo';
   if (items.some(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID) &&
       items.every(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID || productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)) {
     return 'assorted-box';
@@ -294,6 +328,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else if (opts.groundShipping === 'assorted-box' && !opts.picklesOnly && zone !== 'texas') {
       // The Assorted Box is a flat $8.99 to nearby states and $9.99 to far ones.
       regularShipping = zone === 'nearby' ? SHIPPING_ASSORTED_BOX_NEARBY : SHIPPING_GROUND_OUT_OF_STATE;
+    } else if (opts.groundShipping === 'mini-combo' && !opts.picklesOnly && zone !== 'far') {
+      regularShipping = zone === 'texas' ? SHIPPING_MINI_COMBO_TX : SHIPPING_MINI_COMBO_NEARBY;
     }
   }
   const coupon = opts.shippingCoupon;

@@ -16,9 +16,11 @@ import {
   isExpressDeliveryService,
   isGroundShippingCart,
   groundShippingKind,
+  deliveryRestriction,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
 } from './pricing';
+import { getProductById } from '@/data/products';
 
 describe('pricing — Texas sales tax on the taxable portion only', () => {
   it('uses the 8.25% Texas rate', () => {
@@ -566,5 +568,70 @@ describe('deliveryService', () => {
     expect(isExpressDeliveryService('second-day-air')).toBe(true);
     expect(isExpressDeliveryService('standard')).toBe(false);
     expect(isExpressDeliveryService('texas')).toBe(false);
+  });
+});
+
+describe('Mini Combo Pack shipping', () => {
+  const mini = { productId: 'gift-box-mini-combo' };
+  const quote = (state: string, subtotal = 48, items = [mini]) => calculateShippingQuote(subtotal, {
+    fulfillmentType: 'delivery', deliveryState: state, groundShipping: groundShippingKind(items),
+  });
+
+  it('is its own box-only rate; mixing with anything restores regular rates', () => {
+    expect(groundShippingKind([mini])).toBe('mini-combo');
+    expect(groundShippingKind([mini, mini])).toBe('mini-combo');
+    expect(groundShippingKind([mini, { productId: 'sweet-malpuri' }])).toBeUndefined();
+  });
+
+  it('ships $2.99 in Texas and $3.99 to nearby states, per order', () => {
+    expect(quote('TX').shipping).toBe(2.99);
+    expect(quote('TX', 96).shipping).toBe(2.99);
+    expect(quote('OK').shipping).toBe(3.99);
+    expect(quote('IA', 144).shipping).toBe(3.99);
+    // Texas $120+ ($3.99) never raises the cheaper box rate.
+    expect(quote('TX', 144).shipping).toBe(2.99);
+  });
+
+  it('lets a Texas shipping coupon still win (free + $0.99)', () => {
+    const q = calculateShippingQuote(96, {
+      fulfillmentType: 'delivery', deliveryState: 'TX', groundShipping: 'mini-combo',
+      shippingCoupon: { minSubtotal: 60, shippingPolicy: 'texas_v3' },
+    });
+    expect(q).toMatchObject({ shipping: 0, maintenanceFee: 0.99 });
+  });
+
+  it('uses regular rates when mixed', () => {
+    expect(quote('TX', 88, [mini, { productId: 'sweet-malpuri' }]).shipping).toBe(6.99);
+    expect(quote('OK', 88, [mini, { productId: 'sweet-malpuri' }]).shipping).toBe(8.99);
+  });
+});
+
+describe('deliveryRestriction', () => {
+  const sweetMemories = getProductById('gift-box-sweet-memories')!;
+  const mini = getProductById('gift-box-mini-combo')!;
+
+  it('refuses delivery of the pickup-only $30 box anywhere, at any subtotal', () => {
+    for (const state of ['TX', 'OK', 'NY', null]) {
+      expect(deliveryRestriction(sweetMemories, state, 500)).toContain('is pickup only');
+    }
+  });
+
+  it('delivers the Mini Combo Pack only within Texas and nearby states', () => {
+    expect(deliveryRestriction(mini, 'TX', 48)).toBeNull();
+    expect(deliveryRestriction(mini, 'FL', 48)).toBeNull();
+    expect(deliveryRestriction(mini, 'NY', 500)).toBe(
+      'Mini Combo Pack - #Delivery is delivered within Texas and nearby states only. Choose pickup, remove it from your cart, or select an address in Texas and nearby states.'
+    );
+  });
+
+  it('leaves unrestricted products alone', () => {
+    expect(deliveryRestriction(getProductById('sweet-malpuri')!, 'NY', 40)).toBeNull();
+  });
+
+  it('still supports a state list with an out-of-state minimum', () => {
+    const product = { name: 'Test Box', deliveryStateCodes: ['TX'], deliveryOutsideStateMinimum: 60 };
+    expect(deliveryRestriction(product, 'TX', 30)).toBeNull();
+    expect(deliveryRestriction(product, 'OK', 60)).toBeNull();
+    expect(deliveryRestriction(product, 'OK', 30)).toContain('Add $30.00 more');
   });
 });
