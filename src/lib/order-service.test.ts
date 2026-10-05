@@ -506,3 +506,18 @@ it.each([
     sqlite.close();
   }
 });
+
+it('finalizes a paid checkout opened with the old Mix wording, recording the new wording', async () => {
+  const { db, sqlite, session } = setup({
+    cart_data: [{ productId: 'gift-box-party', quantity: 1, selectedVariant: 'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja', lineTotal: 50 }],
+    fulfillment_data: { type: 'pickup', date: '2026-10-10', locationId: 'plano-biryanify' },
+    total_amount: 50, tax: 0, shipping: 0, coupon_code: null,
+  });
+  try {
+    await createOrderFromSession(db, session, 'PAY-RENAMED-VARIANT');
+    expect(sqlite.prepare('SELECT product_name FROM order_items').get())
+      .toMatchObject({ product_name: 'Mini Party Box (Mix: 10 Malpuri + 10 Malai Khaja)' });
+  } finally {
+    sqlite.close();
+  }
+});

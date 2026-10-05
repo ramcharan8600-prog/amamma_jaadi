@@ -242,8 +242,9 @@ export const PRODUCTS: Product[] = [
     variantOptions: [
       '12 pcs Guntur Malpuri',
       '12 pcs Nellore Malai Khaja',
-      'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja',
+      'Mix: 6 Malpuri + 6 Malai Khaja',
     ],
+    renamedVariants: { 'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja': 'Mix: 6 Malpuri + 6 Malai Khaja' },
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {
@@ -281,8 +282,9 @@ export const PRODUCTS: Product[] = [
     variantOptions: [
       '20 pcs Guntur Malpuri',
       '20 pcs Nellore Malai Khaja',
-      'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja',
+      'Mix: 10 Malpuri + 10 Malai Khaja',
     ],
+    renamedVariants: { 'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja': 'Mix: 10 Malpuri + 10 Malai Khaja' },
     tags: ['gifting', 'events', 'party', 'corporate'],
   },
 ];
@@ -370,6 +372,11 @@ export const PICKUP_LOCATIONS: PickupLocation[] = [
 ];
 
 // ── Helper lookups ──────────────────────────────────────────
+/** A saved contents choice in its current wording (renamed options map to their new label). */
+export function currentVariant(product: Pick<Product, 'renamedVariants'>, variant: string): string {
+  return product.renamedVariants?.[variant] ?? variant;
+}
+
 export function getProductById(id: string): Product | undefined {
   return PRODUCTS.find((p) => p.id === id);
 }

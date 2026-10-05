@@ -1,4 +1,4 @@
-import { PRODUCTS, getProductById, isProductTaxExempt } from '@/data/products';
+import { PRODUCTS, currentVariant, getProductById, isProductTaxExempt } from '@/data/products';
 import type { CartItem } from '@/types';
 
 export const MAX_CART_LINES = 50;
@@ -73,13 +73,11 @@ export function validateCart(input: unknown): CartValidationResult {
 
     let selectedVariant: string | undefined;
     if (product.variantOptions?.length) {
-      if (
-        typeof raw.selectedVariant !== 'string' ||
-        !product.variantOptions.includes(raw.selectedVariant)
-      ) {
+      const variant = typeof raw.selectedVariant === 'string' ? currentVariant(product, raw.selectedVariant) : null;
+      if (variant === null || !product.variantOptions.includes(variant)) {
         return invalid(`Please choose the contents for ${product.name}.`);
       }
-      selectedVariant = raw.selectedVariant;
+      selectedVariant = variant;
     } else if (raw.selectedVariant != null) {
       return invalid(`Invalid contents option for ${product.name}.`);
     }

@@ -3,7 +3,7 @@ import type { D1Database, D1PreparedStatement, Queue } from '@cloudflare/workers
 import { generateOrderNumber, newId, parseJson } from '@/lib/db';
 import { buildOrderConfirmationEmail, buildOwnerOrderAlertEmail } from '@/lib/email-service';
 import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage } from '@/lib/email-outbox';
-import { getPickupLocationById, getProductById, isStockTracked, pickupWindowLabel, stockUnits } from '@/data/products';
+import { currentVariant, getPickupLocationById, getProductById, isStockTracked, pickupWindowLabel, stockUnits } from '@/data/products';
 import { prepareOrderTaxRecord } from '@/lib/tax-records';
 import { deliveryService, deliveryServiceLabel, groundShippingKind, isGroundShippingCart } from '@/lib/pricing';
 import type { DeliveryShippingMethod } from '@/types';
@@ -120,7 +120,7 @@ function canonicalPaidLines(session: PaymentSessionRow): CanonicalLine[] {
       throw new Error('Paid session has invalid product tier; manual review required');
     }
     const variant = product.variantOptions?.length
-      ? item.selectedVariant ?? product.variantOptions[0] : null;
+      ? currentVariant(product, item.selectedVariant ?? product.variantOptions[0]) : null;
     if ((variant !== null && !product.variantOptions?.includes(variant)) ||
         (variant === null && item.selectedVariant != null)) {
       throw new Error('Paid session has invalid product variant; manual review required');

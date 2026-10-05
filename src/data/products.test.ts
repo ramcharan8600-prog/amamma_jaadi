@@ -147,12 +147,12 @@ describe('lookups', () => {
     expect(getProductById('gift-box-sweet-memories')!.variantOptions).toEqual([
       '12 pcs Guntur Malpuri',
       '12 pcs Nellore Malai Khaja',
-      'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja',
+      'Mix: 6 Malpuri + 6 Malai Khaja',
     ]);
     expect(getProductById('gift-box-party')!.variantOptions).toEqual([
       '20 pcs Guntur Malpuri',
       '20 pcs Nellore Malai Khaja',
-      'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja',
+      'Mix: 10 Malpuri + 10 Malai Khaja',
     ]);
   });
 

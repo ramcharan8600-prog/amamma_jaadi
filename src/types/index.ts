@@ -40,6 +40,8 @@ export interface Product {
    * box is packed correctly.
    */
   variantOptions?: string[];
+  /** Earlier wording of a variantOptions entry → its current wording (saved carts and open checkouts). */
+  renamedVariants?: Record<string, string>;
   /** Pickup only: checkout and the server refuse delivery for any cart holding it. */
   pickupOnly?: boolean;
   /** When present, delivery is permitted only to these shipping zones (see getShippingZone). */

@@ -103,3 +103,18 @@ describe('new checkout cart validation', () => {
     }
   });
 });
+
+describe('renamed gift box contents', () => {
+  it.each([
+    ['gift-box-sweet-memories', 'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja', 'Mix: 6 Malpuri + 6 Malai Khaja'],
+    ['gift-box-party', 'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja', 'Mix: 10 Malpuri + 10 Malai Khaja'],
+  ])('accepts a saved cart with the old %s wording and records the new one', (productId, old, current) => {
+    const result = validateCart([{ productId, quantity: 1, selectedVariant: old }]);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.items[0].selectedVariant).toBe(current);
+  });
+
+  it('still rejects contents that were never offered', () => {
+    expect(validateCart([{ productId: 'gift-box-party', quantity: 1, selectedVariant: 'Mix — 20 pcs' }]).ok).toBe(false);
+  });
+});
