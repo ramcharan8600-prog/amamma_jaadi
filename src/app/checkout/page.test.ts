@@ -597,7 +597,7 @@ describe('nearby delivery pickup switch', () => {
       city.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await input('#delivery-state', state);
-    await input('input[autocomplete="postal-code"]', zip);
+    await input('#delivery-zip', zip);
     expect(button('Continue to payment').disabled).toBe(false);
     expect(host.textContent).toContain('Step 3');
   }
@@ -655,7 +655,7 @@ describe('nearby delivery pickup switch', () => {
     const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
     await act(async () => choice!.click());
     expect(host.querySelector<HTMLInputElement>('input[placeholder="Street address"]')?.value).toBe('123 Test Street');
-    expect(host.querySelector<HTMLInputElement>('input[autocomplete="postal-code"]')?.value).toBe('75093');
+    expect(host.querySelector<HTMLInputElement>('#delivery-zip')?.value).toBe('75093');
   });
 
   it('shows Texas mixed-order tax separately and removes shipping tax on pickup', async () => {
@@ -745,7 +745,7 @@ it.each([[1,'6.99','2.14','28.13'],[2,'6.99','3.71','48.70'],[3,'6.99','5.28','6
     const choice=Array.from(host.querySelectorAll('button')).find(item=>item.querySelector('h3')?.textContent==='Delivery');
     await act(async()=>choice!.click());
     await input('#delivery-state','TX');
-    await input('input[autocomplete="postal-code"]','75093');
+    await input('#delivery-zip','75093');
     expect(host.textContent).toContain(`Save $${shipping} with free pickup`);
     expect(host.textContent).toContain(`$${tax}`);
     expect(host.textContent).toContain(`$${total}`);
@@ -780,7 +780,7 @@ describe('nationwide pickle-only delivery', () => {
       city.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await input('#delivery-state', state);
-    await input('input[autocomplete="postal-code"]', state === 'NY' ? '10001' : '73102');
+    await input('#delivery-zip', state === 'NY' ? '10001' : '73102');
   }
 
   it.each([

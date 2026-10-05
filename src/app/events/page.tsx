@@ -124,9 +124,11 @@ export default function EventsPage() {
 
       <div className="card p-6 sm:p-8 space-y-6">
         <div>
-          <label className="label-text">Your Name</label>
+          <label htmlFor="event-name" className="label-text">Your Name</label>
           <input
+            id="event-name"
             type="text"
+            autoComplete="name"
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             placeholder="Full name"
@@ -135,9 +137,11 @@ export default function EventsPage() {
         </div>
 
         <div>
-          <label className="label-text">Email Address</label>
+          <label htmlFor="event-email" className="label-text">Email Address</label>
           <input
+            id="event-email"
             type="email"
+            autoComplete="email"
             value={customerEmail}
             onChange={(e) => setCustomerEmail(e.target.value)}
             placeholder="you@example.com"
@@ -149,8 +153,9 @@ export default function EventsPage() {
         </div>
 
         <div>
-          <label className="label-text">Event Type</label>
+          <label htmlFor="event-type" className="label-text">Event Type</label>
           <select
+            id="event-type"
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
             className="input-field"
@@ -165,8 +170,8 @@ export default function EventsPage() {
         </div>
 
         <div>
-          <label className="label-text">Select Sweets</label>
-          <div className="grid grid-cols-2 gap-2">
+          <p id="event-sweets" className="label-text">Select Sweets</p>
+          <div role="group" aria-labelledby="event-sweets" className="grid grid-cols-2 gap-2">
             {sweets.map((sweet) => (
               <label
                 key={sweet.id}
@@ -206,8 +211,9 @@ export default function EventsPage() {
         </div>
 
         <div>
-          <label className="label-text">Total Quantity Required</label>
+          <label htmlFor="event-quantity" className="label-text">Total Quantity Required</label>
           <input
+            id="event-quantity"
             type="number"
             min={100}
             value={quantity}
@@ -223,8 +229,9 @@ export default function EventsPage() {
         </div>
 
         <div>
-          <label className="label-text">Event Date</label>
+          <label htmlFor="event-date" className="label-text">Event Date</label>
           <input
+            id="event-date"
             type="date"
             min={minDate}
             value={eventDate}
@@ -243,8 +250,10 @@ export default function EventsPage() {
         </div>
 
         <div>
-          <label className="label-text">Delivery Address</label>
+          <label htmlFor="event-address" className="label-text">Delivery Address</label>
           <textarea
+            id="event-address"
+            autoComplete="street-address"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             rows={3}
@@ -254,9 +263,11 @@ export default function EventsPage() {
         </div>
 
         <div>
-          <label className="label-text">Phone Number</label>
+          <label htmlFor="event-phone" className="label-text">Phone Number</label>
           <input
+            id="event-phone"
             type="tel"
+            autoComplete="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="(xxx) xxx-xxxx"

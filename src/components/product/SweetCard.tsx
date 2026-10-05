@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles, Gift } from 'lucide-react';
@@ -20,6 +20,7 @@ interface SweetCardProps {
 export default function SweetCard({ product, eager = false }: SweetCardProps) {
   const tiers = product.quantityOptions || [16, 25, 50];
   const [selectedTier, setSelectedTier] = useState(tiers[0]);
+  const quantityId = useId();
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
   const isBobbatlu = isBobbatluProduct(product.id);
@@ -140,8 +141,9 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
 
         {/* Tier Selection */}
         <div>
-          <label className="label-text">Quantity</label>
+          <label htmlFor={quantityId} className="label-text">Quantity</label>
           <select
+            id={quantityId}
             value={selectedTier}
             onChange={(e) => setSelectedTier(Number(e.target.value))}
             className="input-field"

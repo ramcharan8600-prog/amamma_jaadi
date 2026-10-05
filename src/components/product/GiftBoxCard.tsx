@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Gift, ShoppingBag, Eye, CreditCard, Minus, Plus } from 'lucide-react';
@@ -17,6 +17,7 @@ interface GiftBoxCardProps {
 
 export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps) {
   const variants = product.variantOptions ?? [];
+  const contentsId = useId();
   const photos = [{ src: product.image, alt: product.name }, ...(product.additionalImages ?? [])];
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(variants[0]);
@@ -80,8 +81,9 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
 
         {variants.length > 0 && (
           <div>
-            <label className="label-text">Choose contents</label>
+            <label htmlFor={contentsId} className="label-text">Choose contents</label>
             <select
+              id={contentsId}
               value={selectedVariant}
               onChange={(e) => setSelectedVariant(e.target.value)}
               disabled={soldOut}
@@ -105,6 +107,7 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
             <button
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               className="p-2 hover:bg-brand-cream transition-colors"
+              aria-label="Decrease"
             >
               <Minus size={14} />
             </button>
@@ -114,6 +117,7 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
             <button
               onClick={() => setQuantity((q) => q + 1)}
               className="p-2 hover:bg-brand-cream transition-colors"
+              aria-label="Increase"
             >
               <Plus size={14} />
             </button>

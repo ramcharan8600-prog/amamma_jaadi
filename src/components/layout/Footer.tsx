@@ -32,13 +32,15 @@ export default function Footer() {
 
           {/* Social & Contact */}
           <div className="flex flex-col items-center md:items-end gap-4">
+            {/* Icons and links get a larger tap area (p-2 / py-2) without moving: the
+                negative margins cancel the padding in the layout. */}
             <div className="flex items-center gap-5">
               <a
                 href={`https://www.instagram.com/${INSTAGRAM_HANDLE}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram"
-                className="text-white/80 hover:text-brand-gold transition-colors"
+                className="-m-2 p-2 text-white/80 hover:text-brand-gold transition-colors"
               >
                 <Instagram size={22} />
               </a>
@@ -47,14 +49,14 @@ export default function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="WhatsApp"
-                className="text-white/80 hover:text-brand-gold transition-colors"
+                className="-m-2 p-2 text-white/80 hover:text-brand-gold transition-colors"
               >
                 <WhatsAppIcon size={22} />
               </a>
               <a
                 href={`tel:${PHONE_NUMBER.replace(/-/g, '')}`}
                 aria-label="Phone"
-                className="text-white/80 hover:text-brand-gold transition-colors"
+                className="-m-2 p-2 text-white/80 hover:text-brand-gold transition-colors"
               >
                 <Phone size={22} />
               </a>
@@ -71,13 +73,13 @@ export default function Footer() {
           <div className="flex gap-4">
             <Link
               href="/about#refund-policy"
-              className="font-body text-xs text-white/50 hover:text-white transition-colors"
+              className="-my-2 inline-block py-2 font-body text-xs text-white/50 hover:text-white transition-colors"
             >
               Refund Policy
             </Link>
             <Link
               href="/events"
-              className="font-body text-xs text-white/50 hover:text-white transition-colors"
+              className="-my-2 inline-block py-2 font-body text-xs text-white/50 hover:text-white transition-colors"
             >
               Events
             </Link>

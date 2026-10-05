@@ -73,7 +73,8 @@ export default function Header() {
               className="relative flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors"
             >
               <ShoppingBag size={20} className="text-white" />
-              <span className="font-body text-sm font-medium text-white/80 hidden sm:inline">
+              {/* Visible from sm; on phones it stays readable to screen readers. */}
+              <span className="font-body text-sm font-medium text-white/80 sr-only sm:not-sr-only">
                 Cart
               </span>
               {mounted && itemCount > 0 && (

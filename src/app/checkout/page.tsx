@@ -1035,10 +1035,12 @@ export default function CheckoutPage() {
           </div>
 
           <div className="card p-4 space-y-2">
-            <label className="label-text mb-0">Promo code</label>
+            <label htmlFor="promo-code" className="label-text mb-0">Promo code</label>
             <div className="flex gap-2">
               <input
+                id="promo-code"
                 type="text"
+                autoComplete="off"
                 value={promoCode}
                 disabled={promoApplying}
                 onChange={(e) => {
@@ -1177,8 +1179,9 @@ export default function CheckoutPage() {
           </div>
 
           <div>
-            <label className="label-text">Pickup Location</label>
+            <label htmlFor="pickup-location" className="label-text">Pickup Location</label>
             <select
+              id="pickup-location"
               value={pickupLocationId}
               onChange={(e) => setPickupLocationId(e.target.value)}
               className="input-field"
@@ -1214,8 +1217,9 @@ export default function CheckoutPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="label-text">Your Name <span aria-hidden="true">*</span></label>
+              <label htmlFor="pickup-name" className="label-text">Your Name <span aria-hidden="true">*</span></label>
               <input
+                id="pickup-name"
                 type="text"
                 value={pickupName}
                 onChange={(e) => setPickupName(e.target.value)}
@@ -1248,8 +1252,9 @@ export default function CheckoutPage() {
           </div>
 
           <div>
-            <label className="label-text">Email Address <span aria-hidden="true">*</span></label>
+            <label htmlFor="pickup-email" className="label-text">Email Address <span aria-hidden="true">*</span></label>
             <input
+              id="pickup-email"
               type="email"
               value={pickupEmail}
               onChange={(e) => setPickupEmail(e.target.value)}
@@ -1321,8 +1326,9 @@ export default function CheckoutPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="label-text">Your Name <span aria-hidden="true">*</span></label>
+              <label htmlFor="delivery-name" className="label-text">Your Name <span aria-hidden="true">*</span></label>
               <input
+                id="delivery-name"
                 type="text"
                 value={deliveryName}
                 onChange={(e) => setDeliveryName(e.target.value)}
@@ -1355,8 +1361,9 @@ export default function CheckoutPage() {
           </div>
 
           <div>
-            <label className="label-text">Email <span aria-hidden="true">*</span></label>
+            <label htmlFor="delivery-email" className="label-text">Email <span aria-hidden="true">*</span></label>
             <input
+              id="delivery-email"
               type="email"
               value={deliveryEmail}
               onChange={(e) => setDeliveryEmail(e.target.value)}
@@ -1368,37 +1375,43 @@ export default function CheckoutPage() {
           </div>
 
           <div>
-            <label className="label-text">Address Line 1</label>
+            <label htmlFor="delivery-address-line1" className="label-text">Address Line 1</label>
             <input
+              id="delivery-address-line1"
               type="text"
               value={deliveryAddressLine1}
               onChange={(e) => setDeliveryAddressLine1(e.target.value)}
               className="input-field"
               placeholder="Street address"
+              autoComplete="shipping address-line1"
             />
           </div>
 
           <div>
-            <label className="label-text">
+            <label htmlFor="delivery-address-line2" className="label-text">
               Address Line 2 <span className="text-brand-charcoal/40">(optional)</span>
             </label>
             <input
+              id="delivery-address-line2"
               type="text"
               value={deliveryAddressLine2}
               onChange={(e) => setDeliveryAddressLine2(e.target.value)}
               className="input-field"
               placeholder="Apt, suite, unit, building, floor"
+              autoComplete="shipping address-line2"
             />
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-[minmax(0,1fr)_12rem_8rem_6rem] gap-4">
             <div className="min-w-0">
-              <label className="label-text">City</label>
+              <label htmlFor="delivery-city" className="label-text">City</label>
               <input
+                id="delivery-city"
                 type="text"
                 value={deliveryCity}
                 onChange={(e) => setDeliveryCity(e.target.value)}
                 className="input-field"
+                autoComplete="shipping address-level2"
               />
             </div>
             <div>
@@ -1419,14 +1432,15 @@ export default function CheckoutPage() {
               </select>
             </div>
             <div>
-              <label className="label-text">ZIP</label>
+              <label htmlFor="delivery-zip" className="label-text">ZIP</label>
               <input
+                id="delivery-zip"
                 type="text"
                 value={deliveryZip}
                 onChange={(e) => setDeliveryZip(e.target.value)}
                 className="input-field"
                 inputMode="numeric"
-                autoComplete="postal-code"
+                autoComplete="shipping postal-code"
                 maxLength={10}
                 placeholder="12345"
                 required
