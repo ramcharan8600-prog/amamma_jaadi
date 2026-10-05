@@ -583,21 +583,22 @@ describe('Mini Combo Pack shipping', () => {
     expect(groundShippingKind([mini, { productId: 'sweet-malpuri' }])).toBeUndefined();
   });
 
-  it('ships $2.99 in Texas and $4.99 to nearby states, per order', () => {
-    expect(quote('TX').shipping).toBe(2.99);
-    expect(quote('TX', 96).shipping).toBe(2.99);
-    expect(quote('OK').shipping).toBe(4.99);
-    expect(quote('IA', 144).shipping).toBe(4.99);
+  it('ships free in Texas and $3.99 to nearby states, per order', () => {
+    expect(quote('TX').shipping).toBe(0);
+    expect(quote('TX', 96).shipping).toBe(0);
+    expect(quote('OK').shipping).toBe(3.99);
+    expect(quote('IA', 144).shipping).toBe(3.99);
     // Texas $120+ ($3.99) never raises the cheaper box rate.
-    expect(quote('TX', 144).shipping).toBe(2.99);
+    expect(quote('TX', 144).shipping).toBe(0);
   });
 
-  it('lets a Texas shipping coupon still win (free + $0.99)', () => {
+  it('never adds the coupon\'s $0.99 operational fee to an already-free Texas box', () => {
     const q = calculateShippingQuote(96, {
       fulfillmentType: 'delivery', deliveryState: 'TX', groundShipping: 'mini-combo',
       shippingCoupon: { minSubtotal: 60, shippingPolicy: 'texas_v3' },
     });
-    expect(q).toMatchObject({ shipping: 0, maintenanceFee: 0.99 });
+    expect(q).toMatchObject({ shipping: 0, couponSavings: 0 });
+    expect(q.maintenanceFee).toBeUndefined();
   });
 
   it('uses regular rates when mixed', () => {

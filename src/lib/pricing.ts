@@ -228,8 +228,8 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'mini-combo';
  * - Only Malai Khaja: the lower of $9.99 and the regular rate.
  * - Only the Assorted Box: Texas $6.99, nearby states $8.99, far states $9.99.
  *   The Bobbatlu Taste Pack add-on ships with the box at the box's rate.
- * - Only the Mini Combo Pack (advertised, not quiet): Texas $2.99, nearby
- *   states $4.99, per order. It isn't delivered to far states.
+ * - Only the Mini Combo Pack (advertised, not quiet): free in Texas, nearby
+ *   states $3.99, per order. It isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
@@ -336,7 +336,9 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   const eligible = opts.fulfillmentType === 'delivery' && !!coupon &&
     Number.isFinite(coupon.minSubtotal) && coupon.minSubtotal >= 0 && subtotal >= coupon.minSubtotal;
   // Shipping coupons are Texas-only: other states always pay the regular rate.
-  const couponApplies = eligible && zone === 'texas';
+  // A cart that already ships free (the Mini Combo Pack in Texas) gets no coupon
+  // and so no operational fee.
+  const couponApplies = eligible && zone === 'texas' && regularShipping > 0;
   // Any Texas delivery of $120+ pays the $3.99 delivery fee, no coupon needed and
   // no operational fee. A shipping coupon, which ships free, still wins.
   const texasMinimumMet = !couponApplies && opts.fulfillmentType === 'delivery' && zone === 'texas' &&

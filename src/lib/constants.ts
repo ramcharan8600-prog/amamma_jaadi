@@ -71,5 +71,5 @@ export const SHIPPING_MALAI_KHAJA_FAR_25 = 8.99;
 export const SHIPPING_ASSORTED_BOX_NEARBY = 8.99;
 
 /** Flat rates for a Mini Combo Pack-only cart, per order (it isn't delivered to far states). */
-export const SHIPPING_MINI_COMBO_TX = 2.99;
-export const SHIPPING_MINI_COMBO_NEARBY = 4.99;
+export const SHIPPING_MINI_COMBO_TX = 0;
+export const SHIPPING_MINI_COMBO_NEARBY = 3.99;

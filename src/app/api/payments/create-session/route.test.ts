@@ -248,11 +248,11 @@ describe('create-session retains approved shipping and gift-box rules', () => {
   it.each([
     { name: 'pickup gift box', items: [gift], fulfillment: pickup, subtotal: 30, shipping: 0 },
     { name: 'pickup Mini Combo Pack', items: [mini], fulfillment: pickup, subtotal: 48, shipping: 0 },
-    { name: 'Mini Combo Pack in Texas', items: [mini], fulfillment: delivery('TX'), subtotal: 48, shipping: 2.99 },
-    { name: 'Mini Combo Pack to a nearby state', items: [mini], fulfillment: delivery('FL'), subtotal: 48, shipping: 4.99 },
+    { name: 'Mini Combo Pack in Texas', items: [mini], fulfillment: delivery('TX'), subtotal: 48, shipping: 0 },
+    { name: 'Mini Combo Pack to a nearby state', items: [mini], fulfillment: delivery('FL'), subtotal: 48, shipping: 3.99 },
     { name: 'nearby below $60', items: [sweet], fulfillment: delivery('AL'), subtotal: 40, shipping: 10.99 },
-    { name: 'two Mini Combo Packs to a nearby state, per order', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('CO'), subtotal: 96, shipping: 4.99 },
-    { name: 'two Mini Combo Packs in Texas, per order', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('TX'), subtotal: 96, shipping: 2.99 },
+    { name: 'two Mini Combo Packs to a nearby state, per order', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('CO'), subtotal: 96, shipping: 3.99 },
+    { name: 'two Mini Combo Packs in Texas, per order', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('TX'), subtotal: 96, shipping: 0 },
     { name: 'far at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('NC'), subtotal: 80, shipping: 11.99 },
     { name: 'Florida (now nearby) below $60 with no minimum', items: [sweet], fulfillment: delivery('FL'), subtotal: 40, shipping: 10.99 },
     { name: 'Tennessee (now nearby) at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('TN'), subtotal: 80, shipping: 8.99 },
@@ -405,7 +405,7 @@ describe('Gongura Chicken price and stock enforcement', () => {
 describe('Texas tax and shipping recorded by checkout', () => {
   it.each([
     { items: [{ productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 19, shipping: 6.99, tax: 2.14, totalAmount: 28.13 },
-    { items: [mini], subtotal: 48, shipping: 2.99, tax: 0, totalAmount: 50.99 },
+    { items: [mini], subtotal: 48, shipping: 0, tax: 0, totalAmount: 48 },
     { items: [mini, { productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 67, shipping: 6.99, tax: 2.14, totalAmount: 76.13 },
   ])('recomputes and stores subtotal $subtotal tax $tax and shipping $shipping', async ({items, ...expected}) => {
     mocks.getStockMap.mockResolvedValue({ 'pickle-gongura-chicken': 10 });
