@@ -25,6 +25,7 @@ import {
   SHIPPING_ASSORTED_BOX_NEARBY,
   SHIPPING_MINI_COMBO_TX,
   SHIPPING_MINI_COMBO_NEARBY,
+  SHIPPING_MINI_COMBO_TX_MIXED,
   SHIPPING_MALAI_KHAJA_50,
   SHIPPING_MALAI_KHAJA_FAR_25,
 } from '@/lib/constants';
@@ -242,8 +243,11 @@ export function groundShippingKind(items: ReadonlyArray<{ productId: string }>):
   return undefined;
 }
 
-/** Orders containing the Mini Combo Pack never pay the coupon's operational fee. */
-export function waivesOperationalFee(items: ReadonlyArray<{ productId: string }>): boolean {
+/**
+ * Orders containing the Mini Combo Pack never pay the coupon's operational fee,
+ * and in Texas a mixed order ships for $2.99 (the box alone ships free).
+ */
+export function containsMiniComboPack(items: ReadonlyArray<{ productId: string }>): boolean {
   return items.some(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID);
 }
 
@@ -291,8 +295,8 @@ export interface ShippingOptions {
   /** Only for quotes saved before the flat pickle rate was introduced. */
   legacyPickleRates?: boolean;
   shippingCoupon?: { minSubtotal: number; shippingPolicy?: ShippingCouponPolicy };
-  /** The coupon still ships free, without the operational fee (see waivesOperationalFee). */
-  noOperationalFee?: boolean;
+  /** The order contains the Mini Combo Pack (see containsMiniComboPack). */
+  miniComboPack?: boolean;
 }
 
 export interface ShippingQuote {
@@ -337,6 +341,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
       regularShipping = zone === 'nearby' ? SHIPPING_ASSORTED_BOX_NEARBY : SHIPPING_GROUND_OUT_OF_STATE;
     } else if (opts.groundShipping === 'mini-combo' && !opts.picklesOnly && zone !== 'far') {
       regularShipping = zone === 'texas' ? SHIPPING_MINI_COMBO_TX : SHIPPING_MINI_COMBO_NEARBY;
+    } else if (opts.miniComboPack && zone === 'texas') {
+      regularShipping = SHIPPING_MINI_COMBO_TX_MIXED;
     }
   }
   const coupon = opts.shippingCoupon;
@@ -357,7 +363,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     regularShipping,
     referenceShipping: regularShipping,
     couponSavings: roundMoney(regularShipping - shipping),
-    ...(couponApplies && !opts.noOperationalFee && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
+    ...(couponApplies && !opts.miniComboPack && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
       ? { maintenanceFee: opts.picklesOnly ? 1.99 : 0.99 } : {}),
     ...(texasMinimumMet ? { discountedShippingMinimum: TEXAS_DISCOUNTED_SHIPPING_MINIMUM } : {}),
   };

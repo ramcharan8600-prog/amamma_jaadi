@@ -406,7 +406,7 @@ describe('Texas tax and shipping recorded by checkout', () => {
   it.each([
     { items: [{ productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 19, shipping: 6.99, tax: 2.14, totalAmount: 28.13 },
     { items: [mini], subtotal: 48, shipping: 0, tax: 0, totalAmount: 48 },
-    { items: [mini, { productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 67, shipping: 6.99, tax: 2.14, totalAmount: 76.13 },
+    { items: [mini, { productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 67, shipping: 2.99, tax: 1.81, totalAmount: 71.8 },
   ])('recomputes and stores subtotal $subtotal tax $tax and shipping $shipping', async ({items, ...expected}) => {
     mocks.getStockMap.mockResolvedValue({ 'pickle-gongura-chicken': 10 });
     const response = await post({ ...checkout(items, delivery('TX')), tax: 0, shipping: 0, total: 1 });
@@ -497,7 +497,7 @@ describe('pickle-only shipping counts canonical jar quantities', () => {
   it('ignores a forged jar count and mixed-order flag', async () => {
     const response=await post({...checkout([{productId:'pickle-gongura-chicken',quantity:1}],delivery('TX')),pickleJarCount:3});
     expect((await response.json()).shipping).toBe(6.99);
-    const mixed=await post({...checkout([mini,{productId:'pickle-gongura-chicken',quantity:2}],delivery('TX')),pickleJarCount:2,picklesOnly:true});
+    const mixed=await post({...checkout([sweet,{productId:'pickle-gongura-chicken',quantity:2}],delivery('TX')),pickleJarCount:2,picklesOnly:true});
     expect((await mixed.json()).shipping).toBe(6.99);
   });
 });

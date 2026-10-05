@@ -51,7 +51,7 @@ import {
   deliveryServiceLabel,
   EXPRESS_SWEETS_NOTE,
   isExpressDeliveryService,
-  waivesOperationalFee,
+  containsMiniComboPack,
 } from '@/lib/pricing';
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
@@ -374,7 +374,7 @@ export default function CheckoutPage() {
       picklesOnly,
       groundShipping,
       groundPieces: groundShipping ? calculateTotalPieces(items) : undefined,
-      noOperationalFee: waivesOperationalFee(items),
+      miniComboPack: containsMiniComboPack(items),
       pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,

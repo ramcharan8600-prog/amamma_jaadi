@@ -73,3 +73,5 @@ export const SHIPPING_ASSORTED_BOX_NEARBY = 8.99;
 /** Flat rates for a Mini Combo Pack-only cart, per order (it isn't delivered to far states). */
 export const SHIPPING_MINI_COMBO_TX = 0;
 export const SHIPPING_MINI_COMBO_NEARBY = 3.99;
+/** A Texas order with the Mini Combo Pack plus other items, per order. */
+export const SHIPPING_MINI_COMBO_TX_MIXED = 2.99;

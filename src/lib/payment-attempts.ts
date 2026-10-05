@@ -6,7 +6,7 @@ import { isValidPhone } from '@/lib/contact-validation';
 import { isValidCouponMinimum } from '@/lib/coupons';
 import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
-import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions, waivesOperationalFee } from '@/lib/pricing';
+import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions, containsMiniComboPack } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
   executeSquarePaymentRequest,
@@ -129,7 +129,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
       picklesOnly,
       groundShipping,
       groundPieces: groundShipping ? getTotalPieces(cart.items) : undefined,
-      noOperationalFee: waivesOperationalFee(cart.items),
+      miniComboPack: containsMiniComboPack(cart.items),
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       taxableSubtotal: cart.taxableSubtotal, fulfillmentType: delivery ? 'delivery' : 'pickup',
       deliveryState: delivery ? state : undefined,
