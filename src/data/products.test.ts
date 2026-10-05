@@ -137,7 +137,7 @@ describe('lookups', () => {
     const box = getProductById('gift-box-mini-combo')!;
     expect(box).toMatchObject({ unitPrice: 48, category: 'gift-boxes', isFixedQuantity: true, deliveryZones: ['texas', 'nearby'] });
     expect(box.pickupOnly).toBeUndefined();
-    expect(box.variantOptions).toEqual(['Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja']);
+    expect(box.variantOptions).toEqual(['Assorted: 8 Malpuri + 8 Malai Khaja']);
     expect(isProductTaxExempt(box)).toBe(true);
     // Listed between the $30 and $50 boxes.
     expect(getProductsByCategory('gift-boxes').map((p) => p.unitPrice)).toEqual([30, 48, 50]);

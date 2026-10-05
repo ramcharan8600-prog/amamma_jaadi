@@ -851,7 +851,7 @@ describe('nationwide pickle-only delivery', () => {
     ['TX', '$2.99', '$50.99', 'Shipping (estimated 1 business day after dispatch)'],
     ['OK', '$4.99', '$52.99', 'Express shipping (2-day ETA)'],
   ])('ships the Mini Combo Pack to %s for %s', async (state, shipping, total, label) => {
-    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1, undefined, 'Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja');
+    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1, undefined, 'Assorted: 8 Malpuri + 8 Malai Khaja');
     await enterDeliveryDetails(state);
     expect(host.textContent).toContain(`${label}${shipping}`);
     expect(host.textContent).toContain(total);
@@ -859,7 +859,7 @@ describe('nationwide pickle-only delivery', () => {
   });
 
   it('refuses far-state delivery of the Mini Combo Pack', async () => {
-    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 2, undefined, 'Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja');
+    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 2, undefined, 'Assorted: 8 Malpuri + 8 Malai Khaja');
     await enterDeliveryDetails('NY');
     expect(host.textContent).toContain('is delivered within Texas and nearby states only');
     expect(button('Continue to payment').disabled).toBe(true);

@@ -264,7 +264,7 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     deliveryZones: ['texas', 'nearby'],
     // One choice for now, shown like the other boxes' contents dropdown.
-    variantOptions: ['Assorted — 8 pcs Malpuri + 8 pcs Malai Khaja'],
+    variantOptions: ['Assorted: 8 Malpuri + 8 Malai Khaja'],
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {
