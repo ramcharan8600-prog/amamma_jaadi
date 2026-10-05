@@ -141,6 +141,51 @@ export function shippingMethodLabel(method: DeliveryShippingMethod | null | unde
   return standardShipping ? 'Standard shipping' : 'UPS 2nd Day Air';
 }
 
+export type DeliveryService = 'texas' | 'standard' | 'express' | 'second-day-air';
+
+/**
+ * The delivery service customers are told about, in checkout and emails:
+ * - Texas: about 1 business day after dispatch.
+ * - Pickle-only outside Texas: Standard shipping.
+ * - Nearby states: Express shipping (2-day ETA).
+ * - Other states: UPS 2nd Day Air, except Malai Khaja-only and Assorted
+ *   Box-only carts, which ship Standard at their lower rate.
+ */
+export function deliveryService(
+  state: string | undefined | null,
+  picklesOnly: boolean,
+  groundShipping: GroundShippingKind | boolean | undefined
+): DeliveryService {
+  const zone = getShippingZone(state);
+  if (zone === 'texas') return 'texas';
+  if (picklesOnly) return 'standard';
+  if (zone === 'nearby') return 'express';
+  return groundShipping ? 'standard' : 'second-day-air';
+}
+
+const DELIVERY_SERVICE_LABELS: Record<DeliveryService, string> = {
+  texas: 'Shipping (estimated 1 business day after dispatch)',
+  standard: 'Standard shipping',
+  express: 'Express shipping (2-day ETA)',
+  'second-day-air': 'UPS 2nd Day Air',
+};
+
+/** The shipping line's label. Orders recorded with a legacy method keep its wording. */
+export function deliveryServiceLabel(
+  service: DeliveryService,
+  method?: DeliveryShippingMethod | null
+): string {
+  return method === 'expedited' || method === 'ground' ? shippingMethodLabel(method) : DELIVERY_SERVICE_LABELS[service];
+}
+
+/** Shown under the shipping charge whenever sweets ship express (nearby or UPS 2nd Day Air). */
+export const EXPRESS_SWEETS_NOTE =
+  'Our sweets have ZERO preservatives and are made with ghee, so express shipping is mandatory to enjoy them fresh and delicious. Thanks for understanding.';
+
+export function isExpressDeliveryService(service: DeliveryService): boolean {
+  return service === 'express' || service === 'second-day-air';
+}
+
 export const MALAI_KHAJA_PRODUCT_ID = 'sweet-malai-khaja';
 
 export type GroundShippingKind = 'malai-khaja' | 'assorted-box';

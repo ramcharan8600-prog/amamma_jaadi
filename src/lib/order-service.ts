@@ -5,7 +5,7 @@ import { buildOrderConfirmationEmail, buildOwnerOrderAlertEmail } from '@/lib/em
 import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage } from '@/lib/email-outbox';
 import { getPickupLocationById, getProductById, isStockTracked, pickupWindowLabel, stockUnits } from '@/data/products';
 import { prepareOrderTaxRecord } from '@/lib/tax-records';
-import { isGroundShippingCart } from '@/lib/pricing';
+import { deliveryService, deliveryServiceLabel, groundShippingKind, isGroundShippingCart } from '@/lib/pricing';
 import type { DeliveryShippingMethod } from '@/types';
 import { couponBenefit, type CouponBenefit, type CouponRow } from '@/lib/coupons';
 
@@ -214,6 +214,7 @@ export async function createOrderFromSession(
     details: getProductById(line.productId)?.emailDetails ?? packPiecesLine(line.selectedTier, line.quantity),
   }));
   if (bonus) emailItems.push({ name: `${bonus.bonusQty} complimentary ${bonus.bonusItem} (FREE)`, quantity: 1, price: 0 });
+  const picklesOnlyCart = lines.length > 0 && lines.every((line) => getProductById(line.productId)?.category === 'pickles');
   const emailParams = {
     orderNumber, squarePaymentId, total: session.total_amount,
     subtotal,
@@ -222,14 +223,20 @@ export async function createOrderFromSession(
     // Match the purchased cart used for shipping; complimentary display rows
     // must not change the service label between checkout and its confirmation.
     // Drives the "Standard shipping" label: pickle-only and Malai Khaja-only carts.
-    picklesOnly: lines.length > 0 && (lines.every((line) => getProductById(line.productId)?.category === 'pickles') ||
-      isGroundShippingCart(lines)),
+    picklesOnly: picklesOnlyCart || isGroundShippingCart(lines),
     fulfillmentType: fulfillment.type as 'pickup' | 'delivery',
     pickupDate: fulfillment.date,
     pickupLocation: pickup ? `${pickup.name} — ${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip}` : undefined,
     pickupHours: pickup ? pickupWindowLabel(pickup) : undefined,
     deliveryAddress: buildDeliveryAddress(fulfillment) ?? undefined,
     shippingMethod: fulfillment.type === 'delivery' ? fulfillment.shippingMethod ?? 'standard' : undefined,
+    // The same service wording checkout showed for this state and cart.
+    shippingLabel: fulfillment.type === 'delivery'
+      ? deliveryServiceLabel(
+        deliveryService(fulfillment.state, picklesOnlyCart, groundShippingKind(lines)),
+        fulfillment.shippingMethod
+      )
+      : undefined,
   };
   const email = session.email
     ? buildOrderConfirmationEmail({ ...emailParams, email: session.email })

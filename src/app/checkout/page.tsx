@@ -46,7 +46,10 @@ import {
   groundShippingKind,
   isSupportedDeliveryState,
   SALES_TAX_LABEL,
-  shippingMethodLabel,
+  deliveryService,
+  deliveryServiceLabel,
+  EXPRESS_SWEETS_NOTE,
+  isExpressDeliveryService,
 } from '@/lib/pricing';
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
@@ -362,8 +365,6 @@ export default function CheckoutPage() {
   const resolvedShippingMethod: DeliveryShippingMethod = 'standard';
   const picklesOnly = items.length > 0 && items.every(({ product }) => product.category === 'pickles');
   const groundShipping = groundShippingKind(items);
-  // Pickle-only and Malai Khaja-only carts don't ship UPS 2nd Day Air.
-  const standardShipping = picklesOnly || !!groundShipping;
   const pricingOptions = useMemo<ShippingOptions & { taxableSubtotal: number }>(
     () => ({
       taxableSubtotal,
@@ -383,6 +384,14 @@ export default function CheckoutPage() {
   );
   const totals = useMemo(() => calculateOrderTotals(subtotal, pricingOptions), [subtotal, pricingOptions]);
   const shippingQuote = useMemo(() => calculateShippingQuote(subtotal, pricingOptions), [subtotal, pricingOptions]);
+  const service = deliveryService(deliveryState, picklesOnly, groundShipping);
+  const serviceLabel = deliveryServiceLabel(service);
+  const expressSweetsNote = <p className="font-body text-xs text-brand-maroon">{EXPRESS_SWEETS_NOTE}</p>;
+  const showExpressNote = !!deliveryState.trim() && isExpressDeliveryService(service);
+  // Step 4 describes the delivery saved with the payment session.
+  const paymentService = fulfillment?.type === 'delivery'
+    ? deliveryService(fulfillment.state, picklesOnly, groundShipping)
+    : null;
   const nearbyPickup = getNearbyPickup(deliveryState, deliveryZip);
   const pickupLocations = nearbyPickup
     ? [...ACTIVE_PICKUP_LOCATIONS].sort((a, b) => Number(b.zip === nearbyPickup.zip) - Number(a.zip === nearbyPickup.zip))
@@ -1017,11 +1026,12 @@ export default function CheckoutPage() {
               </div>
               {fulfillmentType === 'delivery' && (
                 <ShippingCharge
-                  label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : deliveryState.trim() ? shippingMethodLabel(resolvedShippingMethod, standardShipping) : 'Shipping estimate (select a state to confirm)'}
+                  label={deliveryState.trim() ? serviceLabel : 'Shipping estimate (select a state to confirm)'}
                   shipping={totals.shipping}
                   quote={shippingQuote}
                 />
               )}
+              {fulfillmentType === 'delivery' && showExpressNote && expressSweetsNote}
               <MaintenanceFee amount={totals.maintenanceFee} />
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
                 <span>{SALES_TAX_LABEL}</span>
@@ -1316,11 +1326,17 @@ export default function CheckoutPage() {
               <p className="font-body text-sm text-green-800">Kova Bobbatlu for this order needs 1 day for preparation before dispatch.</p>
             )}
             <p className="font-body text-sm text-green-800">
-              {picklesOnly
-                ? 'Pickle-only orders use Standard shipping. Tracking details will be emailed when your order ships.'
-                : groundShipping
-                  ? 'This order uses Standard shipping. Tracking details will be emailed when your order ships.'
-                  : 'We use UPS 2nd Day Air for out-of-state orders containing sweets. Packages typically arrive within 2 business days after dispatch.'}
+              {!deliveryState.trim()
+                ? 'Your shipping service and fee appear once you select your state.'
+                : service === 'texas'
+                  ? 'Texas orders typically arrive 1 business day after dispatch. Tracking details will be emailed when your order ships.'
+                  : service === 'express'
+                    ? 'This order ships Express (2-day ETA). Tracking details will be emailed when your order ships.'
+                    : service === 'second-day-air'
+                      ? 'This order ships UPS 2nd Day Air. Packages typically arrive within 2 business days after dispatch.'
+                      : picklesOnly
+                        ? 'Pickle-only orders use Standard shipping. Tracking details will be emailed when your order ships.'
+                        : 'This order uses Standard shipping. Tracking details will be emailed when your order ships.'}
             </p>
           </div>
 
@@ -1494,8 +1510,8 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>{formatCurrency(totals.subtotal)}</span>
               </div>
-              <ShippingCharge label={deliveryState === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(resolvedShippingMethod, standardShipping)}
-                shipping={totals.shipping} quote={shippingQuote} />
+              <ShippingCharge label={serviceLabel} shipping={totals.shipping} quote={shippingQuote} />
+              {showExpressNote && expressSweetsNote}
               <MaintenanceFee amount={totals.maintenanceFee} />
               {nearbyPickup && (
                 <div className="font-body text-xs text-green-800 space-y-1 py-2">
@@ -1566,10 +1582,11 @@ export default function CheckoutPage() {
               <span>Subtotal</span>
               <span>{formatCurrency(sessionInfo.subtotal)}</span>
             </div>
-            {fulfillment?.type === 'delivery' && (
-              <ShippingCharge label={fulfillment.state === 'TX' ? 'Shipping (estimated 1 business day after dispatch)' : shippingMethodLabel(sessionInfo.shippingMethod, standardShipping)}
+            {paymentService && (
+              <ShippingCharge label={deliveryServiceLabel(paymentService, sessionInfo.shippingMethod)}
                 shipping={sessionInfo.shipping} quote={sessionInfo.shippingQuote} />
             )}
+            {paymentService && isExpressDeliveryService(paymentService) && expressSweetsNote}
             <MaintenanceFee amount={sessionInfo.maintenanceFee} />
             <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
               <span>{SALES_TAX_LABEL}</span>

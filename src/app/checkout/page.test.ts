@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getProductById } from '@/data/products';
 import { useCartStore } from '@/store/cart';
 import { PENDING_PAYMENT_KEY, readPendingPayment, rememberPendingPayment } from '@/lib/payment-recovery';
+import { EXPRESS_SWEETS_NOTE } from '@/lib/pricing';
 import CheckoutPage from './page';
 import { invalidateStock } from '@/hooks/useStock';
 
@@ -835,7 +836,15 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).not.toContain('A minimum product subtotal');
     expect(host.textContent).toContain('$10.99');
     expect(host.textContent).toContain('$50.99');
+    expect(host.textContent).toContain('Express shipping (2-day ETA)$10.99');
+    expect(host.textContent).toContain('This order ships Express (2-day ETA).');
+    expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
+    expect(host.textContent).not.toContain('UPS 2nd Day Air');
     expect(button('Continue to payment').disabled).toBe(false);
+    await click('Continue to payment');
+    expect(host.textContent).toContain('Step 4');
+    expect(host.textContent).toContain('Express shipping (2-day ETA)');
+    expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
   });
 
   it('quietly ships a Malai Khaja-only cart out of state for $9.99 with no minimum', async () => {
@@ -846,6 +855,7 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).toContain('$49.99');
     expect(host.textContent).toContain('Standard shipping');
     expect(host.textContent).not.toContain('UPS 2nd Day Air');
+    expect(host.textContent).not.toContain(EXPRESS_SWEETS_NOTE);
     expect(button('Continue to payment').disabled).toBe(false);
   });
 
@@ -865,6 +875,7 @@ describe('nationwide pickle-only delivery', () => {
     useCartStore.getState().addItem(getProductById('pickle-chicken')!, 1);
     await enterDeliveryDetails('TX');
     expect(host.textContent).toContain('Shipping (estimated 1 business day after dispatch)');
+    expect(host.textContent).not.toContain(EXPRESS_SWEETS_NOTE);
     await click('Continue to payment');
     expect(host.textContent).toContain('Shipping (estimated 1 business day after dispatch)');
   });
@@ -876,6 +887,7 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).toContain('UPS 2nd Day Air');
     expect(host.textContent).not.toContain('Standard shipping');
     expect(host.textContent).toContain('$11.99');
+    expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
     await click('Continue to payment');
     expect(host.textContent).toContain('Step 4');
     expect(host.textContent).toContain('UPS 2nd Day Air');
@@ -974,9 +986,9 @@ describe('coupon benefits in checkout', () => {
   });
 
   it.each([
-    ['nearby', 'OK', '$8.99'],
-    ['far', 'NY', '$9.99'],
-  ])('offers the Taste Pack with the 11:11 box out of state (%s) without a coupon, at the box rate', async (_zone, state, rate) => {
+    ['nearby', 'OK', '$8.99', 'Express shipping (2-day ETA)'],
+    ['far', 'NY', '$9.99', 'Standard shipping'],
+  ])('offers the Taste Pack with the 11:11 box out of state (%s) without a coupon, at the box rate', async (_zone, state, rate, label) => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await render();
     await delivery();
@@ -989,7 +1001,7 @@ describe('coupon benefits in checkout', () => {
     expect(tastePackLine()).toBeUndefined();
     const summary = Array.from(host.querySelectorAll('.card')).find(c => c.textContent?.startsWith('Subtotal'))!.textContent;
     expect(summary).toContain('$84.00');
-    expect(summary).toContain(`Standard shipping${rate}`);
+    expect(summary).toContain(`${label}${rate}`);
   });
 
   it('does not offer the Taste Pack out of state without the 11:11 box', async () => {

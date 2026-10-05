@@ -483,3 +483,26 @@ it('shows how many pieces each sweet pack holds under the item in the confirmati
     sqlite.close();
   }
 });
+
+it.each([
+  ['TX', 'Plano', '75093', 'Shipping (estimated 1 business day after dispatch)', 6.99],
+  ['OK', 'Tulsa', '74103', 'Express shipping (2-day ETA)', 10.99],
+  ['NY', 'New York', '10001', 'UPS 2nd Day Air', 11.99],
+] as const)('names the %s sweets delivery service in the confirmation as checkout did', async (state, city, zip, label, shipping) => {
+  const { db, sqlite, session } = setup({
+    cart_data: [{ productId: 'sweet-malpuri', quantity: 1, selectedTier: 25, lineTotal: 70 }],
+    fulfillment_data: { type: 'delivery', addressLine1: '123 Test Street', city, state, zip, country: 'USA', shippingMethod: 'standard' },
+    total_amount: 70 + shipping, tax: 0, shipping, coupon_code: null,
+  });
+  try {
+    await createOrderFromSession(db, session, `PAY-SERVICE-LABEL-${state}`);
+    const html = String(sqlite.prepare('SELECT html FROM email_outbox').get()?.html);
+    // The method line and the fee row.
+    expect(html.split(label).length - 1).toBe(2);
+    for (const other of ['Shipping (estimated 1 business day after dispatch)', 'Express shipping (2-day ETA)', 'UPS 2nd Day Air', 'Standard shipping']) {
+      if (other !== label) expect(html).not.toContain(other);
+    }
+  } finally {
+    sqlite.close();
+  }
+});

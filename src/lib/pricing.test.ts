@@ -11,6 +11,9 @@ import {
   isSupportedDeliveryState,
   normalizeStateCode,
   shippingMethodLabel,
+  deliveryService,
+  deliveryServiceLabel,
+  isExpressDeliveryService,
   isGroundShippingCart,
   groundShippingKind,
   SALES_TAX_RATE,
@@ -531,3 +534,37 @@ describe('pricing — $3.99 Texas shipping from $120', () => {
   });
 });
 
+
+describe('deliveryService', () => {
+  it('names the service customers are told about, by zone and cart', () => {
+    // Texas: always the 1-day estimate.
+    expect(deliveryService('TX', false, undefined)).toBe('texas');
+    expect(deliveryService('TX', true, undefined)).toBe('texas');
+    // Nearby states: Express, including box-only and Malai Khaja-only carts.
+    expect(deliveryService('OK', false, undefined)).toBe('express');
+    expect(deliveryService('FL', false, 'assorted-box')).toBe('express');
+    expect(deliveryService('IA', false, 'malai-khaja')).toBe('express');
+    // Other states: UPS 2nd Day Air, except the quietly ground-shipped carts.
+    expect(deliveryService('NY', false, undefined)).toBe('second-day-air');
+    expect(deliveryService('CA', false, 'assorted-box')).toBe('standard');
+    expect(deliveryService('NY', false, 'malai-khaja')).toBe('standard');
+    // Pickle-only outside Texas: Standard everywhere.
+    expect(deliveryService('OK', true, undefined)).toBe('standard');
+    expect(deliveryService('NY', true, undefined)).toBe('standard');
+  });
+
+  it('labels each service, keeping a legacy recorded method', () => {
+    expect(deliveryServiceLabel('texas')).toBe('Shipping (estimated 1 business day after dispatch)');
+    expect(deliveryServiceLabel('express')).toBe('Express shipping (2-day ETA)');
+    expect(deliveryServiceLabel('second-day-air')).toBe('UPS 2nd Day Air');
+    expect(deliveryServiceLabel('standard', 'standard')).toBe('Standard shipping');
+    expect(deliveryServiceLabel('express', 'ground')).toBe('Ground — estimated 2–5 business days in transit');
+  });
+
+  it('treats nearby Express and UPS 2nd Day Air as express for the sweets note', () => {
+    expect(isExpressDeliveryService('express')).toBe(true);
+    expect(isExpressDeliveryService('second-day-air')).toBe(true);
+    expect(isExpressDeliveryService('standard')).toBe(false);
+    expect(isExpressDeliveryService('texas')).toBe(false);
+  });
+});
