@@ -42,9 +42,9 @@ export const FAR_SHIPPING_MINIMUM = 60;
 export const SHIPPING_TX = 6.99;
 
 /** Texas deliveries at or above this merchandise subtotal pay the discounted delivery fee. */
-export const TEXAS_DISCOUNTED_SHIPPING_MINIMUM = 120;
+export const TEXAS_DISCOUNTED_SHIPPING_MINIMUM = 100;
 /** Texas delivery fee from TEXAS_DISCOUNTED_SHIPPING_MINIMUM, instead of SHIPPING_TX. */
-export const SHIPPING_TX_DISCOUNTED = 3.99;
+export const SHIPPING_TX_DISCOUNTED = 2.99;
 
 /** Shipping to any supported state for orders containing only pickle jars. */
 export const SHIPPING_PICKLES_SINGLE = 6.99;

@@ -770,7 +770,7 @@ it('charges a far-state Malai Khaja-only order below $80 at $9.99 shipping', asy
 
 it.each([
   ['NY', 5.99, 0, 130.99],
-  ['TX', 3.99, 0, 128.99], // Texas $120+ pays the $3.99 shipping fee
+  ['TX', 2.99, 0, 127.99], // Texas $100+ pays the $2.99 shipping fee
 ])('charges a 50-piece Malai Khaja-only order to %s at $%s shipping + $%s fee', async (state, shipping, fee, total) => {
   fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=?,maintenance_fee=?,tax=0,total_amount=?')
     .run(JSON.stringify([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 50, lineTotal: 125 }]),

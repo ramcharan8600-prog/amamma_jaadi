@@ -693,7 +693,7 @@ describe('Malai Khaja-only shipping by pack size', () => {
     ['25 to NY', [mk(25)], 'NY', 8.99],
     ['50 to NY', [mk(50)], 'NY', 5.99],
     ['50 to GA', [mk(50)], 'GA', 5.99],
-    ['50 to TX ($3.99 from $120)', [mk(50)], 'TX', 3.99],
+    ['50 to TX ($2.99 from $100)', [mk(50)], 'TX', 2.99],
     ['2 x 25 to CA', [mk(25, 2)], 'CA', 5.99],
     ['16 to TX', [mk(16)], 'TX', 6.99],
   ])('charges Malai Khaja %s at $%s', async (_name, items, state, shipping) => {
@@ -754,18 +754,19 @@ describe('Bobbatlu Taste Pack add-on', () => {
   });
 });
 
-describe('$3.99 Texas shipping from $120 without a coupon', () => {
+describe('$2.99 Texas shipping from $100 without a coupon', () => {
   it.each([
-    ['sweets', [{ ...sweet, quantity: 3 }], 120, 0, 123.99],
-    ['pickles only', [{ productId: 'pickle-chicken', quantity: 7 }], 126, 10.72, 140.71],
-  ])('ships %s for $3.99 with no operational fee', async (_name, items, subtotal, tax, totalAmount) => {
+    ['sweets', [{ ...sweet, quantity: 3 }], 120, 0, 122.99],
+    ['sweets at exactly $100', [{ productId: 'sweet-kova', quantity: 1, selectedTier: 50 }], 100, 0, 102.99],
+    ['pickles only', [{ productId: 'pickle-chicken', quantity: 7 }], 126, 10.64, 139.63],
+  ])('ships %s for $2.99 with no operational fee', async (_name, items, subtotal, tax, totalAmount) => {
     const response = await post(checkout(items, delivery('TX')));
     expect(response.status).toBe(201);
     const body = await response.json();
-    expect(body).toMatchObject({ subtotal, tax, shipping: 3.99, totalAmount });
+    expect(body).toMatchObject({ subtotal, tax, shipping: 2.99, totalAmount });
     expect(body.maintenanceFee ?? 0).toBe(0);
   });
-  it('keeps $6.99 under $120 and in other states', async () => {
+  it('keeps $6.99 under $100 and in other states', async () => {
     expect(await (await post(checkout([{ ...sweet, quantity: 2 }], delivery('TX')))).json()).toMatchObject({ shipping: 6.99, totalAmount: 86.99 });
     const ga = await (await post(checkout([{ ...sweet, quantity: 3 }], delivery('GA')))).json();
     expect(ga).toMatchObject({ shipping: 7.99, totalAmount: 127.99 });

@@ -352,7 +352,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   // A cart that already ships free (the Mini Combo Pack in Texas) gets no coupon
   // and so no operational fee.
   const couponApplies = eligible && zone === 'texas' && regularShipping > 0;
-  // Any Texas delivery of $120+ pays the $3.99 delivery fee, no coupon needed and
+  // Any Texas delivery of $100+ pays the $2.99 delivery fee, no coupon needed and
   // no operational fee. A shipping coupon, which ships free, still wins.
   const texasMinimumMet = !couponApplies && opts.fulfillmentType === 'delivery' && zone === 'texas' &&
     subtotal >= TEXAS_DISCOUNTED_SHIPPING_MINIMUM && regularShipping > SHIPPING_TX_DISCOUNTED;
@@ -373,7 +373,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Break a subtotal into subtotal + tax + shipping + total.
  *
  * Pickle-only, all supported states, no minimum: $6.99 for any number of jars.
- * Texas sweets and mixed carts: $6.99; any Texas delivery of $120+ pays $3.99.
+ * Texas sweets and mixed carts: $6.99; any Texas delivery of $100+ pays $2.99.
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/IA/IL/KS/LA/MO/MS/NE/NM/OK/TN): $10.99 below $60, $8.99 from $60, $7.99 from $100.
