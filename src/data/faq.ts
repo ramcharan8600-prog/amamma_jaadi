@@ -1,4 +1,16 @@
 import { DFW_CITIES } from '@/data/service-areas';
+import { ACTIVE_PICKUP_LOCATIONS } from '@/data/products';
+
+/** "a, b and c" */
+function joinList(items: readonly string[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+/** Cities with an active pickup location, from the same data checkout uses. */
+const PICKUP_CITIES = joinList(Array.from(new Set(ACTIVE_PICKUP_LOCATIONS.map((l) => l.city))));
+/** Each active location with its real pickup window. */
+const PICKUP_WINDOWS = joinList(ACTIVE_PICKUP_LOCATIONS.map(
+  (l) => `${l.name} (${l.pickupHours.from} – ${l.pickupHours.until})`));
 
 /**
  * Frequently asked questions — the SINGLE source for both the visible About
@@ -16,9 +28,7 @@ export interface FaqItem {
 export const FAQS: FaqItem[] = [
   {
     question: 'Which areas do you deliver desi sweets to?',
-    answer: `Free pickup is available at our partner locations across DFW, including ${DFW_CITIES.join(
-      ', '
-    )}. We ship throughout Texas, the contiguous United States, and Washington, DC. Out-of-state orders containing sweets are dispatched from Dallas using UPS 2nd Day Air. Pickle-only orders shipped outside Texas use Standard shipping.`,
+    answer: `Customers from ${joinList([...DFW_CITIES, 'nearby cities'])} can pick up their order for free at our partner locations in ${PICKUP_CITIES}. You choose the location and date at checkout. We also ship throughout Texas, the contiguous United States and Washington, DC; the UPS service and shipping fee for your address are shown at checkout before you pay.`,
   },
   {
     question: 'What South Indian sweets do you make?',
@@ -57,7 +67,6 @@ export const FAQS: FaqItem[] = [
   },
   {
     question: 'Where can I pick up my order?',
-    answer:
-      'We have partner pickup locations across DFW in Plano, Irving, and Frisco. You choose your location at checkout, and orders can be collected between 6:30 PM and 12:45 AM.',
+    answer: `Pickup is free at our partner locations: ${PICKUP_WINDOWS}. Pickup is closed on Tuesdays. You choose the location and date at checkout, and your order confirmation shows the address and pickup window.`,
   },
 ];

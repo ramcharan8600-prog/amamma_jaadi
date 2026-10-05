@@ -4,6 +4,7 @@ import { Playfair_Display } from 'next/font/google';
 import { MapPin } from 'lucide-react';
 import { WHATSAPP_NUMBER, PHONE_NUMBER } from '@/lib/utils';
 import { DFW_CITIES, WIDER_TEXAS_CITIES } from '@/data/service-areas';
+import { ACTIVE_PICKUP_LOCATIONS } from '@/data/products';
 import { FAQS } from '@/data/faq';
 import JsonLd from '@/components/JsonLd';
 import { getFaqSchema } from '@/lib/seo';
@@ -22,6 +23,10 @@ export const metadata: Metadata = {
     description: 'Meet Amamma Jaadi and explore DFW pickup and contiguous-U.S. shipping options.',
   },
 };
+
+/** "Plano, Frisco and Irving": cities with an active pickup location. */
+const pickupCityList = Array.from(new Set(ACTIVE_PICKUP_LOCATIONS.map((l) => l.city)));
+const pickupCities = `${pickupCityList.slice(0, -1).join(', ')} and ${pickupCityList[pickupCityList.length - 1]}`;
 
 export default function AboutPage() {
   return (
@@ -161,8 +166,9 @@ export default function AboutPage() {
           </div>
           <p className="font-body text-brand-charcoal/70 leading-relaxed">
             We have happy customers right across the Dallas–Fort Worth
-            metroplex, with free pickup at our partner locations and delivery to
-            your doorstep:
+            metroplex. Customers from these cities and nearby cities can pick up for
+            free at our partner locations in {pickupCities}, or get delivery to
+            their doorstep:
           </p>
           <div className="flex flex-wrap gap-2">
             {DFW_CITIES.map((city) => (
@@ -176,9 +182,8 @@ export default function AboutPage() {
           </div>
           <p className="font-body text-brand-charcoal/70 leading-relaxed">
             We also ship across Texas — including {WIDER_TEXAS_CITIES.join(', ')} — and throughout
-            the contiguous United States and Washington, DC. Out-of-state orders containing
-            sweets are dispatched from Dallas using UPS 2nd Day Air. Pickle-only orders shipped
-            outside Texas use Standard shipping. Delivery charges apply per destination.
+            the contiguous United States and Washington, DC. The UPS service and shipping fee
+            for your address are shown at checkout before you pay.
           </p>
         </div>
       </section>
