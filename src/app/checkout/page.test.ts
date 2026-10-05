@@ -753,12 +753,12 @@ it.each([[1,'6.99','2.14','28.13'],[2,'6.99','3.71','48.70'],[3,'6.99','5.28','6
   });
 
 describe('nationwide pickle-only delivery', () => {
-  it('shows $2.99 Texas shipping and no operational fee on a $120 cart without a coupon', async () => {
+  it('shows $3.99 Texas shipping and no operational fee on a $120 cart without a coupon', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 3, 16);
     await enterDeliveryDetails('TX');
-    expect(host.textContent).toContain('$2.99 Texas shipping on orders of $100.00+');
+    expect(host.textContent).toContain('$3.99 Texas shipping on orders of $120.00+');
     expect(host.textContent).not.toContain('Operational fee');
-    expect(host.textContent).toContain('$122.99');
+    expect(host.textContent).toContain('$123.99');
     await enterDeliveryDetails('GA');
     expect(host.textContent).not.toContain('Operational fee');
     expect(host.textContent).toContain('$7.99');

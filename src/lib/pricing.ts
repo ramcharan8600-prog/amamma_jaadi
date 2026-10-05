@@ -14,6 +14,8 @@ import {
   SHIPPING_TX,
   TEXAS_DISCOUNTED_SHIPPING_MINIMUM,
   SHIPPING_TX_DISCOUNTED,
+  TEXAS_MID_SHIPPING_MINIMUM,
+  SHIPPING_TX_MID,
   SHIPPING_PICKLES_SINGLE,
   SHIPPING_PICKLES_DOUBLE,
   SHIPPING_PICKLES_THREE_PLUS,
@@ -229,7 +231,8 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'mini-combo';
  * - Only Malai Khaja: the lower of $9.99 and the regular rate.
  * - Only the Assorted Box: Texas $6.99, nearby states $8.99, far states $9.99.
  *   The Bobbatlu Taste Pack add-on ships with the box at the box's rate.
- * - Only the Mini Combo Pack (advertised, not quiet): free in Texas, nearby
+ * - Only the Mini Combo Pack (advertised, not quiet): free in Texas (any Texas
+ *   order containing it ships free), nearby
  *   states $3.99, per order. It isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string }>): GroundShippingKind | undefined {
@@ -245,7 +248,7 @@ export function groundShippingKind(items: ReadonlyArray<{ productId: string }>):
 
 /**
  * Orders containing the Mini Combo Pack never pay the coupon's operational fee,
- * and in Texas a mixed order ships for $2.99 (the box alone ships free).
+ * and in Texas they ship free, mixed or not.
  */
 export function containsMiniComboPack(items: ReadonlyArray<{ productId: string }>): boolean {
   return items.some(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID);
@@ -352,11 +355,15 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   // A cart that already ships free (the Mini Combo Pack in Texas) gets no coupon
   // and so no operational fee.
   const couponApplies = eligible && zone === 'texas' && regularShipping > 0;
-  // Any Texas delivery of $100+ pays the $2.99 delivery fee, no coupon needed and
-  // no operational fee. A shipping coupon, which ships free, still wins.
-  const texasMinimumMet = !couponApplies && opts.fulfillmentType === 'delivery' && zone === 'texas' &&
-    subtotal >= TEXAS_DISCOUNTED_SHIPPING_MINIMUM && regularShipping > SHIPPING_TX_DISCOUNTED;
-  let shipping = couponApplies ? 0 : texasMinimumMet ? SHIPPING_TX_DISCOUNTED : regularShipping;
+  // Texas deliveries pay $4.99 from $100 and $3.99 from $120, no coupon needed
+  // and no operational fee. A shipping coupon, which ships free, still wins, and
+  // a cheaper regular rate (e.g. the Mini Combo Pack's free shipping) is kept.
+  const texasTier = !couponApplies && opts.fulfillmentType === 'delivery' && zone === 'texas'
+    ? subtotal >= TEXAS_DISCOUNTED_SHIPPING_MINIMUM ? { minimum: TEXAS_DISCOUNTED_SHIPPING_MINIMUM, rate: SHIPPING_TX_DISCOUNTED }
+      : subtotal >= TEXAS_MID_SHIPPING_MINIMUM ? { minimum: TEXAS_MID_SHIPPING_MINIMUM, rate: SHIPPING_TX_MID } : null
+    : null;
+  const texasMinimumMet = !!texasTier && regularShipping > texasTier.rate;
+  let shipping = couponApplies ? 0 : texasMinimumMet ? texasTier!.rate : regularShipping;
   if (opts.freeDelivery) shipping = 0;
   return {
     shipping,
@@ -365,7 +372,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     couponSavings: roundMoney(regularShipping - shipping),
     ...(couponApplies && !opts.miniComboPack && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
       ? { maintenanceFee: opts.picklesOnly ? 1.99 : 0.99 } : {}),
-    ...(texasMinimumMet ? { discountedShippingMinimum: TEXAS_DISCOUNTED_SHIPPING_MINIMUM } : {}),
+    ...(texasMinimumMet ? { discountedShippingMinimum: texasTier!.minimum } : {}),
   };
 }
 
@@ -373,7 +380,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
  * Break a subtotal into subtotal + tax + shipping + total.
  *
  * Pickle-only, all supported states, no minimum: $6.99 for any number of jars.
- * Texas sweets and mixed carts: $6.99; any Texas delivery of $100+ pays $2.99.
+ * Texas sweets and mixed carts: $6.99; Texas deliveries pay $4.99 from $100 and $3.99 from $120.
  * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
  * taxed when taxable merchandise is present; exempt-only carts have zero tax.
  * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/IA/IL/KS/LA/MO/MS/NE/NM/OK/TN): $10.99 below $60, $8.99 from $60, $7.99 from $100.
