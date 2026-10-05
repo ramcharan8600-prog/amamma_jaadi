@@ -339,7 +339,7 @@ describe('shipping coupons are Texas-only', () => {
 });
 
 describe('pricing — nearby states with the $100 tier', () => {
-  const nearby = ['AL', 'AR', 'CO', 'FL', 'GA', 'IL', 'KS', 'LA', 'MO', 'MS', 'NM', 'OK', 'TN'];
+  const nearby = ['AL', 'AR', 'CO', 'FL', 'GA', 'IA', 'IL', 'KS', 'LA', 'MO', 'MS', 'NM', 'OK', 'TN'];
 
   it('treats every nearby state as nearby with no minimum', () => {
     for (const state of nearby) {
