@@ -568,6 +568,15 @@ describe('authoritative coupon benefits at payment', () => {
     expect(await response.json()).toMatchObject({ subtotal: 82, shipping, tax: state === 'TX' ? 3.55 : 3.47, maintenanceFee: state === 'TX' ? 0.99 : 0 });
   });
 
+  it('ships a Texas Mini Combo Pack + sweets order free with the coupon, without the $0.99 fee', async () => {
+    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 60 });
+    const response = await post({ ...checkout([sweet, mini], delivery('TX')), couponCode: 'SHIP' });
+    expect(response.status).toBe(201);
+    const result = await response.json();
+    expect(result).toMatchObject({ subtotal: 88, shipping: 0, totalAmount: 88 });
+    expect(result.maintenanceFee ?? 0).toBe(0);
+  });
+
   it.each(['TX', 'OK'])('accepts an exact $88 sweets/gift cart in %s', async state => {
     mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 88 });
     const response = await post({ ...checkout([sweet, mini], delivery(state)), couponCode: 'SHIP' });

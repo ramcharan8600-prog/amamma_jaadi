@@ -242,6 +242,11 @@ export function groundShippingKind(items: ReadonlyArray<{ productId: string }>):
   return undefined;
 }
 
+/** Orders containing the Mini Combo Pack never pay the coupon's operational fee. */
+export function waivesOperationalFee(items: ReadonlyArray<{ productId: string }>): boolean {
+  return items.some(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID);
+}
+
 export function isGroundShippingCart(items: ReadonlyArray<{ productId: string }>): boolean {
   return groundShippingKind(items) !== undefined;
 }
@@ -286,6 +291,8 @@ export interface ShippingOptions {
   /** Only for quotes saved before the flat pickle rate was introduced. */
   legacyPickleRates?: boolean;
   shippingCoupon?: { minSubtotal: number; shippingPolicy?: ShippingCouponPolicy };
+  /** The coupon still ships free, without the operational fee (see waivesOperationalFee). */
+  noOperationalFee?: boolean;
 }
 
 export interface ShippingQuote {
@@ -350,7 +357,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     regularShipping,
     referenceShipping: regularShipping,
     couponSavings: roundMoney(regularShipping - shipping),
-    ...(couponApplies && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
+    ...(couponApplies && !opts.noOperationalFee && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
       ? { maintenanceFee: opts.picklesOnly ? 1.99 : 0.99 } : {}),
     ...(texasMinimumMet ? { discountedShippingMinimum: TEXAS_DISCOUNTED_SHIPPING_MINIMUM } : {}),
   };

@@ -14,6 +14,7 @@ import {
   groundShippingKind,
   isSupportedDeliveryState,
   normalizeStateCode,
+  waivesOperationalFee,
 } from '@/lib/pricing';
 import { getStockMap } from '@/lib/inventory';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
@@ -200,6 +201,7 @@ export async function POST(request: NextRequest) {
       picklesOnly,
       groundShipping,
       groundPieces: groundShipping ? getTotalPieces(cart.items) : undefined,
+      noOperationalFee: waivesOperationalFee(cart.items),
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       deliveryState,
       shippingMethod,

@@ -17,6 +17,7 @@ import {
   isGroundShippingCart,
   groundShippingKind,
   deliveryRestriction,
+  waivesOperationalFee,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
 } from './pricing';
@@ -634,5 +635,19 @@ describe('deliveryRestriction', () => {
     expect(deliveryRestriction(product, 'TX', 30)).toBeNull();
     expect(deliveryRestriction(product, 'OK', 60)).toBeNull();
     expect(deliveryRestriction(product, 'OK', 30)).toContain('Add $30.00 more');
+  });
+});
+
+describe('waivesOperationalFee', () => {
+  it('drops the $0.99 fee, not the free coupon shipping, when the order has a Mini Combo Pack', () => {
+    const items = [{ productId: 'gift-box-mini-combo' }, { productId: 'sweet-malpuri' }];
+    expect(waivesOperationalFee(items)).toBe(true);
+    expect(waivesOperationalFee([{ productId: 'sweet-malpuri' }])).toBe(false);
+    const q = calculateShippingQuote(88, {
+      fulfillmentType: 'delivery', deliveryState: 'TX', groundShipping: groundShippingKind(items),
+      noOperationalFee: true, shippingCoupon: { minSubtotal: 60, shippingPolicy: 'texas_v3' },
+    });
+    expect(q).toMatchObject({ shipping: 0, couponSavings: 6.99 });
+    expect(q.maintenanceFee).toBeUndefined();
   });
 });
