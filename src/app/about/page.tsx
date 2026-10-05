@@ -7,7 +7,7 @@ import { DFW_CITIES, WIDER_TEXAS_CITIES } from '@/data/service-areas';
 import { ACTIVE_PICKUP_LOCATIONS } from '@/data/products';
 import { FAQS } from '@/data/faq';
 import JsonLd from '@/components/JsonLd';
-import { getFaqSchema } from '@/lib/seo';
+import { getFaqSchema, pageShareMetadata } from '@/lib/seo';
 
 // Italic Playfair is used only for the quote below, so only this page loads it.
 const playfairItalic = Playfair_Display({ subsets: ['latin'], style: 'italic', display: 'swap' });
@@ -17,11 +17,11 @@ export const metadata: Metadata = {
   description:
     'The story behind Amamma Jaadi — authentic Andhra sweets in Dallas, TX, with DFW pickup and shipping across the contiguous United States.',
   alternates: { canonical: 'https://amammajaadi.com/about' },
-  openGraph: {
-    url: 'https://amammajaadi.com/about',
+  ...pageShareMetadata({
+    path: '/about',
     title: 'Our Story, Areas We Serve & FAQs',
     description: 'Meet Amamma Jaadi and explore DFW pickup and contiguous-U.S. shipping options.',
-  },
+  }),
 };
 
 /** "Plano, Frisco and Irving": cities with an active pickup location. */
@@ -36,12 +36,12 @@ export default function AboutPage() {
       {/* Hero */}
       <section className="bg-gradient-to-br from-brand-cream to-brand-cream-dark py-16 sm:py-24">
         <div className="section-padding text-center space-y-4">
-          <p className="font-body text-sm font-semibold tracking-widest text-brand-gold uppercase">
+          <h1 className="font-body text-sm font-semibold tracking-widest text-brand-gold uppercase">
             Our Story
-          </p>
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-brand-charcoal">
-            Dallas, USA
           </h1>
+          <p className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-brand-charcoal">
+            Dallas, USA
+          </p>
           <p className="font-display text-xl text-brand-maroon">
             Rooted in Andhra Pradesh
           </p>
@@ -103,7 +103,7 @@ export default function AboutPage() {
       <section className="section-padding py-16 sm:py-24">
         <div className="max-w-3xl mx-auto space-y-8">
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-brand-charcoal text-center">
-            Amamma Jaadi — The Begining
+            Amamma Jaadi — The Beginning
           </h2>
 
           <div className="grid md:grid-cols-2 gap-8 items-center">

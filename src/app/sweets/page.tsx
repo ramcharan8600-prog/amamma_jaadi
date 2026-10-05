@@ -2,18 +2,18 @@ import type { Metadata } from 'next';
 import { getProductsByCategory } from '@/data/products';
 import SweetCard from '@/components/product/SweetCard';
 import JsonLd from '@/components/JsonLd';
-import { getProductListSchema } from '@/lib/seo';
+import { getProductListSchema, pageShareMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Sweets — Freshly Baked South Indian Sweets',
   description:
     'Order fresh Bobbatlu, Kova Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & Assorted Boxes. Made daily with pure ghee, A2 milk & organic ingredients. Pickup or delivery in Dallas, TX.',
   alternates: { canonical: 'https://amammajaadi.com/sweets' },
-  openGraph: {
-    url: 'https://amammajaadi.com/sweets',
+  ...pageShareMetadata({
+    path: '/sweets',
     title: 'Sweets — Freshly Baked South Indian Sweets',
     description: 'Order fresh Bobbatlu, Kova Bobbatlu, Malai Khaja, Kova & Guntur Malpuri in Dallas, TX.',
-  },
+  }),
 };
 
 export default function SweetsPage() {

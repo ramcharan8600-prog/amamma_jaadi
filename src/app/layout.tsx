@@ -48,17 +48,18 @@ export const metadata: Metadata = {
     title: 'Amamma Jaadi — Flavors of Home',
     description:
       'Traditional South Indian sweets made with love, just like your grandmother made them. Order fresh sweets, pickles & premium gift boxes in Dallas, TX.',
-    images: [{ url: '/images/brand/logo.png', width: 360, height: 354, alt: 'Amamma Jaadi' }],
+    images: [SHARE_IMAGE],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'Amamma Jaadi — Authentic South Indian Sweets',
     description: 'Freshly baked traditional sweets & pickles delivered in Dallas, TX.',
+    images: [SHARE_IMAGE.url],
   },
   robots: { index: true, follow: true },
 };
 
-import { getLocalBusinessSchema } from '@/lib/seo';
+import { getLocalBusinessSchema, SHARE_IMAGE } from '@/lib/seo';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

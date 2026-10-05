@@ -33,7 +33,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'What South Indian sweets do you make?',
     answer:
-      'We make traditional Andhra and Telugu sweets: Guntur Malpuri, Nellore Malai Khaja, Bobbatlu, Kova Bobbatlu and Kova. We also make Andhra non-veg pickles — chicken, mutton and prawns — in 12oz glass jars, and gift boxes that combine our sweets.',
+      'We make traditional Andhra and Telugu sweets: Guntur Malpuri, Nellore Malai Khaja, Bobbatlu, Kova Bobbatlu and Kova. We also make Andhra non-veg pickles — chicken, gongura chicken, mutton and prawns — in 12oz glass jars, and gift boxes that combine our sweets.',
   },
   {
     question: 'Are your sweets freshly made?',
@@ -53,7 +53,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'Pickle-only orders have no minimum order value. Shipping is a flat $6.99 for any number of jars throughout the contiguous United States and Washington, DC. Orders containing sweets, including mixed orders, follow these regional rates: $6.99 within Texas; $10.99 below $60, $8.99 at $60 or more, or $7.99 at $100 or more to Alabama, Arkansas, Colorado, Florida, Georgia, Illinois, Iowa, Kansas, Louisiana, Mississippi, Missouri, Nebraska, New Mexico, Oklahoma, and Tennessee; and a flat $11.99 with a $60 minimum merchandise subtotal to all other contiguous states and Washington, DC. Every Texas delivery of $120 or more ships for $3.99. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. Out-of-state orders containing sweets use UPS 2nd Day Air from Dallas. Pickle-only orders shipped outside Texas use Standard shipping. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
+      'Pickle-only orders have no minimum order value. Shipping is a flat $6.99 for any number of jars throughout the contiguous United States and Washington, DC. Orders containing sweets, including mixed orders, follow these regional rates: $6.99 within Texas; $10.99 below $60, $8.99 at $60 or more, or $7.99 at $100 or more to Alabama, Arkansas, Colorado, Florida, Georgia, Illinois, Iowa, Kansas, Louisiana, Mississippi, Missouri, Nebraska, New Mexico, Oklahoma, and Tennessee; and a flat $11.99 with a $60 minimum merchandise subtotal to all other contiguous states and Washington, DC. Every Texas delivery of $120 or more ships for $3.99. The $30 Texas Limited Edition gift box can be delivered outside Texas only as part of an order with at least a $60 merchandise subtotal. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
   },
   {
     question: 'Will you send me emails?',

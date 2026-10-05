@@ -3,7 +3,7 @@ import { getProductsByCategory } from '@/data/products';
 import GiftBoxCard from '@/components/product/GiftBoxCard';
 import FreeShippingNotice from '@/components/FreeShippingNotice';
 import JsonLd from '@/components/JsonLd';
-import { getProductListSchema } from '@/lib/seo';
+import { getProductListSchema, pageShareMetadata } from '@/lib/seo';
 import { Gift, Star, Calendar, Building2 } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -11,11 +11,11 @@ export const metadata: Metadata = {
   description:
     'Desi-style sweets gift boxes filled with authentic South Indian sweets — Malai Khaja and Guntur Malpuri mixes from $30. Perfect for festivals, events, parties & corporate gifting.',
   alternates: { canonical: 'https://amammajaadi.com/gift-boxes' },
-  openGraph: {
-    url: 'https://amammajaadi.com/gift-boxes',
+  ...pageShareMetadata({
+    path: '/gift-boxes',
     title: 'Events, Party Packs & Gift Boxes',
     description: 'South Indian sweets gift boxes for festivals, events, parties and corporate gifting.',
-  },
+  }),
 };
 
 const OCCASIONS = [

@@ -4,6 +4,8 @@ import { BRAND_NAME, SITE_URL, PHONE_E164 } from '@/lib/constants';
 import { ALL_SERVICE_AREAS } from '@/data/service-areas';
 import { FAQS } from '@/data/faq';
 import { ACTIVE_PICKUP_LOCATIONS } from '@/data/products';
+import type { PickupLocation } from '@/types';
+import { isPickupClosedDate } from '@/lib/pickup-date';
 
 const DEFAULT_DESCRIPTION = 'Authentic South Indian sweets and pickles made fresh in Dallas, TX. Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & more, with DFW pickup and shipping across the contiguous United States.';
 
@@ -54,6 +56,59 @@ export function createMetadata(params: {
   };
 }
 
+/** The picture every page shares with (WhatsApp, Instagram, iMessage, X): the logo. */
+export const SHARE_IMAGE = { url: '/images/brand/logo.png', width: 360, height: 354, alt: 'Amamma Jaadi logo' };
+
+/**
+ * Link-preview tags for one page. A page's `openGraph`/`twitter` replace the
+ * root layout's wholesale, so the shared fields and the image are repeated here.
+ * The logo is square, so X gets the small `summary` card (a large card would
+ * crop it).
+ */
+export function pageShareMetadata(params: { path: string; title: string; description: string }): Pick<Metadata, 'openGraph' | 'twitter'> {
+  const { title, description } = params;
+  return {
+    openGraph: {
+      type: 'website',
+      locale: 'en_US',
+      siteName: BRAND_NAME,
+      url: `${SITE_URL}${params.path}`,
+      title,
+      description,
+      images: [SHARE_IMAGE],
+    },
+    twitter: { card: 'summary', title, description, images: [SHARE_IMAGE.url] },
+  };
+}
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+
+/** Days pickup is open, from the checkout calendar's rule (2026-10-04 was a Sunday). */
+const PICKUP_OPEN_DAYS = WEEKDAYS.filter((_, day) => !isPickupClosedDate(`2026-10-${String(4 + day).padStart(2, '0')}`));
+
+/** "6:30 PM" → "18:30"; "12:50 AM" → "00:50". */
+export function to24Hour(time: string): string {
+  const match = /^(\d{1,2}):(\d{2}) (AM|PM)$/.exec(time);
+  if (!match) throw new Error(`Unrecognised pickup time: ${time}`);
+  const hour = (Number(match[1]) % 12) + (match[3] === 'PM' ? 12 : 0);
+  return `${String(hour).padStart(2, '0')}:${match[2]}`;
+}
+
+function pickupHoursSchema(from: string, until: string) {
+  // A closing time before the opening time means after midnight, which Google reads correctly.
+  return { '@type': 'OpeningHoursSpecification', dayOfWeek: PICKUP_OPEN_DAYS, opens: from, closes: until };
+}
+
+/** Minutes after the 6 PM day start, so 1:30 AM sorts after 10:25 PM. */
+const lateness = (time24: string) => (Number(time24.slice(0, 2)) * 60 + Number(time24.slice(3)) + 6 * 60) % (24 * 60);
+
+/** The business is open from the earliest pickup opening to the latest pickup closing. */
+function businessHoursSchema(locations: readonly Pick<PickupLocation, 'pickupHours'>[]) {
+  const opens = locations.map((l) => to24Hour(l.pickupHours.from)).sort((a, b) => lateness(a) - lateness(b))[0];
+  const closes = locations.map((l) => to24Hour(l.pickupHours.until)).sort((a, b) => lateness(b) - lateness(a))[0];
+  return pickupHoursSchema(opens, closes);
+}
+
 export function getLocalBusinessSchema() {
   return {
     '@context': 'https://schema.org',
@@ -86,6 +141,7 @@ export function getLocalBusinessSchema() {
     hasPOS: ACTIVE_PICKUP_LOCATIONS.map((loc) => ({
       '@type': 'Place',
       name: loc.name,
+      openingHoursSpecification: pickupHoursSchema(to24Hour(loc.pickupHours.from), to24Hour(loc.pickupHours.until)),
       address: {
         '@type': 'PostalAddress',
         streetAddress: loc.address,
@@ -97,12 +153,8 @@ export function getLocalBusinessSchema() {
     })),
     servesCuisine: ['South Indian', 'Telugu', 'Andhra', 'Indian Sweets'],
     priceRange: '$$',
-    openingHoursSpecification: {
-      '@type': 'OpeningHoursSpecification',
-      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-      opens: '18:30',
-      closes: '00:45',
-    },
+    // Pickup hours: closed Tuesdays, each location's own window on hasPOS.
+    openingHoursSpecification: businessHoursSchema(ACTIVE_PICKUP_LOCATIONS),
     sameAs: [
       'https://www.instagram.com/AMAMMA_JAADI',
     ],

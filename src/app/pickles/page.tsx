@@ -2,18 +2,18 @@ import type { Metadata } from 'next';
 import { getProductsByCategory } from '@/data/products';
 import PickleCard from '@/components/product/PickleCard';
 import JsonLd from '@/components/JsonLd';
-import { getProductListSchema } from '@/lib/seo';
+import { getProductListSchema, pageShareMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'Pickles — Authentic Andhra Non-Veg Pickles',
   description:
     'Order authentic Andhra chicken, gongura chicken, mutton & prawns pickles in 12oz glass jars. Made with cold-pressed sesame oil and traditional spices. Available in Dallas, TX.',
   alternates: { canonical: 'https://amammajaadi.com/pickles' },
-  openGraph: {
-    url: 'https://amammajaadi.com/pickles',
+  ...pageShareMetadata({
+    path: '/pickles',
     title: 'Pickles — Authentic Andhra Non-Veg Pickles',
     description: 'Authentic Andhra chicken, gongura chicken, mutton and prawns pickles made with traditional spices.',
-  },
+  }),
 };
 
 export default function PicklesPage() {
