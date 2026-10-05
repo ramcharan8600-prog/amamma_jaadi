@@ -105,7 +105,20 @@ describe('scheduled Worker recovery wiring', () => {
     await dependencies.finalize!(f.db, session, 'test-payment');
     expect(mocks.finalize).toHaveBeenCalledExactlyOnceWith(f.db, session, 'test-payment', { emailQueue: f.env.EMAIL_QUEUE });
     await expect(Promise.all(f.pending)).resolves.toEqual([undefined, undefined]);
-    expect(worker.fetch).toBe(mocks.fetch);
+    f.sqlite.close();
+  });
+
+  it('serves requests through the generated Worker but sends www page views to the bare domain', async () => {
+    const f = fixture();
+    const call = (url: string, method = 'GET') =>
+      worker.fetch(new Request(url, { method }) as unknown as Parameters<typeof worker.fetch>[0], f.env, f.ctx);
+
+    expect(await (await call('https://amammajaadi.com/sweets')).text()).toBe('mock generated Worker');
+    const www = await call('https://www.amammajaadi.com/sweets?x=1');
+    expect(www.status).toBe(301);
+    expect(www.headers.get('Location')).toBe('https://amammajaadi.com/sweets?x=1');
+    expect(await (await call('https://www.amammajaadi.com/api/payments/process', 'POST')).text()).toBe('mock generated Worker');
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
     f.sqlite.close();
   });
 

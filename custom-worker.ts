@@ -15,11 +15,13 @@ import type {
   ExecutionContext,
   ExportedHandler,
   MessageBatch,
+  Response as WorkerResponse,
   ScheduledController,
 } from '@cloudflare/workers-types';
 import { recoverPendingPaymentAttempts } from './src/lib/payment-attempts';
 import { executeSquarePaymentRequest } from './src/lib/square';
 import { createOrderFromSession } from './src/lib/order-service';
+import { canonicalHostRedirect } from './src/lib/canonical-host';
 
 type WorkerEnv = EmailWorkerEnv & Pick<WorkerBindings,
   'SQUARE_ENVIRONMENT' | 'NEXT_PUBLIC_SQUARE_LOCATION_ID' | 'NEXT_PUBLIC_SQUARE_APP_ID' | 'EMAIL_PROVIDER'
@@ -30,7 +32,11 @@ type WorkerEnv = EmailWorkerEnv & Pick<WorkerBindings,
 };
 
 export default {
-  fetch: handler.fetch,
+  fetch(request, env, ctx) {
+    // Same runtime Response; only the DOM and Workers typings differ.
+    const redirect = canonicalHostRedirect(request) as unknown as WorkerResponse | null;
+    return redirect ?? handler.fetch(request, env, ctx);
+  },
 
   async queue(
     batch: MessageBatch<EmailQueueMessage>,
