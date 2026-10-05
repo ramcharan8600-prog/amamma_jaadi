@@ -849,7 +849,7 @@ describe('nationwide pickle-only delivery', () => {
 
   it.each([
     ['TX', '$2.99', '$50.99', 'Shipping (estimated 1 business day after dispatch)'],
-    ['OK', '$3.99', '$51.99', 'Express shipping (2-day ETA)'],
+    ['OK', '$4.99', '$52.99', 'Express shipping (2-day ETA)'],
   ])('ships the Mini Combo Pack to %s for %s', async (state, shipping, total, label) => {
     useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1);
     await enterDeliveryDetails(state);

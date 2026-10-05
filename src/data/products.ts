@@ -13,7 +13,7 @@ import { Product, PickupLocation, ProductCategory } from '@/types';
 // Product Catalog — Amamma Jaadi
 // ============================================================
 
-/** The $48 Mini Combo Pack: a box-only cart ships $2.99 in Texas, $3.99 to nearby states. */
+/** The $48 Mini Combo Pack: a box-only cart ships $2.99 in Texas, $4.99 to nearby states. */
 export const MINI_COMBO_PACK_PRODUCT_ID = 'gift-box-mini-combo';
 
 export const PRODUCTS: Product[] = [
@@ -251,7 +251,7 @@ export const PRODUCTS: Product[] = [
     slug: 'mini-combo-pack',
     name: 'Mini Combo Pack - #Delivery',
     description:
-      'Our combo gift box for delivery: 8 Guntur Malpuri + 8 Nellore Malai Khaja (16 pieces) in a desi-style matt-finish box. Ships within Texas for $2.99 and to nearby states for $3.99. Free pickup is available too.',
+      'Our combo gift box for delivery: 8 Guntur Malpuri + 8 Nellore Malai Khaja (16 pieces) in a desi-style matt-finish box. Ships within Texas for $2.99 and to nearby states for $4.99. Free pickup is available too.',
     category: 'gift-boxes',
     unitPrice: 48,
     image: '/images/web/texas-limited-gift-box-closed.webp',

@@ -229,7 +229,7 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'mini-combo';
  * - Only the Assorted Box: Texas $6.99, nearby states $8.99, far states $9.99.
  *   The Bobbatlu Taste Pack add-on ships with the box at the box's rate.
  * - Only the Mini Combo Pack (advertised, not quiet): Texas $2.99, nearby
- *   states $3.99, per order. It isn't delivered to far states.
+ *   states $4.99, per order. It isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;

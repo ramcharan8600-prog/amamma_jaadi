@@ -583,11 +583,11 @@ describe('Mini Combo Pack shipping', () => {
     expect(groundShippingKind([mini, { productId: 'sweet-malpuri' }])).toBeUndefined();
   });
 
-  it('ships $2.99 in Texas and $3.99 to nearby states, per order', () => {
+  it('ships $2.99 in Texas and $4.99 to nearby states, per order', () => {
     expect(quote('TX').shipping).toBe(2.99);
     expect(quote('TX', 96).shipping).toBe(2.99);
-    expect(quote('OK').shipping).toBe(3.99);
-    expect(quote('IA', 144).shipping).toBe(3.99);
+    expect(quote('OK').shipping).toBe(4.99);
+    expect(quote('IA', 144).shipping).toBe(4.99);
     // Texas $120+ ($3.99) never raises the cheaper box rate.
     expect(quote('TX', 144).shipping).toBe(2.99);
   });
