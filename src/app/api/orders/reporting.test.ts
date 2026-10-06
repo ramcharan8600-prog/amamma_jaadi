@@ -46,3 +46,20 @@ it('does not flag a matching order number from a different database or a mismatc
   fixture.sqlite.exec(migration);
   expect(fixture.sqlite.prepare('SELECT COUNT(*) n FROM order_reporting_exclusions').get()?.n).toBe(0);
 });
+
+it('filters the admin list to delivery orders, alone or with a shipment status', async () => {
+  const insert = fixture.sqlite.prepare(`INSERT INTO orders
+    (id,order_number,customer_name,phone_number,order_type,pickup_location,shipment_status,total_price,payment_status)
+    VALUES (?,?,'Test','555',?,?,?,40,'paid')`);
+  insert.run('p1', 'AJ-P1', 'pickup', 'plano-biryanify', 'yet_to_ship');
+  insert.run('d1', 'AJ-D1', 'delivery', null, 'yet_to_ship');
+  insert.run('d2', 'AJ-D2', 'delivery', null, 'shipped');
+  const ids = async (query: string) => {
+    const response = await GET(new NextRequest(`https://shop.test/api/orders?filter=all&${query}`));
+    expect(response.status).toBe(200);
+    return (await response.json()).orders.map((order: { id: string }) => order.id).sort();
+  };
+  expect(await ids('pickupLocation=delivery')).toEqual(['d1', 'd2']);
+  expect(await ids('pickupLocation=delivery&shipmentStatus=yet_to_ship')).toEqual(['d1']);
+  expect(await ids('pickupLocation=plano-biryanify')).toEqual(['p1']);
+});

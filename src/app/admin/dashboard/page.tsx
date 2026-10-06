@@ -27,6 +27,8 @@ interface ProductionItem {
 }
 
 type FilterType = 'today' | 'tomorrow' | 'future' | 'completed' | 'all';
+/** Location filter value for every delivery order (pickup location ids never use it). */
+const DELIVERY_ORDERS = 'delivery';
 type ShipmentColumnFilter = 'all' | 'pickup' | ShipmentStatus;
 
 /** Orders shown per page in the orders table. */
@@ -80,7 +82,9 @@ export default function AdminDashboardPage() {
         ) return false;
       }
 
-      if (pickupLocationFilter && order.pickup_location !== pickupLocationFilter) return false;
+      if (pickupLocationFilter === DELIVERY_ORDERS) {
+        if (order.order_type !== 'delivery') return false;
+      } else if (pickupLocationFilter && order.pickup_location !== pickupLocationFilter) return false;
       return true;
     }),
     [orders, dateFilter, shipmentFilter, pickupLocationFilter]
@@ -316,7 +320,8 @@ export default function AdminDashboardPage() {
     if (!canChangeView()) return;
     setShipmentFilter(value);
     if (value !== 'all') {
-      if (value !== 'pickup') {
+      // Delivery statuses fit "Delivery orders" but not a pickup location; pickup fits neither delivery.
+      if (value === 'pickup' ? pickupLocationFilter === DELIVERY_ORDERS : pickupLocationFilter !== DELIVERY_ORDERS) {
         setPickupLocationFilter('');
       }
       setFilter('all');
@@ -327,7 +332,8 @@ export default function AdminDashboardPage() {
     if (!canChangeView()) return;
     setPickupLocationFilter(value);
     if (value) {
-      if (shipmentFilter !== 'all' && shipmentFilter !== 'pickup') {
+      const keepsShipmentFilter = value === DELIVERY_ORDERS ? shipmentFilter !== 'pickup' : shipmentFilter === 'pickup';
+      if (shipmentFilter !== 'all' && !keepsShipmentFilter) {
         setShipmentFilter('all');
       }
       setFilter('all');
@@ -549,17 +555,18 @@ export default function AdminDashboardPage() {
           </label>
           <label className="block">
             <span className="block font-body text-xs font-semibold text-brand-charcoal/60 mb-1.5">
-              Pickup location
+              Pickup location / delivery
             </span>
             <select
               value={pickupLocationFilter}
               onChange={(event) => changePickupLocationFilter(event.target.value)}
               className="input-field py-2 text-sm"
             >
-              <option value="">All pickup locations</option>
+              <option value="">All orders</option>
               {PICKUP_LOCATIONS.map((location) => (
                 <option key={location.id} value={location.id}>{location.name}</option>
               ))}
+              <option value={DELIVERY_ORDERS}>Delivery orders</option>
             </select>
           </label>
           <button

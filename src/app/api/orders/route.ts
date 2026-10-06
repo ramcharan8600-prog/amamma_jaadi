@@ -118,7 +118,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (pickupLocation) {
+    if (pickupLocation === 'delivery') {
+      // The admin "Delivery orders" choice in the same location filter.
+      where.push("order_type = 'delivery'");
+    } else if (pickupLocation) {
       const knownLocation = PICKUP_LOCATIONS.some((location) => location.id === pickupLocation);
       if (!knownLocation) return fail('Invalid pickup location filter', 400);
       where.push("order_type = 'pickup'");
