@@ -145,13 +145,14 @@ export default function HomePage() {
                 href="/sweets"
                 className="card group cursor-pointer"
               >
-                <div className="relative aspect-[4/3] overflow-hidden">
+                {/* Same fit as the Sweets page: tall photos (Malpuri) show whole, not cropped. */}
+                <div className="relative aspect-[4/3] overflow-hidden bg-brand-cream">
                   <Image
                     src={product.image}
                     alt={product.name}
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    className={`${product.imageFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
                   />
                 </div>
                 <div className="p-5">
