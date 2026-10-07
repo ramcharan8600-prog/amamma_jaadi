@@ -25,9 +25,7 @@ import {
   SHIPPING_FAR,
   SHIPPING_GROUND_OUT_OF_STATE,
   SHIPPING_ASSORTED_BOX_NEARBY,
-  SHIPPING_MINI_COMBO_TX,
   SHIPPING_MINI_COMBO_NEARBY,
-  SHIPPING_MINI_COMBO_TX_MIXED,
   SHIPPING_MALAI_KHAJA_50,
   SHIPPING_MALAI_KHAJA_FAR_25,
 } from '@/lib/constants';
@@ -231,9 +229,8 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'mini-combo';
  * - Only Malai Khaja: the lower of $9.99 and the regular rate.
  * - Only the Assorted Box: Texas $6.99, nearby states $8.99, far states $9.99.
  *   The Bobbatlu Taste Pack add-on ships with the box at the box's rate.
- * - Only the Mini Combo Pack (advertised, not quiet): free in Texas (any Texas
- *   order containing it ships free), nearby
- *   states $3.99, per order. It isn't delivered to far states.
+ * - Only the Mini Combo Pack (advertised, not quiet): regular Texas rates; nearby
+ *   states the lower of $9.99 and the regular rate. It isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
@@ -246,10 +243,7 @@ export function groundShippingKind(items: ReadonlyArray<{ productId: string }>):
   return undefined;
 }
 
-/**
- * Orders containing the Mini Combo Pack never pay the coupon's operational fee,
- * and in Texas they ship free, mixed or not.
- */
+/** Orders containing the Mini Combo Pack never pay the coupon's operational fee. */
 export function containsMiniComboPack(items: ReadonlyArray<{ productId: string }>): boolean {
   return items.some(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID);
 }
@@ -342,10 +336,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else if (opts.groundShipping === 'assorted-box' && !opts.picklesOnly && zone !== 'texas') {
       // The Assorted Box is a flat $8.99 to nearby states and $9.99 to far ones.
       regularShipping = zone === 'nearby' ? SHIPPING_ASSORTED_BOX_NEARBY : SHIPPING_GROUND_OUT_OF_STATE;
-    } else if (opts.groundShipping === 'mini-combo' && !opts.picklesOnly && zone !== 'far') {
-      regularShipping = zone === 'texas' ? SHIPPING_MINI_COMBO_TX : SHIPPING_MINI_COMBO_NEARBY;
-    } else if (opts.miniComboPack && zone === 'texas') {
-      regularShipping = SHIPPING_MINI_COMBO_TX_MIXED;
+    } else if (opts.groundShipping === 'mini-combo' && !opts.picklesOnly && zone === 'nearby') {
+      regularShipping = Math.min(regularShipping, SHIPPING_MINI_COMBO_NEARBY);
     }
   }
   const coupon = opts.shippingCoupon;

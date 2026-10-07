@@ -577,8 +577,9 @@ describe('deliveryService', () => {
 
 describe('Mini Combo Pack shipping', () => {
   const mini = { productId: 'gift-box-mini-combo' };
-  const quote = (state: string, subtotal = 48, items = [mini]) => calculateShippingQuote(subtotal, {
+  const quote = (state: string, subtotal = 40, items = [mini]) => calculateShippingQuote(subtotal, {
     fulfillmentType: 'delivery', deliveryState: state, groundShipping: groundShippingKind(items),
+    miniComboPack: containsMiniComboPack(items),
   });
 
   it('is its own box-only rate; mixing with anything restores regular rates', () => {
@@ -587,27 +588,27 @@ describe('Mini Combo Pack shipping', () => {
     expect(groundShippingKind([mini, { productId: 'sweet-malpuri' }])).toBeUndefined();
   });
 
-  it('ships free in Texas and $3.99 to nearby states, per order', () => {
-    expect(quote('TX').shipping).toBe(0);
-    expect(quote('TX', 96).shipping).toBe(0);
-    expect(quote('OK').shipping).toBe(3.99);
-    expect(quote('IA', 144).shipping).toBe(3.99);
-    // Texas $100+ ($2.99) never raises the cheaper (free) box rate.
-    expect(quote('TX', 144).shipping).toBe(0);
-  });
-
-  it('never adds the coupon\'s $0.99 operational fee to an already-free Texas box', () => {
-    const q = calculateShippingQuote(96, {
-      fulfillmentType: 'delivery', deliveryState: 'TX', groundShipping: 'mini-combo',
-      shippingCoupon: { minSubtotal: 60, shippingPolicy: 'texas_v3' },
-    });
-    expect(q).toMatchObject({ shipping: 0, couponSavings: 0 });
-    expect(q.maintenanceFee).toBeUndefined();
+  it('ships $6.99 in Texas (regular tiers) and $9.99 to nearby states, or less when the regular rate is lower', () => {
+    expect(quote('TX').shipping).toBe(6.99);
+    expect(quote('TX', 80).shipping).toBe(6.99);
+    expect(quote('TX', 120).shipping).toBe(3.99);
+    expect(quote('OK').shipping).toBe(9.99);
+    expect(quote('IA', 80).shipping).toBe(8.99);
+    expect(quote('GA', 120).shipping).toBe(7.99);
   });
 
   it('uses regular rates when mixed', () => {
-    expect(quote('TX', 88, [mini, { productId: 'sweet-malpuri' }]).shipping).toBe(6.99);
-    expect(quote('OK', 88, [mini, { productId: 'sweet-malpuri' }]).shipping).toBe(8.99);
+    expect(quote('TX', 80, [mini, { productId: 'sweet-malpuri' }]).shipping).toBe(6.99);
+    expect(quote('OK', 80, [mini, { productId: 'sweet-malpuri' }]).shipping).toBe(8.99);
+  });
+
+  it('takes a Texas shipping coupon without the $0.99 operational fee', () => {
+    const q = calculateShippingQuote(80, {
+      fulfillmentType: 'delivery', deliveryState: 'TX', groundShipping: 'mini-combo', miniComboPack: true,
+      shippingCoupon: { minSubtotal: 60, shippingPolicy: 'texas_v3' },
+    });
+    expect(q).toMatchObject({ shipping: 0, couponSavings: 6.99 });
+    expect(q.maintenanceFee).toBeUndefined();
   });
 });
 
@@ -650,7 +651,7 @@ describe('containsMiniComboPack', () => {
       fulfillmentType: 'delivery', deliveryState: 'TX', groundShipping: groundShippingKind(items),
       miniComboPack: true, shippingCoupon: { minSubtotal: 60, shippingPolicy: 'texas_v3' },
     });
-    expect(q).toMatchObject({ shipping: 0, couponSavings: 0 });
+    expect(q).toMatchObject({ shipping: 0, couponSavings: 6.99 });
     expect(q.maintenanceFee).toBeUndefined();
   });
 });
@@ -659,19 +660,16 @@ describe('Texas orders with the Mini Combo Pack plus other items', () => {
   const quote = (subtotal: number, extra: Partial<Parameters<typeof calculateShippingQuote>[1]> = {}) =>
     calculateShippingQuote(subtotal, { fulfillmentType: 'delivery', deliveryState: 'TX', miniComboPack: true, ...extra });
 
-  it('ship free at any subtotal', () => {
-    expect(quote(88).shipping).toBe(0);
-    expect(quote(110).shipping).toBe(0);
-    expect(quote(150).shipping).toBe(0);
+  it('pay the regular Texas rates', () => {
+    expect(quote(80).shipping).toBe(6.99);
+    expect(quote(110).shipping).toBe(4.99);
+    expect(quote(150).shipping).toBe(3.99);
+    expect(calculateShippingQuote(80, { fulfillmentType: 'delivery', deliveryState: 'OK', miniComboPack: true }).shipping).toBe(8.99);
   });
 
-  it('keeps nearby-state rates normal', () => {
-    expect(calculateShippingQuote(88, { fulfillmentType: 'delivery', deliveryState: 'OK', miniComboPack: true }).shipping).toBe(8.99);
-  });
-
-  it('take no coupon and no operational fee', () => {
-    const q = quote(88, { shippingCoupon: { minSubtotal: 60, shippingPolicy: 'texas_v3' } });
-    expect(q).toMatchObject({ shipping: 0, couponSavings: 0 });
+  it('ship free with a Texas coupon, without the operational fee', () => {
+    const q = quote(80, { shippingCoupon: { minSubtotal: 60, shippingPolicy: 'texas_v3' } });
+    expect(q).toMatchObject({ shipping: 0, couponSavings: 6.99 });
     expect(q.maintenanceFee).toBeUndefined();
   });
 });
