@@ -252,7 +252,7 @@ export const PRODUCTS: Product[] = [
     slug: 'mini-combo-pack',
     name: 'Mini Combo Pack - #Delivery',
     description:
-      'Our combo gift box for delivery: 8 Guntur Malpuri + 8 Nellore Malai Khaja (16 pieces) in a desi-style matt-finish box. Ships within Texas for $6.99 and to nearby states for $9.99. Free pickup is available too.',
+      'Our combo gift box for delivery: 8 Guntur Malpuri + 8 Nellore Malai Khaja (16 pieces) in a desi-style matt-finish box. Free pickup is available too.',
     category: 'gift-boxes',
     unitPrice: 40,
     image: '/images/web/texas-limited-gift-box-closed.webp',
