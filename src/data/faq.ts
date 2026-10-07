@@ -53,7 +53,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'Pickle-only orders have no minimum order value. Shipping is a flat $6.99 for any number of jars throughout the contiguous United States and Washington, DC. Orders containing sweets, including mixed orders, follow these regional rates: $6.99 within Texas; $10.99 below $60, $8.99 at $60 or more, or $7.99 at $100 or more to Alabama, Arkansas, Colorado, Florida, Georgia, Illinois, Iowa, Kansas, Louisiana, Mississippi, Missouri, Nebraska, New Mexico, Oklahoma, and Tennessee; and a flat $11.99 with a $60 minimum merchandise subtotal to all other contiguous states and Washington, DC. Texas deliveries of $100 or more ship for $4.99, and $120 or more for $3.99. The $30 Sweet Memories gift box is pickup only. The $40 Mini Combo Pack (8 Malpuri + 8 Malai Khaja) ships for $6.99 within Texas and $9.99 to nearby states. Alaska and Hawaii require a manual quote. The exact fee is shown before payment, and pickup is always free.',
+      'Our sweets are made fresh with no preservatives. We take intensive care to ship your order within 2 days of transit time, so the system calculates the shipping fee from your distance to Dallas. This is to ensure you enjoy our delicious sweets **fresh**. Thanks for understanding.',
   },
   {
     question: 'Will you send me emails?',

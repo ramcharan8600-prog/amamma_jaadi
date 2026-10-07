@@ -8,6 +8,7 @@ import { ACTIVE_PICKUP_LOCATIONS } from '@/data/products';
 import { FAQS } from '@/data/faq';
 import JsonLd from '@/components/JsonLd';
 import { getFaqSchema, pageShareMetadata } from '@/lib/seo';
+import { renderDescription } from '@/lib/description';
 
 // Italic Playfair is used only for the quote below, so only this page loads it.
 const playfairItalic = Playfair_Display({ subsets: ['latin'], style: 'italic', display: 'swap' });
@@ -207,7 +208,7 @@ export default function AboutPage() {
                   </span>
                 </summary>
                 <p className="font-body text-sm text-brand-charcoal/70 leading-relaxed mt-3">
-                  {faq.answer}
+                  {renderDescription(faq.answer)}
                 </p>
               </details>
             ))}

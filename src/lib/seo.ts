@@ -173,7 +173,7 @@ export function getFaqSchema() {
     mainEntity: FAQS.map((f) => ({
       '@type': 'Question',
       name: f.question,
-      acceptedAnswer: { '@type': 'Answer', text: f.answer },
+      acceptedAnswer: { '@type': 'Answer', text: plainDescription(f.answer) },
     })),
   };
 }
