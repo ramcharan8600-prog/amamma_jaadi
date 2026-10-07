@@ -53,7 +53,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'How much is delivery?',
     answer:
-      'Our sweets are made fresh with no preservatives. We take intensive care to ship your order within 2 days of transit time, so the system calculates the shipping fee from your distance to Dallas. This is to ensure you enjoy our delicious sweets **fresh**. Thanks for understanding.',
+      `Our sweets are made fresh with no preservatives. We take intensive care to ship your order within 2 days of transit time, so the system calculates the shipping fee from your distance to Dallas. As you know, express shipping is expensive, so we contribute to the shipping charge and pass on only part of it. This is to ensure you enjoy our delicious sweets **fresh**. Pickle orders have no minimum order value, and pickup is free at our locations in ${PICKUP_CITIES}. Thanks for understanding.`,
   },
   {
     question: 'Will you send me emails?',
