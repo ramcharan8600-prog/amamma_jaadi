@@ -43,7 +43,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'Do you cater sweets for weddings, parties and corporate events?',
     answer:
-      'Yes. We supply sweets in bulk for weddings, engagements, birthdays, baby showers, housewarmings, festivals, temple events and corporate gifting across DFW. Event orders have a 100 piece minimum and need at least 2 days notice. Submit an enquiry on our Events page and we will call you back within 24 hours with pricing.',
+      'Yes. We supply sweets in bulk for weddings, engagements, birthdays, baby showers, housewarmings, festivals, temple events and corporate gifting across DFW. Event orders have a 75 piece minimum and need at least 2 days notice. Submit an enquiry on our Events page and we will call you back within 24 hours with pricing.',
   },
   {
     question: 'What ingredients do you use?',

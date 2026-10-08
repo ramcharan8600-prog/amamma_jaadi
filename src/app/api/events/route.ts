@@ -5,6 +5,7 @@ import { isEmailConfigured, sendEventInquiry } from '@/lib/email-service';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { sanitize } from '@/lib/sanitize';
 import { ok, fail } from '@/lib/api';
+import { EVENT_MIN_PIECES } from '@/lib/constants';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,8 +31,8 @@ export async function POST(request: NextRequest) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return fail('A valid email address is required', 400);
     }
-    if (isNaN(quantity) || quantity < 100) {
-      return fail('Minimum event order is 100 pieces', 400);
+    if (isNaN(quantity) || quantity < EVENT_MIN_PIECES) {
+      return fail(`Minimum event order is ${EVENT_MIN_PIECES} pieces`, 400);
     }
 
     const minDate = new Date();

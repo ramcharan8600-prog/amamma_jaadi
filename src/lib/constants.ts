@@ -80,3 +80,6 @@ export const SHIPPING_MINI_COMBO_TX = 3.99;
  */
 export const DELIVERY_QUEUE_NOTICE: string | null =
   'We are currently sold out for this week with delivery orders, and all new delivery orders will be prepared next week. As sweets are best enjoyed fresh, we dispatch sweets that are prepared on the same day. Thanks for all the love.';
+
+/** Smallest event (bulk) order, in pieces. The Events form and /api/events both use it. */
+export const EVENT_MIN_PIECES = 75;

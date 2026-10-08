@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CalendarHeart, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { PRODUCTS } from '@/data/products';
 import { getMinEventDate } from '@/lib/utils';
+import { EVENT_MIN_PIECES } from '@/lib/constants';
 
 const EVENT_TYPES = [
   'Wedding',
@@ -34,7 +35,7 @@ export default function EventsPage() {
   const [submitError, setSubmitError] = useState('');
 
   const quantityNum = parseInt(quantity) || 0;
-  const validQuantity = quantityNum >= 100;
+  const validQuantity = quantityNum >= EVENT_MIN_PIECES;
   const validDate = eventDate >= minDate;
 
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim());
@@ -215,15 +216,15 @@ export default function EventsPage() {
           <input
             id="event-quantity"
             type="number"
-            min={100}
+            min={EVENT_MIN_PIECES}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            placeholder="Minimum 100 pieces"
+            placeholder={`Minimum ${EVENT_MIN_PIECES} pieces`}
             className="input-field"
           />
           {quantity && !validQuantity && (
             <p className="text-red-500 text-xs mt-1">
-              Minimum order for events is 100 pieces.
+              Minimum order for events is {EVENT_MIN_PIECES} pieces.
             </p>
           )}
         </div>
@@ -276,7 +277,7 @@ export default function EventsPage() {
         </div>
 
         <div className="bg-brand-cream rounded-xl p-4 font-body text-xs text-brand-charcoal/60 space-y-1">
-          <p>• Minimum event order: 100 pieces</p>
+          <p>• Minimum event order: {EVENT_MIN_PIECES} pieces</p>
           <p>• Minimum 1–2 day advance notice required</p>
           <p>• Payment details will be shared after confirmation</p>
         </div>
