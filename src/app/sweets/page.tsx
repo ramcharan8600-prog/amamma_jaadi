@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
-import { getProductsByCategory } from '@/data/products';
+import { getProductById, getProductsByCategory } from '@/data/products';
 import SweetCard from '@/components/product/SweetCard';
+import GiftBoxCard from '@/components/product/GiftBoxCard';
 import JsonLd from '@/components/JsonLd';
 import { getProductListSchema, pageShareMetadata } from '@/lib/seo';
 
@@ -18,6 +19,9 @@ export const metadata: Metadata = {
 
 export default function SweetsPage() {
   const sweets = getProductsByCategory('sweets');
+  // The $30 Texas Limited Edition box also shows here. It is the same product as on
+  // Sweets Gift Packs (same cart line, stock and pickup-only rule), not a copy.
+  const pickupBox = getProductById('gift-box-sweet-memories');
 
   return (
     <div className="section-padding py-12 sm:py-16">
@@ -39,6 +43,7 @@ export default function SweetsPage() {
         {sweets.map((product, i) => (
           <SweetCard key={product.id} product={product} eager={i === 0} />
         ))}
+        {pickupBox && <GiftBoxCard product={pickupBox} />}
       </div>
     </div>
   );
