@@ -408,11 +408,12 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(ship(120, 'TX')).toBe(3.99);
   });
 
-  it('caps nearby states at $9.99 but keeps the cheaper $8.99 / $7.99 tiers', () => {
+  it('ships to nearby states for $9.99 under $60, then a flat $8.99 at any size', () => {
     expect(ship(40, 'FL')).toBe(9.99);
     expect(ship(59.99, 'OK')).toBe(9.99);
     expect(ship(60, 'GA')).toBe(8.99);
-    expect(ship(100, 'TN')).toBe(7.99);
+    expect(ship(100, 'TN')).toBe(8.99);
+    expect(ship(250, 'IA')).toBe(8.99);
   });
 
   it('ships to far states for $9.99 with no minimum', () => {
@@ -472,14 +473,17 @@ describe('pricing — Malai Khaja-only rates by total pieces', () => {
       groundShipping: 'malai-khaja', groundPieces }).shipping;
 
   it.each([
-    // [pieces, subtotal, Texas, nearby (GA), far (NY)]; Texas pays $3.99 from $120.
+    // [pieces, subtotal, Texas, nearby (GA), far (NY)]; Texas pays $3.99 from $120;
+    // nearby is $9.99 under $60, then a flat $8.99 at any size.
     [16, 40, 6.99, 9.99, 9.99],
+    [20, 50, 6.99, 9.99, 9.99],   // 16 + 4
+    [24, 60, 6.99, 8.99, 9.99],   // 16 + 8
     [25, 62.5, 6.99, 8.99, 8.99],
-    [50, 125, 3.99, 5.99, 5.99],
     [32, 80, 6.99, 8.99, 8.99],   // 2 × 16
-    [48, 120, 3.99, 7.99, 8.99],  // 3 × 16: nearby keeps the cheaper $100 tier
-    [50, 125, 3.99, 5.99, 5.99],  // 2 × 25
-    [100, 250, 3.99, 5.99, 5.99], // 2 × 50
+    [40, 100, 4.99, 8.99, 8.99],
+    [48, 120, 3.99, 8.99, 8.99],  // 3 × 16
+    [50, 125, 3.99, 8.99, 5.99],  // 2 × 25 or 1 × 50
+    [100, 250, 3.99, 8.99, 5.99], // 2 × 50
   ])('%i pieces ($%s): Texas $%s, nearby $%s, far $%s', (pieces, subtotal, tx, nearby, far) => {
     expect(ship(subtotal, 'TX', pieces)).toBe(tx);
     expect(ship(subtotal, 'GA', pieces)).toBe(nearby);

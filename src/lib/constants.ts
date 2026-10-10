@@ -70,6 +70,8 @@ export const SHIPPING_GROUND_OUT_OF_STATE = 9.99;
 /** Malai Khaja-only carts by total pieces: 50+ ship for $5.99 anywhere; 25+ ship to far states for $8.99. */
 export const SHIPPING_MALAI_KHAJA_50 = 5.99;
 export const SHIPPING_MALAI_KHAJA_FAR_25 = 8.99;
+/** Malai Khaja-only carts to a nearby state from $60 (any number of pieces); under $60 pay SHIPPING_GROUND_OUT_OF_STATE. */
+export const SHIPPING_MALAI_KHAJA_NEARBY = 8.99;
 /** Flat rate for an Assorted Box-only cart to a nearby state (far states pay SHIPPING_GROUND_OUT_OF_STATE). */
 export const SHIPPING_ASSORTED_BOX_NEARBY = 8.99;
 
