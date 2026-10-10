@@ -227,3 +227,9 @@ it('keeps the Bobbatlu Taste Pack off the product pages', () => {
   expect(calculateSweetPrice(pack, 8)).toBe(24);
   expect(getProductsByCategory('sweets').map(p => p.id)).not.toContain('sweet-bobbatlu-taste-pack');
 });
+
+it('asks for 1–2 days to prepare Kova without calling it a delivery delay', () => {
+  const kova = getProductById('sweet-kova')!;
+  expect(kova.prepNotice).toBe('Made fresh to order — pickup available from tomorrow. Please allow 1–2 days for preparation.');
+  expect(kova.prepNotice).not.toMatch(/delivery/i);
+});

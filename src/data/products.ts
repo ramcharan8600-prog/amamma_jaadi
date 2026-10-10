@@ -216,7 +216,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/web/pala-kova.webp',
     quantityOptions: [16, 25, 50],
     inStock: true,
-    prepNotice: 'Made fresh to order — pickup available from tomorrow. Allow 2 days for delivery preparation.',
+    prepNotice: 'Made fresh to order — pickup available from tomorrow. Please allow 1–2 days for preparation.',
     tags: ['traditional', 'andhra', 'milk-based'],
   },
 
