@@ -90,3 +90,35 @@ it('expands each day to its order numbers and items', async () => {
   await act(async () => toggle.click());
   expect(today.querySelector('ul[id$="-orders"]')).toBeNull();
 });
+
+it('limits the 3-day total to a chosen AJ order range, and resets to all orders', async () => {
+  await render();
+  const totalCard = card('Total for the next 3 days');
+  const [from, to] = [...totalCard.querySelectorAll('select')];
+  expect([...from.options].map((o) => o.value)).toEqual(['AJ-1001', 'AJ-1002', 'AJ-1003', 'AJ-1004']);
+  expect([from.value, to.value]).toEqual(['AJ-1001', 'AJ-1004']);
+  expect(totalCard.textContent).toContain('4 of 4 orders');
+  const choose = async (select: HTMLSelectElement, value: string) => act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, value);
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  // AJ-1002 to AJ-1003: the 6 + 6 box and the Bobbatlu order only.
+  await choose(from, 'AJ-1002');
+  await choose(to, 'AJ-1003');
+  expect(totalCard.textContent).toContain('2 of 4 orders');
+  expect(totalCard.textContent).toContain('6pcsMalpuri');
+  expect(totalCard.textContent).toContain('6pcsMalai Khaja');
+  expect(totalCard.textContent).toContain('10pcsBobbatlu');
+  // Day cards still show everything.
+  expect(card('Today').textContent).toContain('38pcsMalpuri');
+
+  // Picking the ends the other way round gives the same range.
+  await choose(from, 'AJ-1003');
+  await choose(to, 'AJ-1002');
+  expect(totalCard.textContent).toContain('2 of 4 orders');
+
+  await act(async () => [...totalCard.querySelectorAll('button')].find((b) => b.textContent === 'All orders')!.click());
+  expect(totalCard.textContent).toContain('4 of 4 orders');
+  expect(totalCard.textContent).toContain('38pcsMalpuri');
+});

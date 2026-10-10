@@ -16,6 +16,11 @@ function dayLabel(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+/** 1234 from "AJ-1234", for ordering and range checks. */
+function orderNo(orderNumber: string): number {
+  return Number(orderNumber.replace(/\D/g, '')) || 0;
+}
+
 function itemLabel(item: PlanOrder['items'][number]): string {
   return `${item.product_name}${item.selected_tier ? ` (${item.selected_tier} pcs)` : ''} × ${item.quantity}`;
 }
@@ -125,6 +130,9 @@ export default function ProductionPlanningPage() {
   const [plan, setPlan] = useState<ProductionPlan | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  // Order-number range for the 3-day total ('' = from the first / to the last).
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
 
   useEffect(() => {
     fetch('/api/auth')
@@ -160,7 +168,14 @@ export default function ProductionPlanningPage() {
   }
 
   const allOrders = plan ? [...plan.days.flatMap((day) => day.orders), ...plan.delivery] : [];
-  const total = productionSheet(allOrders.flatMap((order) => order.items));
+  const orderNumbers = [...new Set(allOrders.map((order) => order.order_number))].sort((a, b) => orderNo(a) - orderNo(b));
+  // The total covers the chosen AJ range (either end may be picked first; the range is inclusive).
+  const [low, high] = [rangeFrom || orderNumbers[0], rangeTo || orderNumbers.at(-1)]
+    .map((n) => (n ? orderNo(n) : 0))
+    .sort((a, b) => a - b);
+  const totalOrders = allOrders.filter((order) => orderNo(order.order_number) >= low && orderNo(order.order_number) <= high);
+  const total = productionSheet(totalOrders.flatMap((order) => order.items));
+  const ranged = Boolean(rangeFrom || rangeTo);
 
   return (
     <div className="section-padding py-8 sm:py-12">
@@ -188,6 +203,42 @@ export default function ProductionPlanningPage() {
             <p className="font-body text-xs text-brand-charcoal/60 mb-3">
               All pickups today, tomorrow and the day after, plus delivery orders waiting to ship. Pieces, including what goes inside boxes.
             </p>
+            {orderNumbers.length > 0 && (
+              <div className="flex flex-wrap items-end gap-3 mb-4">
+                <label className="font-body text-xs text-brand-charcoal/70">
+                  From order
+                  <select
+                    value={rangeFrom || orderNumbers[0]}
+                    onChange={(e) => setRangeFrom(e.target.value)}
+                    className="block mt-1 px-3 py-1.5 border border-gray-200 rounded-lg font-body text-sm bg-white"
+                  >
+                    {orderNumbers.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+                <label className="font-body text-xs text-brand-charcoal/70">
+                  To order
+                  <select
+                    value={rangeTo || orderNumbers.at(-1)}
+                    onChange={(e) => setRangeTo(e.target.value)}
+                    className="block mt-1 px-3 py-1.5 border border-gray-200 rounded-lg font-body text-sm bg-white"
+                  >
+                    {orderNumbers.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+                {ranged && (
+                  <button
+                    type="button"
+                    onClick={() => { setRangeFrom(''); setRangeTo(''); }}
+                    className="font-body text-sm font-semibold text-brand-maroon underline underline-offset-2 pb-1.5"
+                  >
+                    All orders
+                  </button>
+                )}
+                <p className="font-body text-sm text-brand-charcoal pb-1.5" aria-live="polite">
+                  {totalOrders.length} of {allOrders.length} orders
+                </p>
+              </div>
+            )}
             {total.sweets.length === 0 ? (
               <p className="font-body text-sm text-brand-charcoal/50">No sweets to make yet.</p>
             ) : (
