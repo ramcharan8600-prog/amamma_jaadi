@@ -919,7 +919,7 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).toContain('$50.99');
     expect(host.textContent).toContain('Standard shipping');
     expect(host.textContent).not.toContain('UPS 2nd Day Air');
-    expect(host.textContent).not.toContain(EXPRESS_SWEETS_NOTE);
+    expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
     expect(button('Continue to payment').disabled).toBe(false);
   });
 
@@ -935,11 +935,26 @@ describe('nationwide pickle-only delivery', () => {
     expect(tokenize).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['Texas sweets', 'TX', 'sweet-malpuri', 16],
+    ['Texas pickles only', 'TX', 'pickle-chicken', undefined],
+    ['nearby sweets', 'GA', 'sweet-malpuri', 16],
+    ['far sweets', 'NY', 'sweet-malpuri', 25],
+    ['far Malai Khaja only', 'NY', 'sweet-malai-khaja', 16],
+    ['far pickles only', 'CA', 'pickle-chicken', undefined],
+  ] as const)('shows the ghee / no-preservatives note on every delivery order (%s), through to payment', async (_label, state, productId, tier) => {
+    useCartStore.getState().addItem(getProductById(productId)!, 1, tier);
+    await enterDeliveryDetails(state);
+    expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
+    await click('Continue to payment');
+    expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
+  });
+
   it('keeps the Texas shipping estimate for pickle-only orders', async () => {
     useCartStore.getState().addItem(getProductById('pickle-chicken')!, 1);
     await enterDeliveryDetails('TX');
     expect(host.textContent).toContain('Shipping (estimated 1 business day after dispatch)');
-    expect(host.textContent).not.toContain(EXPRESS_SWEETS_NOTE);
+    expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
     await click('Continue to payment');
     expect(host.textContent).toContain('Shipping (estimated 1 business day after dispatch)');
   });

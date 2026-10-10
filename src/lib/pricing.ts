@@ -181,7 +181,7 @@ export function deliveryServiceLabel(
   return method === 'expedited' || method === 'ground' ? shippingMethodLabel(method) : DELIVERY_SERVICE_LABELS[service];
 }
 
-/** Shown under the shipping charge whenever sweets ship express (nearby or UPS 2nd Day Air). */
+/** Shown under the shipping charge on every delivery order (owner, 2026-10-10; was express-only). */
 export const EXPRESS_SWEETS_NOTE =
   'Our sweets have ZERO preservatives and are made with ghee, so express shipping is mandatory to enjoy them fresh and delicious. Thanks for understanding.';
 

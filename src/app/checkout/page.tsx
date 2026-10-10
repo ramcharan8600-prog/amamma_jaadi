@@ -50,7 +50,6 @@ import {
   deliveryService,
   deliveryServiceLabel,
   EXPRESS_SWEETS_NOTE,
-  isExpressDeliveryService,
   containsMiniComboPack,
 } from '@/lib/pricing';
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
@@ -407,7 +406,8 @@ export default function CheckoutPage() {
   const service = deliveryService(deliveryState, picklesOnly, groundShipping);
   const serviceLabel = deliveryServiceLabel(service);
   const expressSweetsNote = <p className="font-body text-xs text-brand-maroon">{EXPRESS_SWEETS_NOTE}</p>;
-  const showExpressNote = !!deliveryState.trim() && isExpressDeliveryService(service);
+  // The owner's ghee / no-preservatives note shows on every delivery order once a state is chosen.
+  const showExpressNote = !!deliveryState.trim();
   // Step 4 describes the delivery saved with the payment session.
   const paymentService = fulfillment?.type === 'delivery'
     ? deliveryService(fulfillment.state, picklesOnly, groundShipping)
@@ -1616,7 +1616,7 @@ export default function CheckoutPage() {
               <ShippingCharge label={deliveryServiceLabel(paymentService, sessionInfo.shippingMethod)}
                 shipping={sessionInfo.shipping} quote={sessionInfo.shippingQuote} />
             )}
-            {paymentService && isExpressDeliveryService(paymentService) && expressSweetsNote}
+            {paymentService && expressSweetsNote}
             <MaintenanceFee amount={sessionInfo.maintenanceFee} />
             <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
               <span>{SALES_TAX_LABEL}</span>
