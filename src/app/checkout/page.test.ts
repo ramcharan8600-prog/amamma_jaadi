@@ -33,6 +33,10 @@ let soldOutDates: string[] = [];
 let pausedZones: string[] = [];
 let kovaBobbatluStock = 0;
 const tokenize = vi.fn();
+const squareConfigOk = () => Response.json({
+  squareEnabled: true, squareAppId: 'test-app', squareLocationId: 'test-location', squareEnvironment: 'sandbox',
+});
+let squareConfig: () => Promise<Response> | Response = squareConfigOk;
 const destroy = vi.fn(async () => undefined);
 const completed = () => Response.json({ success: true, status: 'completed', orderNumber: 'AJ-1234' });
 const pending = () => Response.json({
@@ -60,6 +64,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
   if (url === '/api/checkout-log') return Response.json({ success: true });
   if (url === '/api/sold-out-dates') return Response.json({ dates: soldOutDates });
   if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones });
+  if (url === '/api/payments/config') return squareConfig();
   throw new Error(`Unexpected test request: ${url}`);
 });
 
@@ -173,6 +178,7 @@ beforeEach(() => {
   couponResult = async () => Response.json({ code: 'BONUS', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 });
   fetchMock.mockClear();
   tokenize.mockReset().mockResolvedValue({ status: 'OK', token: 'TEST_CARD_TOKEN' });
+  squareConfig = squareConfigOk;
   destroy.mockClear();
   paymentResult = async () => pending();
   verifyResult = async () => pending();
@@ -428,6 +434,83 @@ describe('checkout phone length', () => {
     expect(tokenize).toHaveBeenCalledWith(expect.objectContaining({
       billingContact: expect.objectContaining({ phone: '+12145550100' }),
     }));
+  });
+});
+
+describe('Square warm-up on the details step', () => {
+  function spySquare() {
+    const attach = vi.fn<(selector: string) => Promise<void>>(async () => undefined);
+    const card = vi.fn(async () => ({ attach, destroy, tokenize }));
+    const payments = vi.fn<(appId: string, locationId: string) => unknown>(() => ({
+      card,
+      paymentRequest: () => ({}),
+      applePay: async () => { throw new Error('Apple Pay unavailable in this test'); },
+    }));
+    vi.stubGlobal('Square', { payments });
+    return { payments, card, attach };
+  }
+
+  it('starts Square while the customer types their details, so the payment step only attaches it', async () => {
+    const square = spySquare();
+    await pickupDetails();
+    expect(calls('/api/payments/config')).toHaveLength(1);
+    expect(square.payments.mock.calls).toEqual([['test-app', 'test-location']]);
+    expect(square.card).toHaveBeenCalledTimes(1);
+    expect(square.attach).not.toHaveBeenCalled();
+    await pickDate('2026-09-11');
+    await click('Continue to payment');
+    expect(square.payments).toHaveBeenCalledTimes(1);
+    expect(square.card).toHaveBeenCalledTimes(1);
+    expect(square.attach.mock.calls).toEqual([['#square-card-container']]);
+    expect(button('Pay $40.00').disabled).toBe(false);
+    await click('Pay $40.00');
+    expect(tokenize).toHaveBeenCalledTimes(1);
+    expect(calls('/api/payments/create-payment')).toHaveLength(1);
+  });
+
+  it.each([
+    ['the config request fails', () => Response.json({ error: 'Unavailable' }, { status: 500 })],
+    ['the network drops', () => { throw new TypeError('Failed to fetch'); }],
+    ['card payments are switched off', () => Response.json({ squareEnabled: false, squareAppId: null, squareLocationId: null, squareEnvironment: 'sandbox' })],
+  ])('loads Square on the payment step as before when %s', async (_case, config) => {
+    squareConfig = config;
+    const square = spySquare();
+    await pickupDetails();
+    expect(square.payments).not.toHaveBeenCalled();
+    await pickDate('2026-09-11');
+    await click('Continue to payment');
+    expect(square.payments.mock.calls).toEqual([['test-app', 'test-location']]);
+    expect(square.attach).toHaveBeenCalledTimes(1);
+    await click('Pay $40.00');
+    expect(tokenize).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a warm-up for different Square details and uses the session's own", async () => {
+    squareConfig = () => Response.json({ squareEnabled: true, squareAppId: 'other-app', squareLocationId: 'test-location', squareEnvironment: 'sandbox' });
+    const square = spySquare();
+    await readyToPay();
+    expect(square.payments.mock.calls).toEqual([['other-app', 'test-location'], ['test-app', 'test-location']]);
+    expect(square.attach).toHaveBeenCalledTimes(1);
+  });
+
+  it('builds a fresh card form after going back from payment and returning', async () => {
+    const square = spySquare();
+    await readyToPay();
+    await click('Back');
+    expect(destroy).toHaveBeenCalledTimes(1);
+    await click('Continue to payment');
+    expect(square.payments).toHaveBeenCalledTimes(1);
+    expect(square.card).toHaveBeenCalledTimes(2);
+    expect(square.attach).toHaveBeenCalledTimes(2);
+    await click('Pay $40.00');
+    expect(tokenize).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws away an unused warm card when the customer leaves checkout', async () => {
+    spySquare();
+    await pickupDetails();
+    await unmount();
+    await vi.waitFor(() => expect(destroy).toHaveBeenCalledTimes(1));
   });
 });
 

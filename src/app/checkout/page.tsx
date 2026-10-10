@@ -61,6 +61,7 @@ import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
 import PickupDateCalendar from '@/components/checkout/PickupDateCalendar';
 import { SOLD_OUT_DATE_ERROR } from '@/lib/sold-out-dates';
+import { discardWarmSquare, loadSquareSdk, squareSdkUrl, takeWarmSquare, warmSquare, type SquareWarmup } from '@/lib/square-client';
 import {
   claimPendingPayment, classifyPaymentOutcome, forgetPendingPayment, PAYMENT_RESEND_DELAYS_MS,
   PENDING_PAYMENT_KEY, readPendingPayment, sendPaymentRequest, type PendingPayment,
@@ -240,6 +241,7 @@ export default function CheckoutPage() {
   }, [step, flushTrail]);
   const squareCardRef = useRef<SquareCard | null>(null);
   const applePayRef = useRef<SquareApplePay | null>(null);
+  const squareWarmRef = useRef<Promise<SquareWarmup | null> | null>(null);
 
   useEffect(() => {
     checkoutActive.current = true;
@@ -303,6 +305,18 @@ export default function CheckoutPage() {
     mark('payment_terminal', message);
   }, [fulfillment, mark]);
 
+  // Warm Square up (SDK + a card form) while the customer fills in their
+  // details, so the payment step opens in well under a second instead of ~2.8s.
+  useEffect(() => {
+    if (step === 'details' && !pendingPayment && !orderComplete && !squareWarmRef.current) {
+      squareWarmRef.current = warmSquare();
+    }
+  }, [step, pendingPayment, orderComplete]);
+  useEffect(() => () => {
+    discardWarmSquare(squareWarmRef.current);
+    squareWarmRef.current = null;
+  }, []);
+
   // Load the Square Web Payments SDK + mount card/Apple Pay on the payment step.
   useEffect(() => {
     if (pendingPayment || orderComplete || step !== 'payment' || !sessionInfo?.appId || !sessionInfo?.locationId) return;
@@ -311,37 +325,26 @@ export default function CheckoutPage() {
     // Which SDK to load comes from the session (runtime Cloudflare env), not a
     // build-time NEXT_PUBLIC_* value.
     const env = sessionInfo.environment === 'production' ? 'production' : 'sandbox';
-    const sdkUrl =
-      env === 'production'
-        ? 'https://web.squarecdn.com/v1/square.js'
-        : 'https://sandbox.web.squarecdn.com/v1/square.js';
-
-    const loadSdk = () =>
-      new Promise<void>((resolve, reject) => {
-        if (window.Square) return resolve();
-        const existing = document.querySelector<HTMLScriptElement>(`script[src="${sdkUrl}"]`);
-        if (existing) {
-          existing.addEventListener('load', () => resolve());
-          existing.addEventListener('error', () => reject(new Error('Square SDK failed to load')));
-          return;
-        }
-        const script = document.createElement('script');
-        script.src = sdkUrl;
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Square SDK failed to load'));
-        document.body.appendChild(script);
-      });
 
     const init = async () => {
       try {
         mark('payment_step', `env=${env}`);
-        await loadSdk();
-        if (cancelled || !window.Square) return;
-        mark('sdk_loaded');
-        const payments = window.Square.payments(sessionInfo.appId!, sessionInfo.locationId!);
+        // Use the warmed-up Square from the details step when it matches this session.
+        const warm = await takeWarmSquare(squareWarmRef.current,
+          { appId: sessionInfo.appId!, locationId: sessionInfo.locationId!, environment: env });
+        if (cancelled) {
+          warm?.card?.then((c) => c.destroy()).catch(() => {});
+          return;
+        }
+        let payments = warm?.payments;
+        if (!payments) {
+          await loadSquareSdk(squareSdkUrl(env));
+          if (cancelled || !window.Square) return;
+          payments = window.Square.payments(sessionInfo.appId!, sessionInfo.locationId!);
+        }
+        mark('sdk_loaded', warm ? 'warm' : 'cold');
 
-        const card = await payments.card();
+        const card = (warm?.card ? await warm.card.catch(() => null) : null) ?? await payments.card();
         if (cancelled) {
           await card.destroy().catch(() => {});
           return;
