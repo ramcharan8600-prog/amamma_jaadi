@@ -416,10 +416,10 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(ship(250, 'IA')).toBe(8.99);
   });
 
-  it('ships to far states for $9.99 with no minimum', () => {
+  it('ships to far states for a flat $10.99 with no minimum', () => {
     for (const state of ['NY', 'CA', 'WA', 'NC']) {
-      expect(ship(40, state)).toBe(9.99);
-      expect(ship(120, state)).toBe(9.99);
+      expect(ship(40, state)).toBe(10.99);
+      expect(ship(120, state)).toBe(10.99);
       expect(getDeliveryMinimumSubtotal(state, false, true)).toBe(0);
       expect(getDeliveryMinimumShortfall(40, state, false, true)).toBe(0);
     }
@@ -431,9 +431,9 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(getDeliveryMinimumShortfall(40, 'NY')).toBe(20);
   });
 
-  it('gives no shipping-coupon discount on the $9.99 rate', () => {
+  it('gives no shipping-coupon discount on the far-state $10.99 rate', () => {
     expect(calculateOrderTotals(50, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0, groundShipping: 'malai-khaja',
-      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'texas_v3' } }).shipping).toBe(9.99);
+      shippingCoupon: { minSubtotal: 50, shippingPolicy: 'texas_v3' } }).shipping).toBe(10.99);
   });
 });
 
@@ -473,17 +473,17 @@ describe('pricing — Malai Khaja-only rates by total pieces', () => {
       groundShipping: 'malai-khaja', groundPieces }).shipping;
 
   it.each([
-    // [pieces, subtotal, Texas, nearby (GA), far (NY)]; Texas pays $3.99 from $120;
-    // nearby is $9.99 under $60, then a flat $8.99 at any size.
-    [16, 40, 6.99, 9.99, 9.99],
-    [20, 50, 6.99, 9.99, 9.99],   // 16 + 4
-    [24, 60, 6.99, 8.99, 9.99],   // 16 + 8
-    [25, 62.5, 6.99, 8.99, 8.99],
-    [32, 80, 6.99, 8.99, 8.99],   // 2 × 16
-    [40, 100, 4.99, 8.99, 8.99],
-    [48, 120, 3.99, 8.99, 8.99],  // 3 × 16
-    [50, 125, 3.99, 8.99, 5.99],  // 2 × 25 or 1 × 50
-    [100, 250, 3.99, 8.99, 5.99], // 2 × 50
+    // [pieces, subtotal, Texas, nearby (GA), far (NY)]; Texas pays $4.99 from $100 and
+    // $3.99 from $120; nearby is $9.99 under $60, then a flat $8.99; far a flat $10.99.
+    [16, 40, 6.99, 9.99, 10.99],
+    [20, 50, 6.99, 9.99, 10.99],   // 16 + 4
+    [24, 60, 6.99, 8.99, 10.99],   // 16 + 8
+    [25, 62.5, 6.99, 8.99, 10.99],
+    [32, 80, 6.99, 8.99, 10.99],   // 2 × 16
+    [40, 100, 4.99, 8.99, 10.99],
+    [48, 120, 3.99, 8.99, 10.99],  // 3 × 16
+    [50, 125, 3.99, 8.99, 10.99],  // 2 × 25 or 1 × 50
+    [100, 250, 3.99, 8.99, 10.99], // 2 × 50
   ])('%i pieces ($%s): Texas $%s, nearby $%s, far $%s', (pieces, subtotal, tx, nearby, far) => {
     expect(ship(subtotal, 'TX', pieces)).toBe(tx);
     expect(ship(subtotal, 'GA', pieces)).toBe(nearby);

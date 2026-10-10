@@ -63,15 +63,14 @@ export const SHIPPING_NEARBY_100 = 7.99;
 export const SHIPPING_FAR = 11.99;
 
 /**
- * Out-of-state cap for carts holding only Malai Khaja, or only the Assorted
- * Box (shipped UPS Ground). No minimum applies. Deliberately not advertised.
+ * UPS Ground rate for a Malai Khaja-only cart to a nearby state under $60, and
+ * an Assorted Box-only cart to a far state. No minimum applies. Not advertised.
  */
 export const SHIPPING_GROUND_OUT_OF_STATE = 9.99;
-/** Malai Khaja-only carts by total pieces: 50+ ship for $5.99 anywhere; 25+ ship to far states for $8.99. */
-export const SHIPPING_MALAI_KHAJA_50 = 5.99;
-export const SHIPPING_MALAI_KHAJA_FAR_25 = 8.99;
 /** Malai Khaja-only carts to a nearby state from $60 (any number of pieces); under $60 pay SHIPPING_GROUND_OUT_OF_STATE. */
 export const SHIPPING_MALAI_KHAJA_NEARBY = 8.99;
+/** Malai Khaja-only carts to a far state: flat, any number of pieces, no minimum. */
+export const SHIPPING_MALAI_KHAJA_FAR = 10.99;
 /** Flat rate for an Assorted Box-only cart to a nearby state (far states pay SHIPPING_GROUND_OUT_OF_STATE). */
 export const SHIPPING_ASSORTED_BOX_NEARBY = 8.99;
 

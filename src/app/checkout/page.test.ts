@@ -911,12 +911,12 @@ describe('nationwide pickle-only delivery', () => {
     expect(pickupChoice.disabled).toBe(false);
   });
 
-  it('quietly ships a Malai Khaja-only cart out of state for $9.99 with no minimum', async () => {
+  it('quietly ships a Malai Khaja-only cart to a far state for a flat $10.99 with no minimum', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 16);
     await enterDeliveryDetails('NY');
     expect(host.textContent).not.toContain('A minimum product subtotal');
-    expect(host.textContent).toContain('$9.99');
-    expect(host.textContent).toContain('$49.99');
+    expect(host.textContent).toContain('$10.99');
+    expect(host.textContent).toContain('$50.99');
     expect(host.textContent).toContain('Standard shipping');
     expect(host.textContent).not.toContain('UPS 2nd Day Air');
     expect(host.textContent).not.toContain(EXPRESS_SWEETS_NOTE);

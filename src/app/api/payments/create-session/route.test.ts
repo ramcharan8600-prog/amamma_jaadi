@@ -285,8 +285,8 @@ describe('create-session retains approved shipping and gift-box rules', () => {
   it.each([
     ['TX', 6.99],
     ['FL', 9.99],
-    ['NY', 9.99],
-    ['CA', 9.99],
+    ['NY', 10.99],
+    ['CA', 10.99],
   ])('ships a Malai Khaja-only cart to %s for %s with no minimum', async (state, shipping) => {
     const response = await post(checkout([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16 }], delivery(state)));
     expect(response.status).toBe(201);
@@ -694,14 +694,14 @@ describe('far-state $60 minimum', () => {
 describe('Malai Khaja-only shipping by pack size', () => {
   const mk = (tier: number, quantity = 1) => ({ productId: 'sweet-malai-khaja', quantity, selectedTier: tier });
   it.each([
-    ['16 to NY', [mk(16)], 'NY', 9.99],
-    ['25 to NY', [mk(25)], 'NY', 8.99],
-    ['50 to NY', [mk(50)], 'NY', 5.99],
+    ['16 to NY (flat $10.99 far)', [mk(16)], 'NY', 10.99],
+    ['25 to NY', [mk(25)], 'NY', 10.99],
+    ['50 to NY', [mk(50)], 'NY', 10.99],
     ['16 to GA (under $60)', [mk(16)], 'GA', 9.99],
     ['25 to GA ($62.50)', [mk(25)], 'GA', 8.99],
     ['50 to GA (flat $8.99 nearby)', [mk(50)], 'GA', 8.99],
     ['50 to TX ($3.99 from $120)', [mk(50)], 'TX', 3.99],
-    ['2 x 25 to CA', [mk(25, 2)], 'CA', 5.99],
+    ['2 x 25 to CA', [mk(25, 2)], 'CA', 10.99],
     ['16 to TX', [mk(16)], 'TX', 6.99],
   ])('charges Malai Khaja %s at $%s', async (_name, items, state, shipping) => {
     const response = await post(checkout(items, delivery(String(state))));
