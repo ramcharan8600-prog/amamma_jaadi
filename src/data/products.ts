@@ -239,10 +239,11 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     pickupOnly: true,
     ribbon: '#Pick-up limited',
+    // The 6 + 6 mix is listed first, so the card opens on it.
     variantOptions: [
+      'Mix: 6 Malpuri + 6 Malai Khaja',
       '12 pcs Guntur Malpuri',
       '12 pcs Nellore Malai Khaja',
-      'Mix: 6 Malpuri + 6 Malai Khaja',
     ],
     renamedVariants: { 'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja': 'Mix: 6 Malpuri + 6 Malai Khaja' },
     tags: ['gifting', 'festival', 'celebrations'],

@@ -144,10 +144,11 @@ describe('lookups', () => {
   });
 
   it('gift box piece counts match the box size', () => {
+    // The $30 box opens on the 6 + 6 mix (first option); the others stay in the list.
     expect(getProductById('gift-box-sweet-memories')!.variantOptions).toEqual([
+      'Mix: 6 Malpuri + 6 Malai Khaja',
       '12 pcs Guntur Malpuri',
       '12 pcs Nellore Malai Khaja',
-      'Mix: 6 Malpuri + 6 Malai Khaja',
     ]);
     expect(getProductById('gift-box-party')!.variantOptions).toEqual([
       '20 pcs Guntur Malpuri',
