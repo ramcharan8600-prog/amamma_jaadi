@@ -18,6 +18,9 @@ import { getSalesTimeSeries, REVENUE_YEARS } from '@/lib/sales-analytics';
 import { toBusinessDateString } from '@/lib/date';
 import type { OrderRecord } from '@/types';
 import type { PickleStateSalesRow } from '@/lib/pickle-state-sales';
+
+/** Orders per request when loading every order for the charts (the API's largest page). */
+const ANALYTICS_PAGE_SIZE = 1000;
 import PickleStateSalesChart from './PickleStateSalesChart';
 
 /**
@@ -151,11 +154,19 @@ export default function AnalyticsPage() {
       setDataLoading(true);
       setDataError('');
       try {
-        const res = await fetch('/api/orders?filter=all', { cache: 'no-store', signal: controller.signal });
-        if (!res.ok) throw new Error('Order request failed');
-        const data = await res.json();
-        if (!Array.isArray(data.orders)) throw new Error('Invalid order response');
-        if (!controller.signal.aborted) setOrders(data.orders);
+        // Every order, a page at a time (the API pages; charts need all of them).
+        const all: OrderRecord[] = [];
+        for (let page = 1; ; page++) {
+          const res = await fetch(`/api/orders?filter=all&page=${page}&pageSize=${ANALYTICS_PAGE_SIZE}`, {
+            cache: 'no-store', signal: controller.signal,
+          });
+          if (!res.ok) throw new Error('Order request failed');
+          const data = await res.json();
+          if (!Array.isArray(data.orders)) throw new Error('Invalid order response');
+          all.push(...data.orders);
+          if (data.orders.length < ANALYTICS_PAGE_SIZE || all.length >= Number(data.total)) break;
+        }
+        if (!controller.signal.aborted) setOrders(all);
       } catch {
         if (!controller.signal.aborted) setDataError('Unable to load sales data. Please try again.');
       } finally {

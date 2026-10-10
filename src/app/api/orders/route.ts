@@ -2,10 +2,9 @@ import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
-import { businessDateOffset, businessDateUtcRange } from '@/lib/date';
 import { ok, fail } from '@/lib/api';
 import { sanitize } from '@/lib/sanitize';
-import { PICKUP_LOCATIONS } from '@/data/products';
+import { buildOrderFilters } from '@/lib/order-filters';
 import {
   isShipmentStatus,
   updateShipmentDetails,
@@ -28,6 +27,14 @@ function parseShipmentUpdate(value: unknown): ShipmentUpdate | null {
   return { orderId, shipmentStatus, trackingId: trackingId || null };
 }
 
+/** Largest page the API returns (analytics reads every order in pages this size). */
+const MAX_ORDERS_PAGE_SIZE = 1000;
+
+function boundedInt(value: string | null, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  return value !== null && Number.isSafeInteger(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
 async function isAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies();
   const session = cookieStore.get(SESSION_COOKIE);
@@ -35,7 +42,8 @@ async function isAuthenticated(): Promise<boolean> {
 }
 
 /**
- * GET /api/orders — Admin only: fetch paid and refunded orders.
+ * GET /api/orders — Admin only: one page of paid and refunded orders (newest
+ * first, `page` / `pageSize`) with the matching `total`.
  * Pending, failed, and canceled orders remain excluded.
  */
 export async function GET(request: NextRequest) {
@@ -46,102 +54,39 @@ export async function GET(request: NextRequest) {
 
   try {
     if (!isDbConfigured()) {
-      return ok({ orders: [] });
+      return ok({ orders: [], total: 0, page: 1, pageSize: 0 });
     }
 
     const { searchParams } = new URL(request.url);
-    const filter = searchParams.get('filter') || 'all';
-    // `pickupDate` remains accepted for compatibility with an open dashboard
-    // tab from the previous release; `date` covers both order types.
-    const dateFilter = sanitize(
-      searchParams.get('date') ?? searchParams.get('pickupDate'),
-      10
-    );
-    const shipmentStatusFilter = sanitize(searchParams.get('shipmentStatus'), 30);
-    const pickupLocation = sanitize(searchParams.get('pickupLocation'), 100);
+    const filters = buildOrderFilters(searchParams);
+    if ('error' in filters) return fail(filters.error, 400);
+    const { where, binds, orderBy } = filters;
+    // One page of orders, with the total so the dashboard can page through all
+    // of them. Without page/pageSize: the first 200 (an open tab from an older release).
+    const pageSize = boundedInt(searchParams.get('pageSize'), 1, MAX_ORDERS_PAGE_SIZE, 200);
+    const page = boundedInt(searchParams.get('page'), 1, 1_000_000, 1);
+    const offset = (page - 1) * pageSize;
     const db = getDb();
 
-    // Paid and refunded orders remain visible so the dashboard reflects Square.
-    const where = ["payment_status IN ('paid', 'partially_refunded', 'refunded')"];
-    const binds: unknown[] = [];
-    // Include a stable id tiebreaker so the order list and item subquery select
-    // the same 200 rows even when multiple orders share a timestamp.
-    let orderBy = 'created_at DESC, id DESC';
-
-    switch (filter) {
-      case 'today':
-        where.push('pickup_date = ?');
-        binds.push(businessDateOffset(0));
-        break;
-      case 'tomorrow':
-        where.push('pickup_date = ?');
-        binds.push(businessDateOffset(1));
-        break;
-      case 'future':
-        // "Future" = the day after tomorrow onward (tomorrow has its own tab)
-        where.push('pickup_date >= ?');
-        binds.push(businessDateOffset(2));
-        orderBy = 'pickup_date ASC, created_at ASC, id ASC';
-        break;
-      case 'completed':
-        where.push("status = 'completed'");
-        break;
-    }
-
-    if (dateFilter) {
-      const deliveryDateRange = businessDateUtcRange(dateFilter);
-      if (!deliveryDateRange) return fail('Invalid date filter', 400);
-      where.push(`(
-        (order_type = 'pickup' AND pickup_date = ?)
-        OR
-        (order_type = 'delivery' AND created_at >= ? AND created_at < ?)
-      )`);
-      binds.push(dateFilter, deliveryDateRange.start, deliveryDateRange.end);
-    }
-
-    if (shipmentStatusFilter) {
-      if (shipmentStatusFilter === 'pickup') {
-        where.push("order_type = 'pickup'");
-      } else {
-        if (!isShipmentStatus(shipmentStatusFilter)) {
-          return fail('Invalid shipment status filter', 400);
-        }
-        where.push("order_type = 'delivery'");
-        where.push('shipment_status = ?');
-        binds.push(shipmentStatusFilter);
-        if (shipmentStatusFilter === 'yet_to_ship') {
-          // The outstanding-dispatch view is a work queue, not audit history.
-          // Fully refunded or cancelled orders must never be packed.
-          where.push("payment_status != 'refunded'");
-          where.push("status != 'cancelled'");
-        }
-      }
-    }
-
-    if (pickupLocation === 'delivery') {
-      // The admin "Delivery orders" choice in the same location filter.
-      where.push("order_type = 'delivery'");
-    } else if (pickupLocation) {
-      const knownLocation = PICKUP_LOCATIONS.some((location) => location.id === pickupLocation);
-      if (!knownLocation) return fail('Invalid pickup location filter', 400);
-      where.push("order_type = 'pickup'");
-      where.push('pickup_location = ?');
-      binds.push(pickupLocation);
-    }
+    const totalRes = await db
+      .prepare(`SELECT COUNT(*) AS total FROM orders WHERE ${where.join(' AND ')}`)
+      .bind(...binds)
+      .first<{ total: number }>();
+    const total = Number(totalRes?.total ?? 0);
 
     const ordersRes = await db
       .prepare(`SELECT orders.*, EXISTS (
         SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = orders.id
-      ) AS is_test_order FROM orders WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 200`)
-      .bind(...binds)
+      ) AS is_test_order FROM orders WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT ? OFFSET ?`)
+      .bind(...binds, pageSize, offset)
       .all<Record<string, unknown>>();
     const orders = ordersRes.results ?? [];
 
     // Attach nested order_items (one query joined to all paid orders) so the
     // analytics page can compute product breakdowns — mirrors the old shape.
     if (orders.length > 0) {
-      // Repeat the bounded order selection as a subquery instead of binding up
-      // to 200 IDs. D1 accepts at most 100 bound parameters per statement.
+      // Repeat the page's order selection as a subquery instead of binding every
+      // ID. D1 accepts at most 100 bound parameters per statement.
       const itemsRes = await db
         .prepare(
           `SELECT oi.* FROM order_items oi
@@ -149,10 +94,10 @@ export async function GET(request: NextRequest) {
              SELECT id FROM orders
              WHERE ${where.join(' AND ')}
              ORDER BY ${orderBy}
-             LIMIT 200
+             LIMIT ? OFFSET ?
            ) selected ON selected.id = oi.order_id`
         )
-        .bind(...binds)
+        .bind(...binds, pageSize, offset)
         .all<Record<string, unknown>>();
 
       const itemsByOrder = new Map<string, unknown[]>();
@@ -168,7 +113,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return ok({ orders });
+    return ok({ orders, total, page, pageSize });
   } catch (e) {
     console.error('Order fetch error:', e);
     return fail('Failed to fetch orders', 500);

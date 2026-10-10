@@ -31,12 +31,25 @@ type FilterType = 'today' | 'tomorrow' | 'future' | 'completed' | 'all';
 const DELIVERY_ORDERS = 'delivery';
 type ShipmentColumnFilter = 'all' | 'pickup' | ShipmentStatus;
 
-/** Orders shown per page in the orders table. */
+/** Orders shown per page in the orders table (the server pages through all of them). */
 const ORDERS_PER_PAGE = 25;
+
+/** Page buttons to show: first, last and two either side of the current page, with gaps. */
+function pageNumbers(current: number, count: number): Array<number | 'gap'> {
+  const pages: Array<number | 'gap'> = [];
+  for (let page = 1; page <= count; page++) {
+    if (page === 1 || page === count || Math.abs(page - current) <= 2) pages.push(page);
+    else if (pages.at(-1) !== 'gap') pages.push('gap');
+  }
+  return pages;
+}
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  // Orders matching the filters across all pages, and what they need.
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [production, setProduction] = useState<ProductionItem[]>([]);
   const [filter, setFilter] = useState<FilterType>('today');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState('');
@@ -93,15 +106,16 @@ export default function AdminDashboardPage() {
   const activeColumnFilterCount = [dateFilter, shipmentFilter !== 'all', pickupLocationFilter]
     .filter(Boolean).length;
 
-  // Page through the filtered list; any filter change starts again at page 1.
+  // The server sends one page at a time; any filter change starts again at page 1.
   const filterKey = [filter, dateFilter, shipmentFilter, pickupLocationFilter].join('|');
   const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
-  const pageCount = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
-  const currentPage = pageState.key === filterKey ? Math.min(pageState.page, pageCount) : 1;
+  const pageCount = Math.max(1, Math.ceil(totalOrders / ORDERS_PER_PAGE));
+  const currentPage = pageState.key === filterKey ? pageState.page : 1;
   const pageStart = (currentPage - 1) * ORDERS_PER_PAGE;
-  const pageOrders = filteredOrders.slice(pageStart, pageStart + ORDERS_PER_PAGE);
+  const pageOrders = filteredOrders;
   const tableTop = useRef<HTMLDivElement>(null);
   const goToPage = (page: number) => {
+    if (!canChangeView()) return;
     setPageState({ key: filterKey, page });
     tableTop.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
@@ -123,15 +137,23 @@ export default function AdminDashboardPage() {
     checkAuth();
   }, [router]);
 
+  // The filters as query parameters, shared by the order page and production summary.
+  const filterParams = useMemo(() => {
+    const params = new URLSearchParams({ filter });
+    if (dateFilter) params.set('date', dateFilter);
+    if (shipmentFilter !== 'all') params.set('shipmentStatus', shipmentFilter);
+    if (pickupLocationFilter) params.set('pickupLocation', pickupLocationFilter);
+    return params.toString();
+  }, [filter, dateFilter, shipmentFilter, pickupLocationFilter]);
+
   const fetchOrders = useCallback(async () => {
     const requestId = latestOrderRequest.current + 1;
     latestOrderRequest.current = requestId;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ filter });
-      if (dateFilter) params.set('date', dateFilter);
-      if (shipmentFilter !== 'all') params.set('shipmentStatus', shipmentFilter);
-      if (pickupLocationFilter) params.set('pickupLocation', pickupLocationFilter);
+      const params = new URLSearchParams(filterParams);
+      params.set('page', String(currentPage));
+      params.set('pageSize', String(ORDERS_PER_PAGE));
 
       const res = await fetch(`/api/orders?${params.toString()}`);
       const data = await res.json();
@@ -140,6 +162,7 @@ export default function AdminDashboardPage() {
 
       const nextOrders: OrderRecord[] = data.orders || [];
       setOrders(nextOrders);
+      setTotalOrders(Number(data.total) || 0);
       setShipmentDrafts(Object.fromEntries(nextOrders.map((order) => [
         order.id,
         {
@@ -156,11 +179,35 @@ export default function AdminDashboardPage() {
     } finally {
       if (requestId === latestOrderRequest.current) setLoading(false);
     }
-  }, [filter, dateFilter, shipmentFilter, pickupLocationFilter]);
+  }, [filterParams, currentPage]);
+
+  // Production summary for every order matching the filters, not just this page.
+  const latestProductionRequest = useRef(0);
+  const fetchProduction = useCallback(async () => {
+    const requestId = latestProductionRequest.current + 1;
+    latestProductionRequest.current = requestId;
+    try {
+      const res = await fetch(`/api/orders/production?${filterParams}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch production summary');
+      if (requestId !== latestProductionRequest.current) return;
+      const counts = data.orderCounts ?? {};
+      setProduction(([
+        { name: 'Pickup Orders', quantity: Number(counts.pickup) || 0, unit: 'orders' },
+        { name: 'Delivery Orders', quantity: Number(counts.delivery) || 0, unit: 'orders' },
+      ] as ProductionItem[]).filter((item) => item.quantity > 0).sort((a, b) => b.quantity - a.quantity));
+    } catch (e) {
+      if (requestId === latestProductionRequest.current) console.error('Failed to fetch production summary:', e);
+    }
+  }, [filterParams]);
 
   useEffect(() => {
     if (authed) fetchOrders();
   }, [authed, fetchOrders]);
+
+  useEffect(() => {
+    if (authed) fetchProduction();
+  }, [authed, fetchProduction]);
 
   const handleLogout = async () => {
     await fetch('/api/auth', { method: 'DELETE' });
@@ -286,6 +333,7 @@ export default function AdminDashboardPage() {
       !window.confirm('Refresh and discard your unsaved shipment changes?')
     ) return;
     fetchOrders();
+    fetchProduction();
   };
 
   const selectQuickFilter = (nextFilter: FilterType) => {
@@ -345,35 +393,6 @@ export default function AdminDashboardPage() {
     clearColumnFilters();
   };
 
-  // Production summary — fully refunded orders are excluded; a partial refund
-  // can be a price adjustment while the order still needs fulfillment.
-  const productionRequirements = useCallback((): ProductionItem[] => {
-    const map = new Map<string, ProductionItem>();
-
-    for (const order of filteredOrders) {
-      if (!['paid', 'partially_refunded'].includes(order.payment_status)) continue;
-
-      const label = order.order_type === 'pickup'
-        ? `Pickup — ${order.pickup_location || 'TBD'}`
-        : `Delivery — ${order.delivery_address?.split('\n')[0] || 'TBD'}`;
-
-      if (map.has(order.order_type)) {
-        map.get(order.order_type)!.quantity += 1;
-      } else {
-        map.set(order.order_type, {
-          name: order.order_type === 'pickup' ? 'Pickup Orders' : 'Delivery Orders',
-          quantity: 1,
-          unit: 'orders',
-        });
-      }
-
-      // Suppress unused variable warning
-      void label;
-    }
-
-    return Array.from(map.values()).sort((a, b) => b.quantity - a.quantity);
-  }, [filteredOrders]);
-
   if (!authed) {
     return (
       <div className="section-padding py-16 text-center">
@@ -382,7 +401,6 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const production = productionRequirements();
   const FILTERS: { key: FilterType; label: string }[] = [
     { key: 'today', label: 'Today' },
     { key: 'tomorrow', label: 'Tomorrow' },
@@ -776,7 +794,7 @@ export default function AdminDashboardPage() {
           </table>
           <nav aria-label="Orders pages" className="flex flex-wrap items-center justify-between gap-3 py-4">
             <p className="font-body text-xs text-brand-charcoal/60">
-              Showing {pageStart + 1}–{pageStart + pageOrders.length} of {filteredOrders.length} orders
+              Showing {pageStart + 1}–{pageStart + pageOrders.length} of {totalOrders} orders
             </p>
             {pageCount > 1 && (
               <div className="flex flex-wrap items-center gap-1">
@@ -788,7 +806,9 @@ export default function AdminDashboardPage() {
                 >
                   Previous
                 </button>
-                {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => (
+                {pageNumbers(currentPage, pageCount).map((page, i) => page === 'gap' ? (
+                  <span key={`gap-${i}`} className="px-1 font-body text-xs text-brand-charcoal/40" aria-hidden="true">…</span>
+                ) : (
                   <button
                     key={page}
                     type="button"

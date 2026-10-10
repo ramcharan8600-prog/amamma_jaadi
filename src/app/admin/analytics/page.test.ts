@@ -21,7 +21,7 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   const path = String(input);
   if (path === '/api/auth') return Response.json({ authenticated: true });
   if (path === '/api/auth/verify-pin') return Response.json({ verified: true });
-  if (path === '/api/orders?filter=all') return orderResponse();
+  if (path.startsWith('/api/orders?filter=all&page=')) return orderResponse();
   if (path.startsWith('/api/admin/revenue?year=')) return revenueResponse(Number(path.split('=')[1]));
   throw new Error(`Unexpected request: ${path}`);
 });
@@ -138,7 +138,7 @@ it('switches both revenue charts between the six selectable years without reload
   expect([...selector.options].map(option => option.value)).toEqual(['2026', '2027', '2028', '2029', '2030', '2031']);
   expect(chart('Monthly Revenue').textContent).toContain('Jul 26');
   expect(chart('Monthly Revenue').textContent).not.toContain('Jun 26');
-  const ordersRequests = fetchMock.mock.calls.filter(([url]) => url === '/api/orders?filter=all').length;
+  const ordersRequests = fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/orders?filter=all')).length;
   await act(async () => {
     selector.value = '2027';
     selector.dispatchEvent(new Event('change', { bubbles: true }));
@@ -149,7 +149,7 @@ it('switches both revenue charts between the six selectable years without reload
   expect(chart('Monthly Revenue').textContent).not.toContain('$130.00');
   expect(chart('Weekly Revenue').querySelectorAll('li')).toHaveLength(53);
   expect(chart('Weekly Revenue').querySelector('button')?.getAttribute('aria-label')).toContain('Jan 1, 2027 – Jan 3, 2027: $207.00');
-  expect(fetchMock.mock.calls.filter(([url]) => url === '/api/orders?filter=all')).toHaveLength(ordersRequests);
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/orders?filter=all'))).toHaveLength(ordersRequests);
   await act(async () => {
     selector.value = '2026';
     selector.dispatchEvent(new Event('change', { bubbles: true }));
@@ -294,4 +294,35 @@ it('reports an incomplete annual response instead of inventing zero state sales'
   expect(host.querySelector('[role="alert"]')?.textContent).toContain('Unable to load annual charts');
   expect(host.querySelector('ul[aria-label="Pickle Jars Sold by State"]')).toBeNull();
   expect(chart('Pickle Sales by Product')).toBeTruthy();
+});
+
+it('loads every order a page at a time, so charts count orders beyond the first 1,000', async () => {
+  const many = Array.from({ length: 1003 }, (_, i) => ({
+    created_at: '2026-09-12 18:00:00', total_price: 10, refunded_amount: 0, payment_status: 'paid', order_items: [],
+    id: `o${i}`,
+  }));
+  orderResponse = async () => Response.json({ orders: [] });
+  fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    if (path === '/api/auth') return Response.json({ authenticated: true });
+    if (path === '/api/auth/verify-pin') return Response.json({ verified: true });
+    if (path.startsWith('/api/orders?filter=all&page=')) {
+      const params = new URL(path, 'https://shop.test').searchParams;
+      const page = Number(params.get('page'));
+      const size = Number(params.get('pageSize'));
+      return Response.json({ orders: many.slice((page - 1) * size, page * size), total: many.length });
+    }
+    if (path.startsWith('/api/admin/revenue?year=')) return Response.json({ year: 2026, pickleSalesByState: [], ...getSalesTimeSeries([], 2026) });
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  try {
+    await unlock();
+    await act(async () => {});
+    const pages = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.startsWith('/api/orders?'));
+    expect(pages).toEqual(['/api/orders?filter=all&page=1&pageSize=1000', '/api/orders?filter=all&page=2&pageSize=1000']);
+    const total = [...host.querySelectorAll('p')].find((p) => p.nextElementSibling?.textContent === 'Total Orders');
+    expect(total?.textContent?.trim()).toBe('1003');
+  } finally {
+    fetchMock.mockReset();
+  }
 });

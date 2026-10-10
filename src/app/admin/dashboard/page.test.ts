@@ -31,7 +31,16 @@ const orders = Array.from({ length: 60 }, (_, i) => ({
 const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   const path = String(input);
   if (path === '/api/auth') return Response.json({ authenticated: true });
-  if (path.startsWith('/api/orders?')) return Response.json({ orders });
+  if (path.startsWith('/api/orders/production?')) {
+    return Response.json({ orderCounts: { pickup: orders.length, delivery: 0 }, lines: [] });
+  }
+  if (path.startsWith('/api/orders?')) {
+    // Pages like the server: newest first, `pageSize` at a time, with the total.
+    const params = new URL(path, 'https://shop.test').searchParams;
+    const pageSize = Number(params.get('pageSize') ?? 200);
+    const page = Number(params.get('page') ?? 1);
+    return Response.json({ orders: orders.slice((page - 1) * pageSize, page * pageSize), total: orders.length, page, pageSize });
+  }
   throw new Error(`Unexpected request: ${path}`);
 });
 
@@ -101,4 +110,17 @@ it('hides page numbers when everything fits on one page', async () => {
   expect(rows()).toHaveLength(20);
   expect(host.textContent).toContain('Showing 1–20 of 20 orders');
   expect(host.querySelectorAll('nav[aria-label="Orders pages"] button')).toHaveLength(0);
+});
+
+it('pages through more than 200 orders from the server, with compact page buttons', async () => {
+  const many = Array.from({ length: 300 }, (_, i) => ({ ...orders[0], id: `big-${i}`, order_number: `AJ-${5300 - i}` }));
+  orders.splice(0, orders.length, ...many);
+  await render();
+  expect(host.textContent).toContain('Showing 1–25 of 300 orders');
+  expect([...host.querySelectorAll('nav[aria-label="Orders pages"] button')].map((b) => b.textContent))
+    .toEqual(['Previous', '1', '2', '3', '12', 'Next']);
+  await act(async () => pageButton('12').click());
+  await act(async () => {});
+  expect(host.textContent).toContain('Showing 276–300 of 300 orders');
+  expect(rows().at(-1)).toBe('AJ-5001');
 });
