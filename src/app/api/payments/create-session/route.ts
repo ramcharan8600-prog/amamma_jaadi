@@ -4,6 +4,7 @@ import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
 import { PRODUCTS, getTotalPieces, isActivePickupLocation, isBobbatluProduct } from '@/data/products';
 import { validateCart } from '@/lib/cart-validation';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
+import { SOLD_OUT_DATE_ERROR, isSoldOutDate } from '@/lib/sold-out-dates';
 import {
   calculateOrderTotals,
   calculateShippingQuote,
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
       const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), new Date(),
         requiresNextDayPickup(cart.items));
       if (dateError) return fail(dateError, 400);
+      if (await isSoldOutDate(getDb(), rawFulfillment?.date)) return fail(SOLD_OUT_DATE_ERROR, 409);
       if (!isActivePickupLocation(rawFulfillment?.locationId)) {
         return fail('Please choose one of our current pickup locations.', 400);
       }

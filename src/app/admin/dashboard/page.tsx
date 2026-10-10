@@ -18,6 +18,7 @@ import { d1TimestampToBusinessDate } from '@/lib/date';
 import { shippingMethodLabel } from '@/lib/pricing';
 import { PICKUP_LOCATIONS } from '@/data/products';
 import InventoryPanel from '@/components/admin/InventoryPanel';
+import SoldOutDatesPanel from '@/components/admin/SoldOutDatesPanel';
 import type { OrderRecord, ShipmentStatus } from '@/types';
 
 interface ProductionItem {
@@ -440,6 +441,9 @@ export default function AdminDashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* Sold-out pickup dates */}
+      <SoldOutDatesPanel />
 
       {/* Inventory */}
       <InventoryPanel />

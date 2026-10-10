@@ -283,3 +283,9 @@ CREATE TABLE IF NOT EXISTS order_reporting_exclusions (
   recorded_by TEXT NOT NULL,
   recorded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Pickup dates marked sold out in admin (migration 022).
+CREATE TABLE IF NOT EXISTS sold_out_dates (
+  date TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

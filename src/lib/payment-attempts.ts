@@ -6,6 +6,7 @@ import { isValidPhone } from '@/lib/contact-validation';
 import { isValidCouponMinimum } from '@/lib/coupons';
 import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
+import { isSoldOutDate } from '@/lib/sold-out-dates';
 import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions, containsMiniComboPack } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
@@ -82,6 +83,16 @@ function reviewReply(): PaymentReply {
     ...pendingPaymentReply('PAYMENT_REVIEW_REQUIRED'), retryAfterSeconds: undefined,
     error: 'Your payment needs to be checked. Please contact us before making another payment.',
   };
+}
+
+/** True when a pickup session's date has since been marked sold out in admin. */
+async function isSoldOutPickup(db: D1Database, session: Record<string, unknown>): Promise<boolean> {
+  try {
+    const fulfillment = typeof session.fulfillment_data === 'string' ? JSON.parse(session.fulfillment_data) : session.fulfillment_data;
+    return fulfillment?.type === 'pickup' && await isSoldOutDate(db, fulfillment.date);
+  } catch {
+    return false;
+  }
 }
 
 /** Recheck current checkout requirements only before a session's first charge. */
@@ -246,8 +257,9 @@ export async function runPaymentAttempt(
 
   if (!attempt) {
     if (!input.sourceId) return { ...pendingPaymentReply('MISSING_PAYMENT_DETAILS'), httpStatus: 400 };
+    // A pickup date marked sold out after this checkout opened must not charge either.
     const canonicalItems = validateUnattemptedSession(session);
-    if (!canonicalItems) {
+    if (!canonicalItems || await isSoldOutPickup(db, session)) {
       await db.prepare(
         `UPDATE payment_sessions SET payment_status = 'expired'
          WHERE id = ? AND payment_status = 'pending' AND order_id IS NULL

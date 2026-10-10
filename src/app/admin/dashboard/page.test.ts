@@ -7,6 +7,7 @@ import DashboardPage from './page';
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('next/link', () => ({ default: ({ children, ...props }: { children: ReactNode; href: string }) => createElement('a', props, children) }));
 vi.mock('@/components/admin/InventoryPanel', () => ({ default: () => null }));
+vi.mock('@/components/admin/SoldOutDatesPanel', () => ({ default: () => null }));
 
 let host: HTMLDivElement;
 let root: Root;

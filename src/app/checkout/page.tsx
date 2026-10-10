@@ -57,6 +57,7 @@ import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
 import MaintenanceFee from '@/components/checkout/MaintenanceFee';
 import PickupDateCalendar from '@/components/checkout/PickupDateCalendar';
+import { SOLD_OUT_DATE_ERROR } from '@/lib/sold-out-dates';
 import {
   claimPendingPayment, classifyPaymentOutcome, forgetPendingPayment, PAYMENT_RESEND_DELAYS_MS,
   PENDING_PAYMENT_KEY, readPendingPayment, sendPaymentRequest, type PendingPayment,
@@ -194,6 +195,22 @@ export default function CheckoutPage() {
       /* Never surface a telemetry failure to the customer. */
     }
   }, []);
+
+  // Pickup dates the shop marked sold out in admin, refreshed each time pickup
+  // details open; the calendar greys them out with "Sold out".
+  const [soldOutDates, setSoldOutDates] = useState<string[]>([]);
+  const refreshSoldOutDates = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sold-out-dates', { cache: 'no-store' });
+      const data = res.ok ? await res.json() : null;
+      if (Array.isArray(data?.dates)) setSoldOutDates(data.dates);
+    } catch {
+      // The server still refuses a sold-out date at checkout.
+    }
+  }, []);
+  useEffect(() => {
+    if (step === 'details' && fulfillmentType === 'pickup') refreshSoldOutDates();
+  }, [step, fulfillmentType, refreshSoldOutDates]);
 
   // A customer who closes a hung payment page never triggers any other path —
   // this is the only way that failure is ever recorded.
@@ -466,7 +483,8 @@ export default function CheckoutPage() {
         }
       : null;
   const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, hasNextDayProduct);
-  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct);
+  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct)
+    ?? (soldOutDates.includes(pickupDate) ? SOLD_OUT_DATE_ERROR : null);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
   // Refresh at the Central-time cutoff or midnight, and when returning to the tab.
   useEffect(() => {
@@ -665,6 +683,8 @@ export default function CheckoutPage() {
     const result = await requestSession(fulfillment);
     if ('error' in result) {
       setSubmitError(result.error);
+      // Sold out since the calendar loaded: show it on the calendar too.
+      if (result.error === SOLD_OUT_DATE_ERROR) refreshSoldOutDates();
     } else {
       setStep('payment');
     }
@@ -1186,6 +1206,7 @@ export default function CheckoutPage() {
               min={pickupBounds.min}
               max={pickupBounds.max}
               today={pickupBounds.today}
+              soldOut={soldOutDates}
               invalid={showPickupDateError}
               describedBy={showPickupDateError ? 'pickup-date-error' : undefined}
               onChange={(date) => {

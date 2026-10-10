@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
     inserts, coupon, prepare,
     getStockMap: vi.fn(async () => ({} as Record<string, number>)),
     rateLimit: vi.fn(() => true),
+    isSoldOutDate: vi.fn<(db: unknown, date: unknown) => Promise<boolean>>(async () => false),
   };
 });
 
@@ -35,6 +36,10 @@ vi.mock('@/lib/square', () => ({
 }));
 vi.mock('@/lib/inventory', () => ({ getStockMap: mocks.getStockMap }));
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: mocks.rateLimit, getClientIp: () => '127.0.0.1' }));
+vi.mock('@/lib/sold-out-dates', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/sold-out-dates')>(),
+  isSoldOutDate: mocks.isSoldOutDate,
+}));
 
 import { POST } from './route';
 
@@ -795,3 +800,17 @@ describe('Texas shipping coupon on boxes and ground-shipped carts', () => {
   });
 });
 
+
+describe('sold-out pickup dates', () => {
+  it('refuses pickup on a date marked sold out, before storing a session; delivery is unaffected', async () => {
+    mocks.isSoldOutDate.mockImplementation(async (_db: unknown, date: unknown) => date === pickup.date);
+    const response = await post(checkout([sweet], pickup));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe('Sorry, we are sold out for pickup on that date. Please choose another date.');
+    expect(mocks.inserts).toHaveLength(0);
+
+    expect((await post(checkout([sweet], { ...pickup, date: '2026-09-11' }))).status).toBe(201);
+    expect((await post(checkout([sweet], delivery('TX')))).status).toBe(201);
+    mocks.isSoldOutDate.mockResolvedValue(false);
+  });
+});

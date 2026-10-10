@@ -29,6 +29,7 @@ let verifyResult: () => Promise<Response>;
 let createdSessions: number;
 let couponResult: () => Promise<Response>;
 let bobbatluStock = 0;
+let soldOutDates: string[] = [];
 let kovaBobbatluStock = 0;
 const tokenize = vi.fn();
 const destroy = vi.fn(async () => undefined);
@@ -56,6 +57,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
   if (url === '/api/payments/create-payment') return paymentResult();
   if (url === '/api/payments/verify') return verifyResult();
   if (url === '/api/checkout-log') return Response.json({ success: true });
+  if (url === '/api/sold-out-dates') return Response.json({ dates: soldOutDates });
   throw new Error(`Unexpected test request: ${url}`);
 });
 
@@ -158,6 +160,7 @@ beforeEach(() => {
   invalidateStock();
   bobbatluStock = 0;
   kovaBobbatluStock = 0;
+  soldOutDates = [];
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-09-10T17:00:00Z'));
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -189,6 +192,24 @@ afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+});
+
+describe('sold-out pickup dates', () => {
+  it('greys out sold-out days with "Sold out" above the date, today included', async () => {
+    soldOutDates = ['2026-09-10', '2026-09-12'];
+    await pickupDetails();
+    for (const date of soldOutDates) {
+      const day = await showDay(date);
+      expect(day?.disabled).toBe(true);
+      expect(day?.textContent).toContain('Sold out');
+      expect(day?.getAttribute('aria-label')).toContain('sold out');
+    }
+    const open = await showDay('2026-09-11');
+    expect(open?.disabled).toBe(false);
+    expect(open?.textContent).not.toContain('Sold out');
+    await pickDate('2026-09-11');
+    expect(button('Continue to payment').disabled).toBe(false);
+  });
 });
 
 describe('checkout pickup date controls', () => {

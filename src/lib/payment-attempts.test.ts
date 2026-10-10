@@ -782,3 +782,27 @@ it.each([
     .toMatchObject({ status: 'completed' });
   expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
 });
+
+describe('sold-out pickup dates before a first charge', () => {
+  it('closes a pickup checkout whose date was marked sold out after it opened, without charging', async () => {
+    const date = openPickupDate(1);
+    setSessionPickupDate(date);
+    fixture.sqlite.prepare('INSERT INTO sold_out_dates (date) VALUES (?)').run(date);
+    const execute = vi.fn();
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+    expect(execute).not.toHaveBeenCalled();
+    expect(fixture.sqlite.prepare('SELECT payment_status FROM payment_sessions').get()?.payment_status).toBe('expired');
+  });
+
+  it('still charges when a different date is sold out', async () => {
+    setSessionPickupDate(openPickupDate(1));
+    fixture.sqlite.prepare('INSERT INTO sold_out_dates (date) VALUES (?)').run(openPickupDate(3));
+    const execute = vi.fn(async () => ({ paymentId: 'payment-open-date', status: 'COMPLETED' }));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+});

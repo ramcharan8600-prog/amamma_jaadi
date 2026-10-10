@@ -22,6 +22,8 @@ interface PickupDateCalendarProps {
   max: string;
   /** Today in the business time zone (YYYY-MM-DD). */
   today: string;
+  /** Dates the shop marked sold out: greyed out with "Sold out" above the day. */
+  soldOut?: readonly string[];
   invalid?: boolean;
   describedBy?: string;
   onChange: (date: string) => void;
@@ -53,7 +55,7 @@ function label(date: string, options: Intl.DateTimeFormatOptions): string {
 }
 
 export default function PickupDateCalendar({
-  id, value, min, max, today, invalid, describedBy, onChange, onClose,
+  id, value, min, max, today, soldOut = [], invalid, describedBy, onChange, onClose,
 }: PickupDateCalendarProps) {
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(() => monthKey(value && value >= min ? value : min));
@@ -155,7 +157,8 @@ export default function PickupDateCalendar({
             {Array.from({ length: daysInMonth }, (_, i) => {
               const date = `${month}-${String(i + 1).padStart(2, '0')}`;
               // Tuesdays are an off day: greyed out like any other unavailable date.
-              const unavailable = date < min || date > max || isPickupClosedDate(date);
+              const isSoldOut = soldOut.includes(date) && date >= min && date <= max;
+              const unavailable = date < min || date > max || isPickupClosedDate(date) || isSoldOut;
               const selected = date === value;
               const isToday = date === today;
               return (
@@ -166,7 +169,7 @@ export default function PickupDateCalendar({
                   disabled={unavailable}
                   onClick={() => choose(date)}
                   aria-pressed={selected}
-                  aria-label={`${label(date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${isToday ? ', today' : ''}${unavailable ? ', not available' : ''}`}
+                  aria-label={`${label(date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}${isToday ? ', today' : ''}${isSoldOut ? ', sold out' : unavailable ? ', not available' : ''}`}
                   className={`relative h-10 rounded-full font-body text-sm transition-colors ${
                     selected
                       ? 'bg-brand-maroon text-white font-semibold'
@@ -175,6 +178,11 @@ export default function PickupDateCalendar({
                         : 'text-brand-charcoal hover:bg-brand-cream font-medium'
                   } ${isToday && !selected ? 'ring-1 ring-brand-gold' : ''}`}
                 >
+                  {isSoldOut && (
+                    <span aria-hidden="true" className="absolute -top-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap font-body text-[8px] font-bold uppercase tracking-tight text-red-600 no-underline">
+                      Sold out
+                    </span>
+                  )}
                   {i + 1}
                 </button>
               );
@@ -183,6 +191,7 @@ export default function PickupDateCalendar({
 
           <p className="font-body text-xs text-brand-charcoal/55 mt-3">
             Greyed-out dates aren&apos;t available for pickup.
+            {soldOut.some((date) => date >= min && date <= max) && ' "Sold out" days are fully booked.'}
           </p>
         </div>
       )}
