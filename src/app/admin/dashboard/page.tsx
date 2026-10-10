@@ -423,6 +423,9 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <Link href="/admin/production" className="btn-primary text-xs gap-1.5">
+            <ChefHat size={14} /> Production Planning
+          </Link>
           <Link href="/admin/taxes" className="btn-secondary text-xs gap-1.5">Tax records</Link>
           <Link
             href="/admin/coupons"

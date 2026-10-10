@@ -125,3 +125,8 @@ it('pages through more than 200 orders from the server, with compact page button
   expect(host.textContent).toContain('Showing 276–300 of 300 orders');
   expect(rows().at(-1)).toBe('AJ-5001');
 });
+
+it('links to Production Planning from the toolbar', async () => {
+  await render();
+  expect(host.querySelector('a[href="/admin/production"]')?.textContent).toContain('Production Planning');
+});
