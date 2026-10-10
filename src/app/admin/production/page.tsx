@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, ChefHat, ChevronDown, RefreshCw, Truck } from 'lucide-react';
 import { getPickupLocationById } from '@/data/products';
 import { isPickupClosedDate } from '@/lib/pickup-date';
+import { d1TimestampToBusinessDate } from '@/lib/date';
 import { productionSheet } from '@/lib/production';
 import type { PlanOrder, ProductionPlan } from '@/lib/production-plan';
 
@@ -100,7 +101,7 @@ function PlanCard({ title, subtitle, orders, note, icon }: {
                       <span className="text-brand-charcoal/60">
                         {' · '}{order.order_type === 'pickup'
                           ? getPickupLocationById(order.pickup_location ?? '')?.name ?? order.pickup_location ?? 'Pickup'
-                          : 'Delivery'}
+                          : `Delivery · ordered ${dayLabel(d1TimestampToBusinessDate(order.created_at) ?? order.created_at.slice(0, 10))}`}
                       </span>
                     </p>
                     <ul className="mt-1 font-body text-sm text-brand-charcoal/80 list-disc pl-5">

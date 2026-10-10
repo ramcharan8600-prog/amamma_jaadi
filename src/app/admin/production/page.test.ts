@@ -69,7 +69,10 @@ it('shows the 3-day total and what to make today, tomorrow and the day after', a
   const dayAfter = card('Day after tomorrow');
   expect(dayAfter.textContent).toContain('Pickup is closed on Tuesdays.');
   expect(dayAfter.textContent).toContain('No orders yet.');
-  expect(card('Delivery orders waiting to ship').textContent).toContain('25pcsMalai Khaja');
+  const delivery = card('Delivery orders waiting to ship');
+  expect(delivery.textContent).toContain('25pcsMalai Khaja');
+  await act(async () => [...delivery.querySelectorAll('button')].find((b) => b.textContent?.includes('Show orders'))!.click());
+  expect(delivery.textContent).toContain('AJ-1004 · Customer 1004 · Delivery · ordered Fri, Oct 9');
 });
 
 it('expands each day to its order numbers and items', async () => {
