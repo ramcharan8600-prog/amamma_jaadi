@@ -603,7 +603,7 @@ export default function CheckoutPage() {
     <div className="flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2">
       <p className="text-brand-charcoal">
         {tastePackOffer.gap === null
-          ? <>Ships with your 11:11 box at no extra shipping. </>
+          ? <>Ships together with your 11:11 box. </>
           : <>You&apos;re <strong>{formatCurrency(tastePackOffer.gap)}</strong> away from free shipping. </>}
         Add a <strong>{tastePackOffer.product.name} ({tastePackOffer.tier} pcs)</strong> {formatCurrency(tastePackOffer.price)} →
       </p>
@@ -1370,8 +1370,8 @@ export default function CheckoutPage() {
                     : service === 'second-day-air'
                       ? 'This order ships UPS 2nd Day Air. Packages typically arrive within 2 business days after dispatch.'
                       : picklesOnly
-                        ? 'Pickle-only orders use Standard shipping. Tracking details will be emailed when your order ships.'
-                        : 'This order uses Standard shipping. Tracking details will be emailed when your order ships.'}
+                        ? 'Pickle-only orders use Express shipping. Tracking details will be emailed when your order ships.'
+                        : 'This order uses Express shipping. Tracking details will be emailed when your order ships.'}
             </p>
           </div>
 

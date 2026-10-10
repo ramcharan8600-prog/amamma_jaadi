@@ -323,7 +323,7 @@ it('preserves mixed Texas tax in the order record and confirmation', async () =>
   }
 });
 
-it.each([null, 'TESTBONUS'])('records Standard shipping in a pickle-only confirmation with coupon %s', async coupon => {
+it.each([null, 'TESTBONUS'])('records Express shipping in a pickle-only confirmation with coupon %s', async coupon => {
   const { db, sqlite, session } = setup({
     cart_data: [{ productId: 'pickle-chicken', quantity: 1, lineTotal: 18 }],
     fulfillment_data: { type: 'delivery', addressLine1: '123 Test Street', city: 'New York', state: 'NY', zip: '10001', country: 'USA', shippingMethod: 'standard' },
@@ -335,7 +335,8 @@ it.each([null, 'TESTBONUS'])('records Standard shipping in a pickle-only confirm
       .toMatchObject({ shipping_method: 'standard', total_price: 26.48 });
     const outbox = sqlite.prepare('SELECT html FROM email_outbox').get();
     expect(outbox?.html).toContain('Chicken Pickle');
-    expect(outbox?.html).toContain('Standard shipping');
+    expect(outbox?.html).toContain('Express shipping');
+    expect(outbox?.html).not.toContain('Standard shipping');
     expect(outbox?.html).not.toContain('UPS 2nd Day Air');
     expect(outbox?.html).toContain('$6.99');
     expect(outbox?.html).toContain('$26.48');

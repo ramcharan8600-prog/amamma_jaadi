@@ -99,10 +99,10 @@ describe('pickle-only delivery email shipping wording', () => {
   }
 
   it.each(['Chicken Pickle', 'Gongura Chicken Pickle', 'Mutton Pickle', 'Prawns Pickle'])(
-    'shows Standard shipping in the method and fee row for %s',
+    'shows Express shipping in the method and fee row for %s',
     (name) => {
       for (const html of renderCustomerAndOwner({ items: [{ name, quantity: 1, price: 18 }] })) {
-        expect(html.match(/Standard shipping/g)).toHaveLength(2);
+        expect(html.match(/Express shipping/g)).toHaveLength(2);
         expect(html).not.toContain('UPS 2nd Day Air');
         expect(html).toContain('$6.99');
         expect(html).toContain('$24.99');
@@ -121,7 +121,7 @@ describe('pickle-only delivery email shipping wording', () => {
         { name: 'Prawns Pickle', quantity: 1, price: 21 },
       ],
     })) {
-      expect(html.match(/Standard shipping/g)).toHaveLength(2);
+      expect(html.match(/Express shipping/g)).toHaveLength(2);
       expect(html).not.toContain('UPS 2nd Day Air');
       expect(html).toContain('$4.99');
       expect(html).toContain('$62.99');
@@ -139,13 +139,13 @@ describe('pickle-only delivery email shipping wording', () => {
       items: names.map((name) => ({ name, quantity: 1, price: 18 })),
     })) {
       expect(html.match(/UPS 2nd Day Air/g)).toHaveLength(2);
-      expect(html).not.toContain('Standard shipping');
+      expect(html).not.toContain('Express shipping');
     }
   });
 
-  it('uses Standard shipping when an older pickle order has no recorded method', () => {
+  it('uses Express shipping when an older pickle order has no recorded method', () => {
     for (const html of renderCustomerAndOwner({ shippingMethod: undefined })) {
-      expect(html.match(/Standard shipping/g)).toHaveLength(2);
+      expect(html.match(/Express shipping/g)).toHaveLength(2);
       expect(html).not.toContain('UPS 2nd Day Air');
     }
   });
@@ -158,7 +158,7 @@ describe('pickle-only delivery email shipping wording', () => {
         { name: '2 complimentary Bobbatlu (FREE)', quantity: 1, price: 0 },
       ],
     })) {
-      expect(html.match(/Standard shipping/g)).toHaveLength(2);
+      expect(html.match(/Express shipping/g)).toHaveLength(2);
       expect(html).toContain('2 complimentary Bobbatlu (FREE)');
       expect(html).not.toContain('UPS 2nd Day Air');
     }
@@ -167,7 +167,7 @@ describe('pickle-only delivery email shipping wording', () => {
   it('respects an explicit non-pickle-only classification instead of inferring from names', () => {
     for (const html of renderCustomerAndOwner({ picklesOnly: false })) {
       expect(html.match(/UPS 2nd Day Air/g)).toHaveLength(2);
-      expect(html).not.toContain('Standard shipping');
+      expect(html).not.toContain('Express shipping');
     }
   });
 
@@ -177,7 +177,7 @@ describe('pickle-only delivery email shipping wording', () => {
   ] as const)('preserves an explicitly recorded $method method', ({ method, label }) => {
     for (const html of renderCustomerAndOwner({ shippingMethod: method })) {
       expect(html.split(label)).toHaveLength(3);
-      expect(html).not.toContain('Standard shipping');
+      expect(html).not.toContain('Express shipping');
     }
   });
 
@@ -190,7 +190,7 @@ describe('pickle-only delivery email shipping wording', () => {
       pickupLocation: 'Plano pickup point',
     })) {
       expect(html).toContain('Plano pickup point');
-      expect(html).not.toContain('Standard shipping');
+      expect(html).not.toContain('Express shipping');
       expect(html).not.toContain('UPS 2nd Day Air');
       expect(html).not.toContain('$6.99');
     }

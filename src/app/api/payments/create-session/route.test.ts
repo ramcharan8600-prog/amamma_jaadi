@@ -266,10 +266,12 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     { name: 'Mini Combo Pack mixed with Malpuri pays nearby rates', items: [mini, sweet], fulfillment: delivery('OK'), subtotal: 80, shipping: 8.99 },
     { name: 'far at $82 with Kova boxes', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 25 }, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('WA'), subtotal: 82, shipping: 11.99 },
     { name: 'assorted box pickup', items: [assorted], fulfillment: pickup, subtotal: 60, shipping: 0 },
-    { name: 'assorted box in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 60, shipping: 6.99 },
-    { name: 'assorted box alone to a nearby state', items: [assorted], fulfillment: delivery('FL'), subtotal: 60, shipping: 8.99 },
+    // One 11:11 box and nothing else: $4.99 Texas, $6.99 nearby, $8.99 far (owner, 2026-10-10).
+    { name: 'one assorted box alone in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 60, shipping: 4.99 },
+    { name: 'one assorted box alone to a nearby state', items: [assorted], fulfillment: delivery('FL'), subtotal: 60, shipping: 6.99 },
+    { name: 'two assorted boxes in Texas', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('TX'), subtotal: 120, shipping: 3.99 },
     { name: 'two assorted boxes to a nearby state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 8.99 },
-    { name: 'assorted box alone to a far state, no minimum', items: [assorted], fulfillment: delivery('NY'), subtotal: 60, shipping: 9.99 },
+    { name: 'one assorted box alone to a far state, no minimum', items: [assorted], fulfillment: delivery('NY'), subtotal: 60, shipping: 8.99 },
     { name: 'two assorted boxes to a far state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('CA'), subtotal: 120, shipping: 9.99 },
     { name: 'far assorted box plus Kova at $92', items: [assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NY'), subtotal: 92, shipping: 11.99 },
   ])('$name', async ({ items, fulfillment, subtotal, shipping }) => {

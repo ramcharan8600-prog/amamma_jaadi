@@ -197,9 +197,9 @@ describe('pricing — pickup and general', () => {
   it('identifies the standard shipping service consistently', () => {
     expect(shippingMethodLabel('standard')).toBe('UPS 2nd Day Air');
     expect(shippingMethodLabel(undefined)).toBe('UPS 2nd Day Air');
-    expect(shippingMethodLabel('standard', true)).toBe('Standard shipping');
-    expect(shippingMethodLabel(undefined, true)).toBe('Standard shipping');
-    expect(shippingMethodLabel(null, true)).toBe('Standard shipping');
+    expect(shippingMethodLabel('standard', true)).toBe('Express shipping');
+    expect(shippingMethodLabel(undefined, true)).toBe('Express shipping');
+    expect(shippingMethodLabel(null, true)).toBe('Express shipping');
     expect(shippingMethodLabel('ground', true)).toBe('Ground — estimated 2–5 business days in transit');
     expect(shippingMethodLabel('expedited', true)).toBe('Expedited — estimated 2 business days in transit');
   });
@@ -394,6 +394,11 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(isGroundShippingCart([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-malpuri' }])).toBe(false);
     expect(isGroundShippingCart([])).toBe(false);
     expect(groundShippingKind([{ productId: 'sweet-malai-khaja' }])).toBe('malai-khaja');
+    // Exactly one 11:11 box and nothing else has its own rate.
+    expect(groundShippingKind([{ productId: 'sweet-assorted-box' }])).toBe('assorted-box-single');
+    expect(groundShippingKind([{ productId: 'sweet-assorted-box', quantity: 1 }])).toBe('assorted-box-single');
+    expect(isGroundShippingCart([{ productId: 'sweet-assorted-box', quantity: 1 }])).toBe(true);
+    expect(groundShippingKind([{ productId: 'sweet-assorted-box', quantity: 2 }])).toBe('assorted-box');
     expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-assorted-box' }])).toBe('assorted-box');
     // The Bobbatlu Taste Pack ships with the 11:11 box at the box's rate, never on its own terms.
     expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-bobbatlu-taste-pack' }])).toBe('assorted-box');
@@ -434,6 +439,30 @@ describe('pricing — Malai Khaja-only carts', () => {
   it('gives no shipping-coupon discount on the far-state $10.99 rate', () => {
     expect(calculateOrderTotals(50, { fulfillmentType: 'delivery', deliveryState: 'NY', taxableSubtotal: 0, groundShipping: 'malai-khaja',
       shippingCoupon: { minSubtotal: 50, shippingPolicy: 'texas_v3' } }).shipping).toBe(10.99);
+  });
+});
+
+describe('pricing — exactly one 11:11 Assorted Box, nothing else', () => {
+  const ship = (deliveryState: string, shippingCoupon?: { minSubtotal: number; shippingPolicy: 'texas_v3' }) =>
+    calculateShippingQuote(60, { fulfillmentType: 'delivery', deliveryState, groundShipping: 'assorted-box-single', shippingCoupon });
+
+  it('ships for $4.99 in Texas, $6.99 to nearby states and $8.99 to far states', () => {
+    expect(ship('TX').shipping).toBe(4.99);
+    for (const state of ['GA', 'OK', 'FL', 'KS', 'AL', 'TN']) expect(ship(state).shipping).toBe(6.99);
+    for (const state of ['NY', 'CA', 'WA', 'NC', 'SC', 'DC']) expect(ship(state).shipping).toBe(8.99);
+  });
+
+  it('has no far-state minimum', () => {
+    expect(getDeliveryMinimumShortfall(60, 'NY', false, 'assorted-box-single')).toBe(0);
+  });
+
+  it('still lets a Texas shipping coupon ship it free', () => {
+    expect(ship('TX', { minSubtotal: 50, shippingPolicy: 'texas_v3' })).toMatchObject({ shipping: 0, maintenanceFee: 0.99 });
+  });
+
+  it('is labelled Express shipping to far states, never Standard', () => {
+    expect(deliveryServiceLabel(deliveryService('NY', false, 'assorted-box-single'))).toBe('Express shipping');
+    expect(deliveryServiceLabel(deliveryService('GA', false, 'assorted-box-single'))).toBe('Express shipping (2-day ETA)');
   });
 });
 
@@ -567,7 +596,7 @@ describe('deliveryService', () => {
     expect(deliveryServiceLabel('texas')).toBe('Shipping (estimated 1 business day after dispatch)');
     expect(deliveryServiceLabel('express')).toBe('Express shipping (2-day ETA)');
     expect(deliveryServiceLabel('second-day-air')).toBe('UPS 2nd Day Air');
-    expect(deliveryServiceLabel('standard', 'standard')).toBe('Standard shipping');
+    expect(deliveryServiceLabel('standard', 'standard')).toBe('Express shipping');
     expect(deliveryServiceLabel('express', 'ground')).toBe('Ground — estimated 2–5 business days in transit');
   });
 

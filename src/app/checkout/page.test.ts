@@ -814,7 +814,8 @@ describe('nationwide pickle-only delivery', () => {
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, quantity);
     await enterDeliveryDetails(state);
     expect(host.textContent).not.toContain('A minimum product subtotal');
-    expect(host.textContent).toContain('Standard shipping');
+    expect(host.textContent).toContain('Express shipping');
+    expect(host.textContent).not.toContain('Standard shipping');
     expect(host.textContent).not.toContain('UPS 2nd Day Air');
     expect(host.textContent).not.toContain('within 2 business days');
     expect(host.textContent).toContain(`$${shipping}`);
@@ -823,7 +824,8 @@ describe('nationwide pickle-only delivery', () => {
     expect(button('Continue to payment').disabled).toBe(false);
     await click('Continue to payment');
     expect(host.textContent).toContain('Step 4');
-    expect(host.textContent).toContain('Standard shipping');
+    expect(host.textContent).toContain('Express shipping');
+    expect(host.textContent).not.toContain('Standard shipping');
     expect(host.textContent).not.toContain('UPS 2nd Day Air');
     expect(calls('/api/payments/create-session')).toHaveLength(1);
     expect(JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body))).toMatchObject({
@@ -832,13 +834,14 @@ describe('nationwide pickle-only delivery', () => {
     });
   });
 
-  it('quietly ships an Assorted Box alone out of state for $9.99 with no minimum', async () => {
+  it('quietly ships one Assorted Box alone to a far state for $8.99 with no minimum', async () => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await enterDeliveryDetails('NY');
     expect(host.textContent).not.toContain('A minimum product subtotal');
-    expect(host.textContent).toContain('$9.99');
-    expect(host.textContent).toContain('$69.99');
-    expect(host.textContent).toContain('Standard shipping');
+    expect(host.textContent).toContain('$8.99');
+    expect(host.textContent).toContain('$68.99');
+    expect(host.textContent).toContain('Express shipping');
+    expect(host.textContent).not.toContain('Standard shipping');
     expect(button('Continue to payment').disabled).toBe(false);
   });
 
@@ -917,7 +920,8 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).not.toContain('A minimum product subtotal');
     expect(host.textContent).toContain('$10.99');
     expect(host.textContent).toContain('$50.99');
-    expect(host.textContent).toContain('Standard shipping');
+    expect(host.textContent).toContain('Express shipping');
+    expect(host.textContent).not.toContain('Standard shipping');
     expect(host.textContent).not.toContain('UPS 2nd Day Air');
     expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
     expect(button('Continue to payment').disabled).toBe(false);
@@ -1078,15 +1082,16 @@ describe('coupon benefits in checkout', () => {
   });
 
   it.each([
-    ['nearby', 'OK', '$8.99', 'Express shipping (2-day ETA)'],
-    ['far', 'NY', '$9.99', 'Standard shipping'],
-  ])('offers the Taste Pack with the 11:11 box out of state (%s) without a coupon, at the box rate', async (_zone, state, rate, label) => {
+    ['nearby', 'OK', '$6.99', '$8.99', 'Express shipping (2-day ETA)'],
+    ['far', 'NY', '$8.99', '$9.99', 'Express shipping'],
+  ])('offers the Taste Pack with the 11:11 box out of state (%s) without a coupon, at the box rate', async (_zone, state, singleRate, rate, label) => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await render();
     await delivery();
     await input('#delivery-state', state);
-    expect(tastePackLine()?.textContent).toContain('Ships with your 11:11 box at no extra shipping. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →');
-    expect(host.textContent).toContain(rate);
+    expect(tastePackLine()?.textContent).toContain('Ships together with your 11:11 box. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →');
+    // One box alone has its own lower rate; adding the Taste Pack goes back to the box rate.
+    expect(host.textContent).toContain(`${label}${singleRate}`);
     await act(async () => tastePackLine()!.querySelector('button')!.click());
     expect(useCartStore.getState().items.map(i => [i.productId, i.lineTotal]))
       .toEqual([['sweet-assorted-box', 60], ['sweet-bobbatlu-taste-pack', 24]]);

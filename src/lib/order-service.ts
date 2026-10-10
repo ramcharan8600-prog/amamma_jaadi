@@ -222,7 +222,7 @@ export async function createOrderFromSession(
     customerName: session.customer_name, phone: session.phone_number, items: emailItems,
     // Match the purchased cart used for shipping; complimentary display rows
     // must not change the service label between checkout and its confirmation.
-    // Drives the "Standard shipping" label: pickle-only and Malai Khaja-only carts.
+    // Pickle-only and Ground-shipped carts (shown to customers as "Express shipping").
     picklesOnly: picklesOnlyCart || isGroundShippingCart(lines),
     fulfillmentType: fulfillment.type as 'pickup' | 'delivery',
     pickupDate: fulfillment.date,

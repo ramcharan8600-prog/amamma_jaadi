@@ -25,6 +25,9 @@ import {
   SHIPPING_FAR,
   SHIPPING_GROUND_OUT_OF_STATE,
   SHIPPING_ASSORTED_BOX_NEARBY,
+  SHIPPING_ASSORTED_BOX_SINGLE_TX,
+  SHIPPING_ASSORTED_BOX_SINGLE_NEARBY,
+  SHIPPING_ASSORTED_BOX_SINGLE_FAR,
   SHIPPING_MINI_COMBO_NEARBY,
   SHIPPING_MALAI_KHAJA_NEARBY,
   SHIPPING_MALAI_KHAJA_FAR,
@@ -141,7 +144,8 @@ export function getShippingZone(state: string | undefined | null): ShippingZone 
 export function shippingMethodLabel(method: DeliveryShippingMethod | null | undefined, standardShipping = false): string {
   if (method === 'expedited') return 'Expedited — estimated 2 business days in transit';
   if (method === 'ground') return 'Ground — estimated 2–5 business days in transit';
-  return standardShipping ? 'Standard shipping' : 'UPS 2nd Day Air';
+  // Customers never see "Standard shipping" (owner, 2026-10-10).
+  return standardShipping ? 'Express shipping' : 'UPS 2nd Day Air';
 }
 
 export type DeliveryService = 'texas' | 'standard' | 'express' | 'second-day-air';
@@ -149,7 +153,8 @@ export type DeliveryService = 'texas' | 'standard' | 'express' | 'second-day-air
 /**
  * The delivery service customers are told about, in checkout and emails:
  * - Texas: about 1 business day after dispatch.
- * - Pickle-only outside Texas: Standard shipping.
+ * - Pickle-only outside Texas, and Ground-shipped boxes to far states: "Express shipping"
+ *   (customers never see "Standard shipping", owner 2026-10-10).
  * - Nearby states: Express shipping (2-day ETA).
  * - Other states: UPS 2nd Day Air, except Malai Khaja-only and Assorted
  *   Box-only carts, which ship Standard at their lower rate.
@@ -168,7 +173,7 @@ export function deliveryService(
 
 const DELIVERY_SERVICE_LABELS: Record<DeliveryService, string> = {
   texas: 'Shipping (estimated 1 business day after dispatch)',
-  standard: 'Standard shipping',
+  standard: 'Express shipping',
   express: 'Express shipping (2-day ETA)',
   'second-day-air': 'UPS 2nd Day Air',
 };
@@ -220,22 +225,26 @@ export function deliveryRestriction(
 
 export const MALAI_KHAJA_PRODUCT_ID = 'sweet-malai-khaja';
 
-export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'mini-combo';
+export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'assorted-box-single' | 'mini-combo';
 
 /**
  * Carts shipped UPS Ground outside Texas, with no minimum. Mixing the two, or
  * adding anything else, restores the regular rates. Intentionally quiet: no
  * banner or copy mentions either rate.
  * - Only Malai Khaja: the lower of $9.99 and the regular rate.
- * - Only the Assorted Box: Texas $6.99, nearby states $8.99, far states $9.99.
- *   The Bobbatlu Taste Pack add-on ships with the box at the box's rate.
+ * - Exactly one Assorted Box and nothing else: Texas $4.99, nearby $6.99, far $8.99.
+ * - Only the Assorted Box otherwise (two or more, or with the Bobbatlu Taste Pack
+ *   add-on, which ships at the box's rate): Texas $6.99, nearby $8.99, far $9.99.
  * - Only the Mini Combo Pack (advertised, not quiet): regular Texas rates; nearby
  *   states the lower of $9.99 and the regular rate. It isn't delivered to far states.
  */
-export function groundShippingKind(items: ReadonlyArray<{ productId: string }>): GroundShippingKind | undefined {
+export function groundShippingKind(items: ReadonlyArray<{ productId: string; quantity?: number }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
   if (items.every(({ productId }) => productId === MALAI_KHAJA_PRODUCT_ID)) return 'malai-khaja';
   if (items.every(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID)) return 'mini-combo';
+  if (items.length === 1 && items[0].productId === ASSORTED_BOX_PRODUCT_ID && (items[0].quantity ?? 1) === 1) {
+    return 'assorted-box-single';
+  }
   if (items.some(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID) &&
       items.every(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID || productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)) {
     return 'assorted-box';
@@ -248,7 +257,7 @@ export function containsMiniComboPack(items: ReadonlyArray<{ productId: string }
   return items.some(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID);
 }
 
-export function isGroundShippingCart(items: ReadonlyArray<{ productId: string }>): boolean {
+export function isGroundShippingCart(items: ReadonlyArray<{ productId: string; quantity?: number }>): boolean {
   return groundShippingKind(items) !== undefined;
 }
 
@@ -331,6 +340,10 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
       // rates ($6.99, $4.99 from $100, $3.99 from $120).
       if (zone === 'nearby') regularShipping = subtotal < STANDARD_SHIPPING_THRESHOLD ? SHIPPING_GROUND_OUT_OF_STATE : SHIPPING_MALAI_KHAJA_NEARBY;
       else if (zone === 'far') regularShipping = SHIPPING_MALAI_KHAJA_FAR;
+    } else if (opts.groundShipping === 'assorted-box-single' && !opts.picklesOnly) {
+      // One 11:11 box alone: a lower rate everywhere, Texas included.
+      regularShipping = zone === 'texas' ? SHIPPING_ASSORTED_BOX_SINGLE_TX
+        : zone === 'nearby' ? SHIPPING_ASSORTED_BOX_SINGLE_NEARBY : SHIPPING_ASSORTED_BOX_SINGLE_FAR;
     } else if (opts.groundShipping === 'assorted-box' && !opts.picklesOnly && zone !== 'texas') {
       // The Assorted Box is a flat $8.99 to nearby states and $9.99 to far ones.
       regularShipping = zone === 'nearby' ? SHIPPING_ASSORTED_BOX_NEARBY : SHIPPING_GROUND_OUT_OF_STATE;
