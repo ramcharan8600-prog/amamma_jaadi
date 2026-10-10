@@ -406,8 +406,9 @@ export default function CheckoutPage() {
   const service = deliveryService(deliveryState, picklesOnly, groundShipping);
   const serviceLabel = deliveryServiceLabel(service);
   const expressSweetsNote = <p className="font-body text-xs text-brand-maroon">{EXPRESS_SWEETS_NOTE}</p>;
-  // The owner's ghee / no-preservatives note shows on every delivery order once a state is chosen.
-  const showExpressNote = !!deliveryState.trim();
+  // The owner's ghee / no-preservatives note shows on every delivery order with sweets
+  // once a state is chosen; pickle-only orders don't get it (owner, 2026-10-10).
+  const showExpressNote = !!deliveryState.trim() && !picklesOnly;
   // Step 4 describes the delivery saved with the payment session.
   const paymentService = fulfillment?.type === 'delivery'
     ? deliveryService(fulfillment.state, picklesOnly, groundShipping)
@@ -1616,7 +1617,7 @@ export default function CheckoutPage() {
               <ShippingCharge label={deliveryServiceLabel(paymentService, sessionInfo.shippingMethod)}
                 shipping={sessionInfo.shipping} quote={sessionInfo.shippingQuote} />
             )}
-            {paymentService && expressSweetsNote}
+            {paymentService && !picklesOnly && expressSweetsNote}
             <MaintenanceFee amount={sessionInfo.maintenanceFee} />
             <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
               <span>{SALES_TAX_LABEL}</span>
