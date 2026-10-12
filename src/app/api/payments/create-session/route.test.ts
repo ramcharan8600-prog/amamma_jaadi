@@ -347,14 +347,20 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     expect(mocks.inserts).toHaveLength(0);
   });
 
-  it.each([
-    ['alone', [mini], 'NY'],
-    ['in a $128 cart', [mini, { ...sweet, quantity: 2 }], 'CA'],
-  ] as const)('refuses far-state delivery of the Mini Combo Pack %s (%s)', async (_label, items, state) => {
-    const response = await post(checkout(items, delivery(state)));
+  it('asks for the $60 far-state minimum for one Mini Combo Pack alone', async () => {
+    const response = await post(checkout([mini], delivery('NY')));
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('delivered within Texas and nearby states only');
+    expect((await response.json()).error).toBe('A minimum product subtotal of $60.00 is required for delivery to this state. Add $12.00 more to continue.');
     expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it.each([
+    ['two Mini Combo Packs', [{ ...mini, quantity: 2 }], 'NY', 96],
+    ['a Mini Combo Pack in a $128 cart', [mini, { ...sweet, quantity: 2 }], 'CA', 128],
+  ] as const)('ships %s to a far state at $11.99 (%s)', async (_label, items, state, subtotal) => {
+    const response = await post(checkout(items, delivery(state)));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal, shipping: 11.99, totalAmount: Math.round((subtotal + 11.99) * 100) / 100 });
   });
 
   it('ignores a forged product that drops the pickup-only rule', async () => {

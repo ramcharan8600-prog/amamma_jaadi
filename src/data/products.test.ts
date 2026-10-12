@@ -132,9 +132,10 @@ describe('lookups', () => {
     expect(box.deliveryStateCodes).toBeUndefined();
   });
 
-  it('offers the $48 Mini Combo Pack (8 + 8) for delivery in Texas and nearby states', () => {
+  it('offers the $48 Mini Combo Pack (8 + 8) for delivery in every state (far states at the $60 minimum)', () => {
     const box = getProductById('gift-box-mini-combo')!;
-    expect(box).toMatchObject({ unitPrice: 48, category: 'gift-boxes', isFixedQuantity: true, deliveryZones: ['texas', 'nearby'] });
+    expect(box).toMatchObject({ unitPrice: 48, category: 'gift-boxes', isFixedQuantity: true });
+    expect(box.deliveryZones).toBeUndefined();
     expect(box.pickupOnly).toBeUndefined();
     expect(box.variantOptions).toEqual(['Assorted: 8 Malpuri + 8 Malai Khaja']);
     expect(isProductTaxExempt(box)).toBe(true);

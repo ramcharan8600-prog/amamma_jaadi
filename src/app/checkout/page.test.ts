@@ -882,12 +882,18 @@ describe('nationwide pickle-only delivery', () => {
     expect(button('Continue to payment').disabled).toBe(false);
   });
 
-  it('refuses far-state delivery of the Mini Combo Pack', async () => {
-    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 2, undefined, 'Assorted: 8 Malpuri + 8 Malai Khaja');
+  it('asks for the $60 minimum for one Mini Combo Pack to a far state, and ships two at $11.99', async () => {
+    useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1, undefined, 'Assorted: 8 Malpuri + 8 Malai Khaja');
     await enterDeliveryDetails('NY');
-    expect(host.textContent).toContain('is delivered within Texas and nearby states only');
+    expect(host.textContent).toContain('A minimum product subtotal of $60.00 is required');
+    expect(host.textContent).toContain('Add $12.00 more');
+    expect(host.textContent).not.toContain('delivered within Texas and nearby states only');
     expect(button('Continue to payment').disabled).toBe(true);
-    expect(host.textContent).not.toContain('$11.99');
+    await act(async () => useCartStore.getState().updateQuantity('gift-box-mini-combo', 2, undefined, 'Assorted: 8 Malpuri + 8 Malai Khaja'));
+    expect(host.textContent).not.toContain('A minimum product subtotal');
+    expect(host.textContent).toContain('$11.99');
+    expect(host.textContent).toContain('$107.99');
+    expect(button('Continue to payment').disabled).toBe(false);
   });
 
   it('applies the pickup-only rule to a $30 box saved in a cart before the rule existed', async () => {
