@@ -277,6 +277,7 @@ export const PRODUCTS: Product[] = [
     id: 'gift-box-party',
     slug: 'mini-party-box',
     name: 'Mini Party Box',
+    ribbon: '#Pick-up only',
     description:
       'Our bigger box for parties and gatherings: 20 pieces of Guntur Malpuri, Nellore Malai Khaja, or a 10 + 10 mix, in a desi-style matt-finish sweets gift box. Pickup only, at our partner locations in Plano, Frisco and Irving. Need delivery? Choose the 10:10 Assorted Box.',
     category: 'gift-boxes',
