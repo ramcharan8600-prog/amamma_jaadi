@@ -17,6 +17,15 @@ interface SweetCardProps {
   eager?: boolean;
 }
 
+/**
+ * The per-piece badge: "From $2.50/pc" when a pack costs more per piece than the
+ * regular price (15 Malpuri for $40 is $2.67/pc; 25 and 50 are $2.50/pc).
+ */
+export function perPieceBadge(product: Pick<Product, 'unitPrice' | 'tierPrices' | 'quantityOptions'>): string {
+  const dearer = (product.quantityOptions ?? []).some((tier) => calculateSweetPrice(product, tier) > product.unitPrice * tier + 0.001);
+  return `${dearer ? 'From ' : ''}${formatCurrency(product.unitPrice)}/pc`;
+}
+
 export default function SweetCard({ product, eager = false }: SweetCardProps) {
   const tiers = product.quantityOptions || [16, 25, 50];
   const [selectedTier, setSelectedTier] = useState(tiers[0]);
@@ -107,7 +116,7 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
           {/* A fixed-price box isn't sold per piece, so it gets no per-piece badge. */}
           {!isFixedPriceBox(product) && (
             <span className="absolute top-3 right-3 bg-brand-gold text-white text-xs font-medium px-2.5 py-1 rounded-full">
-              {formatCurrency(product.unitPrice)}/pc
+              {perPieceBadge(product)}
             </span>
           )}
           {outOfStockOverlay}

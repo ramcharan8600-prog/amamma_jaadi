@@ -5,7 +5,7 @@ import {it,expect,vi} from 'vitest';
 import {getProductById} from '@/data/products';
 import {invalidateStock} from '@/hooks/useStock';
 import {useCartStore} from '@/store/cart';
-import SweetCard from './SweetCard';
+import SweetCard, {perPieceBadge} from './SweetCard';
 vi.mock('next/image',()=>({default:({alt,src}:{alt:string;src:string})=>createElement('img',{alt,src})}));
 vi.mock('next/link',()=>({default:({children,href}:{children:ReactNode;href:string})=>createElement('a',{href},children)}));
 it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu'].flatMap(productId => [0, 15, 25].map(count => ({ productId, count }))))('shows $productId preparation according to stock $count and selected box size',async ({ productId, count })=>{
@@ -171,4 +171,12 @@ it.each([[0,'Out of Stock',true],[2,'Only 2 boxes left',false]])('limits the Ass
   }finally{
     await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
   }
+});
+
+it('says "From" on the per-piece badge only when a pack costs more per piece', () => {
+  expect(perPieceBadge(getProductById('sweet-malpuri')!)).toBe('From $2.50/pc');
+  expect(perPieceBadge(getProductById('sweet-malai-khaja')!)).toBe('From $2.50/pc');
+  expect(perPieceBadge(getProductById('sweet-kova')!)).toBe('$2.25/pc');
+  expect(perPieceBadge(getProductById('sweet-bobbatlu')!)).toBe('$3.00/pc');
+  expect(perPieceBadge(getProductById('sweet-kova-bobbatlu')!)).toBe('$3.00/pc');
 });
