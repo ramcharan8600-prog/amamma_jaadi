@@ -416,7 +416,7 @@ it('persists and reconciles the separate maintenance fee through the paid order 
 it.each([['TX', 0, false], ['OK', 8.99, false], ['NY', 11.99, false]] as const)(
   'finalizes sweets in %s with the appropriate maintenance label and no complimentary pieces', async (state, shipping, gift) => {
     const { db, sqlite, session } = setup({
-      cart_data: [{ productId: 'sweet-malpuri', quantity: 2, selectedTier: 16, lineTotal: 80 }],
+      cart_data: [{ productId: 'sweet-malpuri', quantity: 2, selectedTier: 15, lineTotal: 80 }],
       coupon_snapshot: { code: 'TESTBONUS', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' },
       fulfillment_data: { type: 'delivery', state, shippingMethod: 'standard' },
       total_amount: 80 + shipping + (state === 'TX' ? 0.99 : 0), tax: 0, shipping, maintenance_fee: state === 'TX' ? 0.99 : 0,
@@ -458,7 +458,7 @@ it('lists the Assorted Box contents under the item in the email and keeps the pl
 it('shows how many pieces each sweet pack holds under the item in the confirmation email', async () => {
   const { db, sqlite, session } = setup({
     cart_data: [
-      { productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16, lineTotal: 40 },
+      { productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 15, lineTotal: 40 },
       { productId: 'sweet-malpuri', quantity: 2, selectedTier: 25, lineTotal: 125 },
       { productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 16, lineTotal: 48 },
       { productId: 'sweet-assorted-box', quantity: 1, selectedTier: 20, lineTotal: 60 },
@@ -470,7 +470,7 @@ it('shows how many pieces each sweet pack holds under the item in the confirmati
     await createOrderFromSession(db, session, 'PAY-PIECE-COUNTS');
     const html = String(sqlite.prepare('SELECT html FROM email_outbox').get()?.html);
     const row = (name: string) => html.slice(html.indexOf(name), html.indexOf('</tr>', html.indexOf(name)));
-    expect(row('Nellore Malai Khaja')).toContain('16 pcs');
+    expect(row('Nellore Malai Khaja')).toContain('15 pcs');
     expect(row('Guntur Malpuri')).toContain('25 pcs × 2 = 50 pcs');
     expect(row('Bobbatlu')).toContain('16 pcs');
     // Boxes keep their own contents lines; pickles have no piece count.
@@ -479,7 +479,7 @@ it('shows how many pieces each sweet pack holds under the item in the confirmati
     expect(row('Chicken Pickle')).not.toContain('pcs');
     // Saved order items keep the plain product name for reports.
     expect(sqlite.prepare("SELECT product_name, selected_tier FROM order_items WHERE product_name = 'Nellore Malai Khaja'").get())
-      .toMatchObject({ product_name: 'Nellore Malai Khaja', selected_tier: 16 });
+      .toMatchObject({ product_name: 'Nellore Malai Khaja', selected_tier: 15 });
   } finally {
     sqlite.close();
   }

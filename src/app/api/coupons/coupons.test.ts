@@ -16,7 +16,7 @@ const request = (body: unknown) => new NextRequest('https://example.test/api/cou
   method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' },
 });
 const free = { code: 'ship', influencerName: 'Test campaign', type: 'free_delivery', minSubtotal: 40 };
-const items = [{ productId: 'sweet-malpuri', quantity: 1, selectedTier: 16 }];
+const items = [{ productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }];
 
 beforeEach(() => {
   database = createTestD1();

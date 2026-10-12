@@ -116,11 +116,14 @@ describe('cart store', () => {
     localStorage.setItem('amamma-jaadi-cart', JSON.stringify({ version: 0, state: { items: [
       { productId: box.id, product: oldBox, quantity: 2, selectedTier: 22, lineTotal: 120 },
       { productId: 'retired-product', product: { ...oldBox, id: 'retired-product' }, quantity: 1, selectedTier: 22, lineTotal: 60 },
+      // 16 pcs Malpuri ($40) is now 15 pcs for $40.
+      { productId: 'sweet-malpuri', product: { ...getProductById('sweet-malpuri')!, quantityOptions: [16, 25, 50], tierPrices: undefined }, quantity: 1, selectedTier: 16, lineTotal: 40 },
     ] } }));
     await useCartStore.persist.rehydrate();
     const items = useCartStore.getState().items;
-    expect(items).toHaveLength(1);
+    expect(items).toHaveLength(2);
     expect(items[0]).toMatchObject({ selectedTier: 20, quantity: 2, lineTotal: (box.tierPrices?.[20] ?? 0) * 2 });
+    expect(items[1]).toMatchObject({ productId: 'sweet-malpuri', selectedTier: 15, lineTotal: 40 });
     expect(items[0].product.tierPrices).toEqual(box.tierPrices);
     localStorage.removeItem('amamma-jaadi-cart');
   });

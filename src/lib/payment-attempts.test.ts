@@ -58,7 +58,7 @@ function addSession(id = 'test-session') {
      (id, customer_name, email, phone_number, cart_data, fulfillment_data, total_amount, idempotency_key)
      VALUES (?, 'Test Buyer', 'test@example.com', '2145550100', ?, ?, 40, ?)`
   ).run(id, JSON.stringify([{ productId: 'sweet-malpuri', product: { name: 'Guntur Malpuri' },
-    quantity: 1, selectedTier: 16, lineTotal: 40 }]), JSON.stringify(pickupFulfillment()), `key-${id}`);
+    quantity: 1, selectedTier: 15, lineTotal: 40 }]), JSON.stringify(pickupFulfillment()), `key-${id}`);
 }
 
 function attempt() {
@@ -163,7 +163,7 @@ describe('contact phones before a first charge', () => {
 describe('durable payment recovery using real SQLite transactions', () => {
   it.each(['abc', 0, -1, 0.5, null, true])('rejects legacy quantity %j before creating a charge attempt', async quantity => {
     fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ? WHERE id = ?')
-      .run(JSON.stringify([{ productId: 'sweet-malpuri', quantity, selectedTier: 16, lineTotal: 40 }]), 'test-session');
+      .run(JSON.stringify([{ productId: 'sweet-malpuri', quantity, selectedTier: 15, lineTotal: 40 }]), 'test-session');
     const execute = vi.fn();
     const result = await runPaymentAttempt(fixture.db,
       { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize });
@@ -600,7 +600,7 @@ describe('next-day product rules before a first charge', () => {
     fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, total_amount = ?')
       .run(JSON.stringify([
         { productId, quantity: 1, selectedTier: 16, product: { id: 'sweet-malpuri', category: 'pickles' } },
-        ...(mixed ? [{ productId: 'sweet-malpuri', quantity: 1, selectedTier: 16 }] : []),
+        ...(mixed ? [{ productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }] : []),
       ]), total);
     fixture.sqlite.prepare('INSERT OR REPLACE INTO inventory (product_id, stock_count) VALUES (?, ?)')
       .run(productId, stock);
@@ -691,7 +691,7 @@ it('retains the far-state minimum before charging a mixed pickle and sweets orde
   fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=11.99,tax=1.57,total_amount=72.56')
     .run(JSON.stringify([
       { productId: 'pickle-gongura-chicken', quantity: 1, lineTotal: 19 },
-      { productId: 'sweet-malpuri', quantity: 1, selectedTier: 16, lineTotal: 40 },
+      { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15, lineTotal: 40 },
     ]), JSON.stringify({ type: 'delivery', state: 'NY' }));
   const execute = vi.fn();
   expect(await runPaymentAttempt(fixture.db,
@@ -758,7 +758,7 @@ it.each([['TX', 0, 80.09], ['OK', 6.99, 84.93], ['NY', 6.99, 84.93]])('charges t
 
 it('charges a far-state Malai Khaja-only order at the flat $10.99 shipping', async () => {
   fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=10.99,tax=0,total_amount=50.99')
-    .run(JSON.stringify([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16, lineTotal: 40 }]),
+    .run(JSON.stringify([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 15, lineTotal: 40 }]),
       JSON.stringify({ type: 'delivery', state: 'NY' }));
   const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(
     async () => ({ paymentId: 'payment-malai-khaja', status: 'COMPLETED' }));

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getProductById } from '@/data/products';
 import { MAX_PRODUCT_QUANTITY, validateCart } from './cart-validation';
 
-const sweet = { productId: 'sweet-malpuri', quantity: 1, selectedTier: 16 };
+const sweet = { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 };
 const gift = {
   productId: 'gift-box-sweet-memories', quantity: 1,
   selectedVariant: '12 pcs Guntur Malpuri',
@@ -31,7 +31,7 @@ describe('new checkout cart validation', () => {
     expect(validateCart([{ ...sweet, quantity: MAX_PRODUCT_QUANTITY }]).ok).toBe(true);
   });
 
-  it.each([undefined, null, '16', 1, 15, 16.5, NaN, Infinity, true, [], {}])(
+  it.each([undefined, null, '15', 1, 16, 15.5, NaN, Infinity, true, [], {}])(
     'rejects unoffered or malformed sweet tier %j',
     (selectedTier) => expect(validateCart([{ ...sweet, selectedTier }]))
       .toMatchObject({ ok: false, status: 400 })

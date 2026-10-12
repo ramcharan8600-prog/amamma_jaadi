@@ -64,7 +64,8 @@ export function validateCart(input: unknown): CartValidationResult {
         !Number.isSafeInteger(raw.selectedTier) ||
         !product.quantityOptions?.includes(raw.selectedTier)
       ) {
-        return invalid(`Invalid quantity option for ${product.name}`);
+        // Usually a page opened before a size change: a refresh shows today's sizes.
+        return invalid(`${product.name}: this size is no longer available. Please refresh the page and choose a size again.`);
       }
       selectedTier = raw.selectedTier;
     } else if (raw.selectedTier != null) {

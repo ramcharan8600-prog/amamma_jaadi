@@ -84,9 +84,11 @@ export const PRODUCTS: Product[] = [
       'A signature Guntur delicacy — deep-fried discs of refined flour soaked in fragrant sugar syrup infused with cardamom. Crispy on the outside, melt-in-your-mouth inside.',
     category: 'sweets',
     unitPrice: 2.5,
+    // 15 pieces for $40 (owner, 2026-10-12); 25 and 50 stay at $2.50/pc.
+    tierPrices: { 15: 40 },
     image: '/images/web/guntur-malpuri.webp',
     imageFit: 'contain',
-    quantityOptions: [16, 25, 50],
+    quantityOptions: [15, 25, 50],
     inStock: true,
     prepNotice: 'Baked fresh every day.',
     prepNoticeTone: 'fresh',
@@ -100,8 +102,10 @@ export const PRODUCTS: Product[] = [
       'Flaky, layered pastry from Nellore, delicately fried and dipped in sugar syrup. Each layer shatters into a shower of sweetness — a true South Indian masterpiece.',
     category: 'sweets',
     unitPrice: 2.5,
+    // 15 pieces for $40 (owner, 2026-10-12); 25 and 50 stay at $2.50/pc.
+    tierPrices: { 15: 40 },
     image: '/images/web/nellore-malai-khaja.webp',
-    quantityOptions: [16, 25, 50],
+    quantityOptions: [15, 25, 50],
     inStock: true,
     prepNotice: 'Baked fresh every day.',
     prepNoticeTone: 'fresh',
@@ -255,7 +259,7 @@ export const PRODUCTS: Product[] = [
     description:
       'Our combo gift box for delivery: 8 Guntur Malpuri + 8 Nellore Malai Khaja (16 pieces) in a desi-style matt-finish box. Free pickup is available too.',
     category: 'gift-boxes',
-    unitPrice: 40,
+    unitPrice: 48,
     image: '/images/web/texas-limited-gift-box-closed.webp',
     imageFit: 'contain',
     additionalImages: [{

@@ -214,7 +214,7 @@ describe('sold-out pickup dates', () => {
 
 describe('checkout pickup date controls', () => {
   it.each(['Pickup', 'Delivery'])('hides the cutoff banner on cart, method, and details steps (%s)', async (method) => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await render();
     expect(host.textContent).toContain('Cart overview');
     expect(host.textContent).not.toContain('After 1:30 PM, pickup starts tomorrow');
@@ -775,7 +775,7 @@ it.each([[1,'6.99','2.14','28.13'],[2,'6.99','3.71','48.70'],[3,'6.99','5.28','6
 
 describe('nationwide pickle-only delivery', () => {
   it('shows $3.99 Texas shipping and no operational fee on a $120 cart without a coupon', async () => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 3, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 3, 15);
     await enterDeliveryDetails('TX');
     expect(host.textContent).toContain('$3.99 Texas shipping on orders of $120.00+');
     expect(host.textContent).not.toContain('Operational fee');
@@ -847,7 +847,7 @@ describe('nationwide pickle-only delivery', () => {
 
   it('keeps the far-state minimum when the Assorted Box is mixed with Malai Khaja', async () => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 20);
-    useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 15);
     await enterDeliveryDetails('NY');
     expect(host.textContent).toContain('UPS 2nd Day Air');
     expect(host.textContent).toContain('$11.99');
@@ -855,7 +855,7 @@ describe('nationwide pickle-only delivery', () => {
   });
 
   it('treats Florida as nearby: no minimum and $10.99 below $60', async () => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await enterDeliveryDetails('FL');
     expect(host.textContent).not.toContain('A minimum product subtotal');
     expect(host.textContent).toContain('$10.99');
@@ -872,8 +872,8 @@ describe('nationwide pickle-only delivery', () => {
   });
 
   it.each([
-    ['TX', '$6.99', '$46.99', 'Shipping (estimated 1 business day after dispatch)'],
-    ['OK', '$9.99', '$49.99', 'Express shipping (2-day ETA)'],
+    ['TX', '$6.99', '$54.99', 'Shipping (estimated 1 business day after dispatch)'],
+    ['OK', '$9.99', '$57.99', 'Express shipping (2-day ETA)'],
   ])('ships the Mini Combo Pack to %s for %s', async (state, shipping, total, label) => {
     useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1, undefined, 'Assorted: 8 Malpuri + 8 Malai Khaja');
     await enterDeliveryDetails(state);
@@ -902,7 +902,7 @@ describe('nationwide pickle-only delivery', () => {
 
   it('keeps the $30 box pickup only: Delivery is disabled and explains why', async () => {
     useCartStore.getState().addItem(getProductById('gift-box-sweet-memories')!, 1, undefined, '12 pcs Guntur Malpuri');
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await render();
     await click('Continue');
     const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
@@ -915,7 +915,7 @@ describe('nationwide pickle-only delivery', () => {
   });
 
   it('quietly ships a Malai Khaja-only cart to a far state for a flat $10.99 with no minimum', async () => {
-    useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 15);
     await enterDeliveryDetails('NY');
     expect(host.textContent).not.toContain('A minimum product subtotal');
     expect(host.textContent).toContain('$10.99');
@@ -929,7 +929,7 @@ describe('nationwide pickle-only delivery', () => {
 
   it('retains the far-state minimum when sweets are included', async () => {
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await enterDeliveryDetails('NY');
     expect(host.textContent).toContain('A minimum product subtotal of $60.00');
     expect(host.textContent).toContain('Add $1.00 more');
@@ -962,7 +962,7 @@ describe('nationwide pickle-only delivery', () => {
 
   it('keeps the note when pickles are mixed with sweets', async () => {
     useCartStore.getState().addItem(getProductById('pickle-chicken')!, 1);
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await enterDeliveryDetails('TX');
     expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
   });
@@ -977,7 +977,7 @@ describe('nationwide pickle-only delivery', () => {
   });
 
   it.each([false, true])('retains UPS shipping when sweets are included (mixed: %s)', async mixed => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
     if (mixed) useCartStore.getState().addItem(getProductById('pickle-chicken')!, 1);
     await enterDeliveryDetails('NY');
     expect(host.textContent).toContain('UPS 2nd Day Air');
@@ -1065,7 +1065,7 @@ describe('coupon benefits in checkout', () => {
 
   it('shows no Taste Pack suggestion once the cart is at or over the coupon minimum', async () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
     await apply();
     expect(host.textContent).toContain('SHIP70: Shipping offer');
     expect(tastePackLine()).toBeUndefined();
@@ -1130,13 +1130,13 @@ describe('coupon benefits in checkout', () => {
   });
   it('updates the returned cart fee and shipping as its coupon eligibility changes', async () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     useCartStore.getState().addItem(getProductById('pickle-chicken')!, 4);
     await apply();
     await delivery();
     await returnToCart();
     expect(maintenanceRow()).toBe('Operational fee$0.99');
-    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 16));
+    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 15));
     expect(maintenanceRow()).toBe('Operational fee$1.99');
     await act(async () => useCartStore.getState().updateQuantity('pickle-chicken', 3));
     expect(maintenanceRow()).toBeUndefined();
@@ -1153,7 +1153,7 @@ describe('coupon benefits in checkout', () => {
   });
   it.each([{ state: 'OK', shipping: '$8.99' }, { state: 'NY', shipping: '$11.99' }])('hides maintenance and itemizes regular shipping after returning from $state delivery', async ({ state, shipping }) => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
     await apply();
     await delivery();
     await input('#delivery-state', state);
@@ -1164,7 +1164,7 @@ describe('coupon benefits in checkout', () => {
   });
   it('hides retained Texas delivery charges after switching to pickup and returning to cart', async () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
     await apply();
     await delivery();
     await click('Back');
@@ -1178,7 +1178,7 @@ describe('coupon benefits in checkout', () => {
     expect(host.textContent).toContain('$80.00');
   });
   it('labels retained shipping as an estimate when returning before choosing a state', async () => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
     await render();
     expect(host.textContent).not.toContain('Shipping estimate');
     await click('Continue');
@@ -1207,12 +1207,12 @@ describe('coupon benefits in checkout', () => {
       expect(host.textContent).not.toContain('Coupon savings:');
     }
     await input('#delivery-state', 'TX');
-    await act(async () => useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16));
+    await act(async () => useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15));
     expect(host.textContent).toContain('Operational fee');
     expect(host.textContent).toContain('$0.99');
     expect(host.textContent).not.toContain('$1.99');
     expect(host.textContent).toContain('Free delivery on this order.');
-    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 16));
+    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 15));
     expect(host.textContent).toContain('Operational fee');
     await act(async () => useCartStore.getState().updateQuantity('pickle-chicken', 3));
     expect(host.textContent).toContain('This coupon requires a minimum cart value of $70.00');
@@ -1224,7 +1224,7 @@ describe('coupon benefits in checkout', () => {
     expect(host.querySelector('s')).toBeNull();
   });
   it('waives delivery at the minimum and restores fee and tax when items are removed', async () => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
     await apply();
     expect(JSON.parse(String(calls('/api/coupons/validate')[0][1]?.body)).items).toHaveLength(2);
@@ -1232,7 +1232,7 @@ describe('coupon benefits in checkout', () => {
     await delivery();
     expect(host.textContent).toContain('$60.57');
     expect(host.querySelector('s')?.textContent).toBe('$6.99');
-    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 16));
+    await act(async () => useCartStore.getState().removeItem('sweet-malpuri', 15));
     expect(host.textContent).toContain('This coupon requires a minimum cart value of $59.00');
     expect(host.textContent).toContain('$6.99');
     expect(host.textContent).toContain('$28.13');
@@ -1258,14 +1258,14 @@ describe('coupon benefits in checkout', () => {
   });
   it('keeps paid shipping for complimentary pieces and shows the selected quantity', async () => {
     couponResult = async () => Response.json({ code: 'BONUS', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 });
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await apply();
     expect(host.textContent).toContain('3 complimentary Malpuri pcs');
     await delivery();
     expect(host.textContent).toContain('$46.99');
   });
   it('explains that delivery coupons do not apply to pickup and omits them from the payment request', async () => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
     await apply();
     await click('Continue');
     const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
@@ -1281,7 +1281,7 @@ describe('coupon benefits in checkout', () => {
   });
   it('shows minimum errors without applying the code', async () => {
     couponResult = async () => Response.json({ error: 'This code requires a minimum cart value of $59.00 before tax and delivery.' }, { status: 400 });
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await apply();
     expect(host.textContent).toContain('minimum cart value of $59.00');
     expect(host.textContent).not.toContain('Remove promo code');

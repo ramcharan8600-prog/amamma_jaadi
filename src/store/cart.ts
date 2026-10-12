@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem, Product, FulfillmentDetails } from '@/types';
-import { calculateSweetPrice, getProductById, getTotalPieces, isFixedPriceBox } from '@/data/products';
+import { calculateSweetPrice, getProductById, getTotalPieces } from '@/data/products';
 
 interface CartState {
   items: CartItem[];
@@ -148,10 +148,10 @@ export const useCartStore = create<CartState>()(
         items: ((persisted as Partial<CartState> | undefined)?.items ?? []).flatMap((item) => {
           const product = getProductById(item.productId);
           if (!product) return [];
-          // A fixed box saved in a size that is gone (the 22-piece 11:11 box) moves to today's size.
-          const selectedTier = isFixedPriceBox(product) && !product.quantityOptions!.includes(item.selectedTier ?? -1)
-            ? product.quantityOptions![0]
-            : item.selectedTier;
+          // A sweet saved in a size that is gone moves to today's first size
+          // (the 22-piece 11:11 box → the 10:10 box, 16 pcs Malpuri → 15 pcs).
+          const sizes = product.category === 'sweets' ? product.quantityOptions : undefined;
+          const selectedTier = sizes?.length && !sizes.includes(item.selectedTier ?? -1) ? sizes[0] : item.selectedTier;
           return [{ ...item, product, selectedTier, lineTotal: computeLineTotal(product, item.quantity, selectedTier) }];
         }),
       }),
