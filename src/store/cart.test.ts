@@ -108,4 +108,19 @@ describe('cart store', () => {
     useCartStore.getState().addItem(sweet, 4, 50); // 200 pieces
     expect(useCartStore.getState().isLargeOrder()).toBe(true);
   });
+
+  it('re-reads saved cart lines from the current catalog, so old prices never reach checkout', async () => {
+    const box = getProductById('sweet-assorted-box')!;
+    const oldBox = { ...box, unitPrice: 2.5, tierPrices: { 22: 60 } };
+    localStorage.setItem('amamma-jaadi-cart', JSON.stringify({ version: 0, state: { items: [
+      { productId: box.id, product: oldBox, quantity: 2, selectedTier: 22, lineTotal: 120 },
+      { productId: 'retired-product', product: { ...oldBox, id: 'retired-product' }, quantity: 1, selectedTier: 22, lineTotal: 60 },
+    ] } }));
+    await useCartStore.persist.rehydrate();
+    const items = useCartStore.getState().items;
+    expect(items).toHaveLength(1);
+    expect(items[0].product.tierPrices).toEqual(box.tierPrices);
+    expect(items[0].lineTotal).toBe((box.tierPrices?.[22] ?? 0) * 2);
+    localStorage.removeItem('amamma-jaadi-cart');
+  });
 });

@@ -839,7 +839,7 @@ describe('nationwide pickle-only delivery', () => {
     await enterDeliveryDetails('NY');
     expect(host.textContent).not.toContain('A minimum product subtotal');
     expect(host.textContent).toContain('$8.99');
-    expect(host.textContent).toContain('$68.99');
+    expect(host.textContent).toContain('$71.99');
     expect(host.textContent).toContain('Express shipping');
     expect(host.textContent).not.toContain('Standard shipping');
     expect(button('Continue to payment').disabled).toBe(false);
@@ -1018,10 +1018,10 @@ describe('coupon benefits in checkout', () => {
     couponResult = async () => Response.json({ code: 'SHIP70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' });
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await apply();
-    expect(tastePackLine()?.textContent).toContain("You're $10.00 away from free shipping. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →");
+    expect(tastePackLine()?.textContent).toContain("You're $7.00 away from free shipping. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →");
     await act(async () => tastePackLine()!.querySelector('button')!.click());
     expect(useCartStore.getState().items.map(i => [i.productId, i.selectedTier, i.lineTotal]))
-      .toEqual([['sweet-assorted-box', 22, 60], ['sweet-bobbatlu-taste-pack', 8, 24]]);
+      .toEqual([['sweet-assorted-box', 22, 63], ['sweet-bobbatlu-taste-pack', 8, 24]]);
     expect(tastePackLine()).toBeUndefined();
     // The cart line adds the tier once, like every other sweet.
     expect(host.textContent).toContain('Bobbatlu Taste Pack (8 pcs) × 1');
@@ -1051,7 +1051,7 @@ describe('coupon benefits in checkout', () => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 22);
     await apply();
     expect(host.textContent).toContain('This coupon requires a minimum cart value of $70.00');
-    expect(tastePackLine()?.textContent).toContain("You're $10.00 away from free shipping. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →");
+    expect(tastePackLine()?.textContent).toContain("You're $7.00 away from free shipping. Add a Bobbatlu Taste Pack (8 pcs) $24.00 →");
     await act(async () => tastePackLine()!.querySelector('button')!.click());
     await act(async () => {});
     expect(useCartStore.getState().items.map(i => i.productId)).toEqual(['sweet-assorted-box', 'sweet-bobbatlu-taste-pack']);
@@ -1094,10 +1094,10 @@ describe('coupon benefits in checkout', () => {
     expect(host.textContent).toContain(`${label}${singleRate}`);
     await act(async () => tastePackLine()!.querySelector('button')!.click());
     expect(useCartStore.getState().items.map(i => [i.productId, i.lineTotal]))
-      .toEqual([['sweet-assorted-box', 60], ['sweet-bobbatlu-taste-pack', 24]]);
+      .toEqual([['sweet-assorted-box', 63], ['sweet-bobbatlu-taste-pack', 24]]);
     expect(tastePackLine()).toBeUndefined();
     const summary = Array.from(host.querySelectorAll('.card')).find(c => c.textContent?.startsWith('Subtotal'))!.textContent;
-    expect(summary).toContain('$84.00');
+    expect(summary).toContain('$87.00');
     expect(summary).toContain(`${label}${rate}`);
   });
 

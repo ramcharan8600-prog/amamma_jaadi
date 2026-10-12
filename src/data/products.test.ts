@@ -9,6 +9,7 @@ import {
   getProductsByCategory,
   getPickupLocationById,
   calculateSweetPrice,
+  regularSweetPrice,
   getTotalPieces,
   productNamesFromIds,
   isProductTaxExempt,
@@ -180,12 +181,13 @@ describe('pricing math (money path)', () => {
     expect(calculateSweetPrice({ unitPrice: 2 }, 50)).toBe(100);
   });
 
-  it('uses a fixed tier price when one is set (Assorted Box: 22 pcs for $60)', () => {
+  it('uses a fixed tier price when one is set (Assorted Box: 22 pcs for $63, regular $66)', () => {
     const box = getProductById('sweet-assorted-box')!;
     expect(box.name).toBe('Assorted Box — Malpuri & Malai Khaja');
     expect(box.ribbon).toBe('Special Edition');
     expect(box.quantityOptions).toEqual([22]);
-    expect(calculateSweetPrice(box, 22)).toBe(60);
+    expect(calculateSweetPrice(box, 22)).toBe(63);
+    expect(regularSweetPrice(box, 22)).toBe(66);
     expect(calculateSweetPrice({ unitPrice: 2.5, tierPrices: { 22: 60 } }, 16)).toBe(40);
   });
 

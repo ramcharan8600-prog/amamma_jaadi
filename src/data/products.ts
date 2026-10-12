@@ -108,8 +108,7 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'premium'],
   },
   {
-    // Priced like its two sweets ($2.50/pc) with a single 22-piece box, so the
-    // box total is $55 and the existing sweets tier, tax and pickup rules apply.
+    // A single 22-piece box on the sweets tier, tax and pickup rules.
     // Stock is counted separately, in whole boxes (see isStockTracked).
     id: 'sweet-assorted-box',
     slug: 'assorted-sweets-box',
@@ -120,9 +119,9 @@ export const PRODUCTS: Product[] = [
     description:
       'Made for **your 11:11 sweet cravings**\n* **11 Guntur Malpuri**\n* **11 Nellore Malai Khaja**\nShipping throughout the USA.',
     category: 'sweets',
-    unitPrice: 2.5,
-    // 22 pieces for $60 (not a whole-cent multiple of 22).
-    tierPrices: { 22: 60 },
+    // Regular $3/pc = $66, shown struck through; the box sells for $63.
+    unitPrice: 3,
+    tierPrices: { 22: 63 },
     // Shown under the item in order emails so the team packs 11 + 11.
     emailDetails: ['Made for your 11:11 sweet cravings', '• 11 Guntur Malpuri', '• 11 Nellore Malai Khaja'],
     image: '/images/web/texas-limited-gift-box-closed.webp',
@@ -148,7 +147,7 @@ export const PRODUCTS: Product[] = [
       'Made for your **8:8 Bobbatlu cravings**, with **Ghee**\n* **8 Bobbatlu**\n* **8 Kova Bobbatlu**',
     category: 'sweets',
     unitPrice: 3,
-    tierPrices: { 16: 48.99 },
+    tierPrices: { 16: 49.99 },
     emailDetails: ['Made for your 8:8 Bobbatlu cravings, with Ghee', '• 8 Bobbatlu', '• 8 Kova Bobbatlu'],
     image: '/images/web/bobbatlu.webp',
     quantityOptions: [16],

@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem, Product, FulfillmentDetails } from '@/types';
-import { calculateSweetPrice, getTotalPieces } from '@/data/products';
+import { calculateSweetPrice, getProductById, getTotalPieces } from '@/data/products';
 
 interface CartState {
   items: CartItem[];
@@ -141,6 +141,17 @@ export const useCartStore = create<CartState>()(
     {
       name: 'amamma-jaadi-cart',
       partialize: (state) => ({ items: state.items }),
+      // A saved cart keeps a copy of each product: re-read today's catalog so a
+      // price change shows in the cart and checkout, not only at payment.
+      merge: (persisted, current) => ({
+        ...current,
+        items: ((persisted as Partial<CartState> | undefined)?.items ?? []).flatMap((item) => {
+          const product = getProductById(item.productId);
+          return product
+            ? [{ ...item, product, lineTotal: computeLineTotal(product, item.quantity, item.selectedTier) }]
+            : [];
+        }),
+      }),
     }
   )
 );
