@@ -262,9 +262,9 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     { name: 'Florida (now nearby) below $60 with no minimum', items: [sweet], fulfillment: delivery('FL'), subtotal: 40, shipping: 10.99 },
     { name: 'Tennessee (now nearby) at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('TN'), subtotal: 80, shipping: 8.99 },
     { name: 'Georgia (now nearby) at $120', items: [{ ...sweet, quantity: 3 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 7.99 },
-    { name: 'Oklahoma at exactly $100', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 50 }], fulfillment: delivery('OK'), subtotal: 100, shipping: 7.99 },
+    { name: 'Oklahoma at exactly $100', items: [assorted, { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }], fulfillment: delivery('OK'), subtotal: 100, shipping: 7.99 },
     { name: 'Mini Combo Pack mixed with Malpuri pays nearby rates', items: [mini, sweet], fulfillment: delivery('OK'), subtotal: 88, shipping: 8.99 },
-    { name: 'far at $82 with Kova boxes', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 25 }, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('WA'), subtotal: 82, shipping: 11.99 },
+    { name: 'far at $92.25 with Kova boxes', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 25 }, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('WA'), subtotal: 92.25, shipping: 11.99 },
     { name: 'assorted box pickup', items: [assorted], fulfillment: pickup, subtotal: 60, shipping: 0 },
     // One 10:10 box and nothing else: $4.99 Texas, $6.99 nearby, $8.99 far (owner, 2026-10-10).
     { name: 'one assorted box alone in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 60, shipping: 4.99 },
@@ -273,7 +273,7 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     { name: 'two assorted boxes to a nearby state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 8.99 },
     { name: 'one assorted box alone to a far state, no minimum', items: [assorted], fulfillment: delivery('NY'), subtotal: 60, shipping: 8.99 },
     { name: 'two assorted boxes to a far state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('CA'), subtotal: 120, shipping: 9.99 },
-    { name: 'far assorted box plus Kova at $92', items: [assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NY'), subtotal: 92, shipping: 11.99 },
+    { name: 'far assorted box plus Kova at $96', items: [assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NY'), subtotal: 96, shipping: 11.99 },
   ])('$name', async ({ items, fulfillment, subtotal, shipping }) => {
     const response = await post(checkout(items, fulfillment));
     expect(response.status).toBe(201);
@@ -679,7 +679,7 @@ describe('far-state $60 minimum', () => {
   it.each([
     ['Malpuri 25', [{ ...sweet, selectedTier: 25 }], 62.5, 74.49],
     ['Bobbatlu 25', [{ productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 25 }], 70, 81.99],
-    ['Malpuri + Kova', [sweet, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], 72, 83.99],
+    ['Malpuri + Kova', [sweet, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], 76, 87.99],
   ])('now accepts %s to a far state at $11.99', async (_name, items, subtotal, totalAmount) => {
     const response = await post(checkout(items, delivery('NY')));
     expect(response.status).toBe(201);
@@ -766,7 +766,7 @@ describe('Bobbatlu Taste Pack add-on', () => {
 describe('Texas $4.99 from $100 and $3.99 from $120 without a coupon', () => {
   it.each([
     ['sweets at $120', [{ ...sweet, quantity: 3 }], 120, 0, 3.99, 123.99],
-    ['sweets at exactly $100', [{ productId: 'sweet-kova', quantity: 1, selectedTier: 50 }], 100, 0, 4.99, 104.99],
+    ['sweets at exactly $100', [assorted, { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }], 100, 0, 4.99, 104.99],
     ['pickles only at $126', [{ productId: 'pickle-chicken', quantity: 7 }], 126, 10.72, 3.99, 140.71],
   ])('ships %s with the stepped rate and no operational fee', async (_name, items, subtotal, tax, shipping, totalAmount) => {
     const response = await post(checkout(items, delivery('TX')));

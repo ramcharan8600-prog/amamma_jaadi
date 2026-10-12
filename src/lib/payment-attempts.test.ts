@@ -588,12 +588,12 @@ describe('next-day product rules before a first charge', () => {
   it.each([
     ['sweet-bobbatlu', 0, false, 48],
     ['sweet-bobbatlu', 100, false, 48],
-    ['sweet-kova', 100, false, 32],
+    ['sweet-kova', 100, false, 36],
     ['sweet-bobbatlu', 100, true, 88],
     ['sweet-kova-bobbatlu', 0, false, 48],
     ['sweet-kova-bobbatlu', 100, false, 48],
     ['sweet-kova-bobbatlu', 100, true, 88],
-    ['sweet-kova', 100, true, 72],
+    ['sweet-kova', 100, true, 76],
   ] as const)('rejects same-day %s with stock %i and mixed cart %s', async (productId, stock, mixed, total) => {
     setPickupClock('2026-07-15T18:29:59.999Z');
     setSessionPickupDate('2026-07-15');
@@ -616,7 +616,7 @@ describe('next-day product rules before a first charge', () => {
   it.each([
     ['sweet-bobbatlu', 48],
     ['sweet-kova-bobbatlu', 48],
-    ['sweet-kova', 32],
+    ['sweet-kova', 36],
   ] as const)('accepts next-day %s without a pickup inventory lookup', async (productId, total) => {
     setPickupClock('2026-07-15T18:29:59.999Z');
     setSessionPickupDate('2026-07-16');
@@ -634,7 +634,7 @@ describe('next-day product rules before a first charge', () => {
   it.each([
     ['sweet-bobbatlu', 54.99],
     ['sweet-kova-bobbatlu', 54.99],
-    ['sweet-kova', 38.99],
+    ['sweet-kova', 42.99],
   ] as const)('keeps delivery %s chargeable after the pickup cutoff', async (productId, total) => {
     setPickupClock('2026-07-15T19:00:00Z');
     fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, fulfillment_data = ?, shipping = 6.99, total_amount = ?')

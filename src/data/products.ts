@@ -216,7 +216,7 @@ export const PRODUCTS: Product[] = [
     description:
       'Slow-simmered A2 milk reduced to a rich, caramelised fudge. Flavoured with cardamom and garnished with slivers of pistachio. Pure indulgence, one spoonful at a time.',
     category: 'sweets',
-    unitPrice: 2,
+    unitPrice: 2.25,
     image: '/images/web/pala-kova.webp',
     quantityOptions: [16, 25, 50],
     inStock: true,
