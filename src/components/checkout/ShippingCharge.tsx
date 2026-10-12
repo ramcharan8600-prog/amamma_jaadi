@@ -6,7 +6,7 @@ export default function ShippingCharge({ label, shipping, quote }: {
   shipping: number;
   quote?: ShippingQuote;
 }) {
-  const discounted = quote && quote.couponSavings > 0;
+  const discounted = quote && quote.savings > 0;
   return <div className="font-body text-sm text-brand-charcoal/70">
     <div className="flex justify-between gap-3">
       <span>{label}</span>
@@ -15,10 +15,8 @@ export default function ShippingCharge({ label, shipping, quote }: {
         <span className={discounted ? 'font-semibold text-green-800' : ''}>{shipping > 0 ? formatCurrency(shipping) : 'Free'}</span>
       </span>
     </div>
-    {discounted && <p className="mt-1 text-xs text-green-800">
-      {quote.discountedShippingMinimum
-        ? `${formatCurrency(quote.shipping)} Texas shipping on orders of ${formatCurrency(quote.discountedShippingMinimum)}+`
-        : `Coupon savings: ${formatCurrency(quote.couponSavings)}`}
+    {discounted && quote.discountedShippingMinimum && <p className="mt-1 text-xs text-green-800">
+      {`${formatCurrency(quote.shipping)} Texas shipping on orders of ${formatCurrency(quote.discountedShippingMinimum)}+`}
     </p>}
   </div>;
 }

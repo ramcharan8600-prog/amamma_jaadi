@@ -3,11 +3,10 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { validateCart } from '@/lib/cart-validation';
 import { isValidPhone } from '@/lib/contact-validation';
-import { isValidCouponMinimum } from '@/lib/coupons';
 import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { isSoldOutDate } from '@/lib/sold-out-dates';
-import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, type ShippingOptions, containsMiniComboPack } from '@/lib/pricing';
+import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, containsAssortedBox } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
   executeSquarePaymentRequest,
@@ -123,31 +122,25 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     // Re-reading the current coupon would change an already accepted quote.
     const coupon = typeof session.coupon_snapshot === 'string'
       ? JSON.parse(session.coupon_snapshot) : session.coupon_snapshot;
-    let shippingCoupon: ShippingOptions['shippingCoupon'];
+    // Free-shipping offers ended 2026-10-12: a session holding one never charges.
     if (coupon != null) {
       if (typeof coupon !== 'object' || Array.isArray(coupon) ||
           !session.coupon_code || coupon.code !== session.coupon_code) return null;
-      if (coupon.type === 'free_delivery') {
-        if (!delivery || !isValidCouponMinimum(coupon.minSubtotal) || cart.subtotal < coupon.minSubtotal) return null;
-        if (coupon.shippingPolicy !== 'texas_v2' && coupon.shippingPolicy !== 'texas_v3') return null;
-        shippingCoupon = coupon;
-      } else if (coupon.type !== 'complimentary' || typeof coupon.bonusItem !== 'string' ||
+      if (coupon.type !== 'complimentary' || typeof coupon.bonusItem !== 'string' ||
           !coupon.bonusItem.trim() || !Number.isSafeInteger(coupon.bonusQty) || coupon.bonusQty < 1) return null;
     }
     const expected = calculateOrderTotals(cart.subtotal, {
-      shippingCoupon,
-      legacyPickleRates: !['texas_v2', 'texas_v3'].includes(String(session.pricing_policy)),
+      legacyPickleRates: !['texas_v2', 'texas_v3', 'rate_card_2026_10'].includes(String(session.pricing_policy)),
       picklesOnly,
       groundShipping,
-      groundPieces: groundShipping ? getTotalPieces(cart.items) : undefined,
-      miniComboPack: containsMiniComboPack(cart.items),
+      assortedBoxInCart: containsAssortedBox(cart.items),
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       taxableSubtotal: cart.taxableSubtotal, fulfillmentType: delivery ? 'delivery' : 'pickup',
       deliveryState: delivery ? state : undefined,
     });
     for (const [stored, current] of [[session.total_amount, expected.total],
       [session.tax ?? 0, expected.tax], [session.shipping ?? 0, expected.shipping],
-      [session.maintenance_fee ?? 0, expected.maintenanceFee ?? 0]]) {
+      [session.maintenance_fee ?? 0, 0]]) {
       if (typeof stored !== 'number' || !Number.isFinite(stored) ||
           Math.round(stored * 100) !== Math.round(Number(current) * 100)) return null;
     }

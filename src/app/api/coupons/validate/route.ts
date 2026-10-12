@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { ok, fail } from '@/lib/api';
-import { couponBenefit, couponMinimumMessage, type CouponRow } from '@/lib/coupons';
-import { validateCart } from '@/lib/cart-validation';
+import { couponBenefit, type CouponRow } from '@/lib/coupons';
 
 /**
  * POST /api/coupons/validate
@@ -38,17 +37,6 @@ export async function POST(request: NextRequest) {
 
     const benefit = couponBenefit(coupon);
     if (!benefit) return fail("That promo code isn't valid.", 400);
-    if (benefit.type === 'free_delivery') {
-      const cart = validateCart(body.items);
-      if (!cart.ok) return fail(cart.error, cart.status);
-      if (cart.subtotal < benefit.minSubtotal) {
-        // Also say which shipping coupon and minimum, so checkout can suggest an add-on.
-        return NextResponse.json({
-          error: couponMinimumMessage(benefit.minSubtotal),
-          belowMinimum: { code: benefit.code, minSubtotal: benefit.minSubtotal },
-        }, { status: 400 });
-      }
-    }
     return ok(benefit);
   } catch (e) {
     console.error('Coupon validation error:', e);

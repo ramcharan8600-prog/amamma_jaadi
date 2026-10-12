@@ -15,7 +15,7 @@ let database: ReturnType<typeof createTestD1>;
 const request = (body: unknown) => new NextRequest('https://example.test/api/coupons', {
   method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' },
 });
-const free = { code: 'ship', influencerName: 'Test campaign', type: 'free_delivery', minSubtotal: 40 };
+const bonus = { code: 'bonus', influencerName: 'Test campaign', bonusItem: 'Malpuri', bonusQty: 3 };
 const items = [{ productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }];
 
 beforeEach(() => {
@@ -27,60 +27,46 @@ beforeEach(() => {
 afterEach(() => database.sqlite.close());
 
 describe('coupon administration and validation', () => {
-  it('creates, lists and edits a free-delivery minimum without changing active status', async () => {
-    expect((await create(request(free))).status).toBe(201);
-    expect((await list()).status).toBe(200);
+  it('creates, lists, validates and switches off a complimentary coupon', async () => {
+    expect((await create(request(bonus))).status).toBe(201);
     expect((await (await list()).json()).coupons[0]).toMatchObject({
-      code: 'SHIP', coupon_type: 'free_delivery', min_subtotal: 40, bonus_qty: 0, bonus_item: '', active: 1,
+      code: 'BONUS', coupon_type: 'complimentary', bonus_item: 'Malpuri', bonus_qty: 3, min_subtotal: 0, active: 1,
     });
-    expect((await update(request({ code: 'SHIP', minSubtotal: 55.25 }))).status).toBe(200);
-    expect(database.sqlite.prepare("SELECT min_subtotal, active FROM influencer_coupons WHERE code='SHIP'").get())
-      .toMatchObject({ min_subtotal: 55.25, active: 1 });
-    expect((await update(request({ code: 'SHIP', active: false }))).status).toBe(200);
-    expect((await validate(request({ code: 'SHIP', items }))).status).toBe(400);
+    expect(await (await validate(request({ code: ' b o n u s ', items }))).json())
+      .toEqual({ code: 'BONUS', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 });
+    expect((await update(request({ code: 'BONUS', active: false }))).status).toBe(200);
+    expect((await validate(request({ code: 'BONUS', items }))).status).toBe(400);
   });
 
-  it('accepts the exact minimum and rejects one cent below using catalog prices', async () => {
-    await create(request(free));
-    const accepted = await validate(request({ code: ' s h i p ', items }));
-    expect(accepted.status).toBe(200);
-    expect(await accepted.json()).toMatchObject({ code: 'SHIP', type: 'free_delivery', minSubtotal: 40, shippingPolicy: 'texas_v3' });
-    await update(request({ code: 'SHIP', minSubtotal: 40.01 }));
-    const rejected = await validate(request({ code: 'SHIP', subtotal: 999, items: items.map(item => ({ ...item, lineTotal: 999 })) }));
-    expect(rejected.status).toBe(400);
-    const body = await rejected.json();
-    expect(body.error).toContain('$40.01');
-    // Tells checkout which coupon and minimum, so it can suggest an add-on.
-    expect(body.belowMinimum).toEqual({ code: 'SHIP', minSubtotal: 40.01 });
-  });
-
-  it('preserves existing complimentary coupon creation and rejects a minimum on it', async () => {
-    expect((await create(request({ code: 'bonus', influencerName: 'Test', bonusItem: 'Malpuri', bonusQty: 3 }))).status).toBe(201);
-    expect(await (await validate(request({ code: 'bonus' }))).json())
-      .toMatchObject({ code: 'BONUS', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 });
-    expect((await update(request({ code: 'BONUS', minSubtotal: 30 }))).status).toBe(400);
-  });
-
-  it.each([-1, 1.001, null, '', '40', true])('rejects invalid minimum %j on create and edit', async minSubtotal => {
-    expect((await create(request({ ...free, minSubtotal }))).status).toBe(400);
-    await create(request(free));
-    expect((await update(request({ code: 'SHIP', minSubtotal }))).status).toBe(400);
+  it('creates no shipping offers and never applies or re-enables an old one (ended 2026-10-12)', async () => {
+    const created = await create(request({ code: 'ship', influencerName: 'Test', type: 'free_delivery', minSubtotal: 40 }));
+    expect(created.status).toBe(400);
+    expect((await created.json()).error).toBe('Coupons give complimentary pieces. Shipping offers ended on Oct 12, 2026.');
+    database.sqlite.prepare(`INSERT INTO influencer_coupons (code, influencer_name, bonus_item, bonus_qty, coupon_type, min_subtotal, active)
+      VALUES ('ANU2026', 'Old offer', '', 0, 'free_delivery', 60, 1)`).run();
+    const refused = await validate(request({ code: 'ANU2026', items }));
+    expect(refused.status).toBe(400);
+    expect((await refused.json()).error).toBe("That promo code isn't valid.");
+    expect((await update(request({ code: 'ANU2026', minSubtotal: 30 }))).status).toBe(400);
+    expect((await update(request({ code: 'ANU2026', active: false }))).status).toBe(200);
+    expect((await update(request({ code: 'ANU2026', active: true }))).status).toBe(400);
+    expect(database.sqlite.prepare("SELECT active FROM influencer_coupons WHERE code='ANU2026'").get()).toEqual({ active: 0 });
   });
 
   it.each([0, 1.5, -2, 11])('rejects invalid complimentary quantity %s', async bonusQty => {
-    expect((await create(request({ code: 'BONUS', influencerName: 'Test', bonusQty }))).status).toBe(400);
+    expect((await create(request({ ...bonus, bonusQty }))).status).toBe(400);
   });
 
-  it('rejects unknown benefits and duplicate codes', async () => {
-    expect((await create(request({ ...free, type: 'both' }))).status).toBe(400);
-    await create(request(free));
-    expect((await create(request(free))).status).toBe(409);
+  it('rejects unknown items and duplicate codes', async () => {
+    expect((await create(request({ ...bonus, bonusItem: 'Kova' }))).status).toBe(400);
+    await create(request(bonus));
+    expect((await create(request(bonus))).status).toBe(409);
   });
 
   it('requires admin authentication to create, edit or list coupons', async () => {
     state.authed = false;
-    expect((await create(request(free))).status).toBe(401);
-    expect((await update(request({ code: 'SHIP', minSubtotal: 0 }))).status).toBe(401);
+    expect((await create(request(bonus))).status).toBe(401);
+    expect((await update(request({ code: 'BONUS', active: false }))).status).toBe(401);
     expect((await list()).status).toBe(401);
   });
 });

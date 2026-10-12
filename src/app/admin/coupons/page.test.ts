@@ -39,33 +39,20 @@ afterEach(async () => {
   host.remove();
   vi.unstubAllGlobals();
 });
-it('creates free delivery with the entered minimum and hides complimentary fields', async () => {
-  await click('New Coupon');
-  await setValue('input[placeholder="e.g. FOODIE2026"]', 'FREESHIP');
-  await setValue('input[placeholder="e.g. Priya Eats"]', 'Fall campaign');
-  await setValue('#coupon-benefit', 'free_delivery');
-  expect(host.querySelector('#coupon-bonus-item')).toBeNull();
-  await setValue('#coupon-minimum', '60.50');
-  await click('Create Coupon');
-  const create = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!;
-  expect(JSON.parse(String(create[1]?.body))).toMatchObject({ code: 'FREESHIP', type: 'free_delivery', minSubtotal: 60.5 });
+it('lists an old shipping offer as ended, with no minimum to edit', async () => {
+  expect(host.textContent).toContain('Shipping offer (ended)');
+  expect(host.querySelector('input[aria-label="Minimum cart value for SHIP"]')).toBeNull();
+  expect(host.textContent).not.toContain('Minimum cart value');
 });
-it('saves a minimum directly on its coupon row and updates the displayed value', async () => {
-  await setValue('input[aria-label="Minimum cart value for SHIP"]', '75');
-  await click('Save');
-  const update = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')!;
-  expect(JSON.parse(String(update[1]?.body))).toEqual({ code: 'SHIP', minSubtotal: 75 });
-  expect(host.querySelector<HTMLInputElement>('input[aria-label="Minimum cart value for SHIP"]')?.value).toBe('75');
-  expect(host.querySelector<HTMLButtonElement>('button[aria-label="Save minimum for SHIP"]')?.disabled).toBe(true);
-});
-it('retains complimentary selection and quantity when creating that benefit', async () => {
+it('creates only complimentary coupons, with the chosen item and quantity', async () => {
   await click('New Coupon');
+  expect(host.querySelector('#coupon-benefit')).toBeNull();
+  expect(host.querySelector('#coupon-minimum')).toBeNull();
   await setValue('input[placeholder="e.g. FOODIE2026"]', 'BONUS');
   await setValue('input[placeholder="e.g. Priya Eats"]', 'Fall campaign');
   await setValue('#coupon-bonus-item', 'Malpuri');
   await setValue('#coupon-bonus-qty', '4');
-  expect(host.querySelector('#coupon-minimum')).toBeNull();
   await click('Create Coupon');
   const create = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')!;
-  expect(JSON.parse(String(create[1]?.body))).toMatchObject({ type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 4, minSubtotal: 0 });
+  expect(JSON.parse(String(create[1]?.body))).toEqual({ code: 'BONUS', influencerName: 'Fall campaign', bonusItem: 'Malpuri', bonusQty: 4, type: 'complimentary' });
 });

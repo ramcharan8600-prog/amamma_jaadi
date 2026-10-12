@@ -253,26 +253,27 @@ describe('create-session retains approved shipping and gift-box rules', () => {
   it.each([
     { name: 'pickup gift box', items: [gift], fulfillment: pickup, subtotal: 30, shipping: 0 },
     { name: 'pickup Mini Combo Pack', items: [mini], fulfillment: pickup, subtotal: 48, shipping: 0 },
-    { name: 'Mini Combo Pack in Texas', items: [mini], fulfillment: delivery('TX'), subtotal: 48, shipping: 6.99 },
-    { name: 'Mini Combo Pack to a nearby state', items: [mini], fulfillment: delivery('FL'), subtotal: 48, shipping: 9.99 },
-    { name: 'nearby below $60', items: [sweet], fulfillment: delivery('AL'), subtotal: 40, shipping: 10.99 },
-    { name: 'two Mini Combo Packs to a nearby state at the cheaper regular rate', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('CO'), subtotal: 96, shipping: 8.99 },
-    { name: 'two Mini Combo Packs in Texas', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('TX'), subtotal: 96, shipping: 6.99 },
+    { name: 'Mini Combo Pack in Texas', items: [mini], fulfillment: delivery('TX'), subtotal: 48, shipping: 3.99 },
+    { name: 'Mini Combo Pack to a nearby state', items: [mini], fulfillment: delivery('FL'), subtotal: 48, shipping: 6.99 },
+    { name: 'nearby below $60', items: [sweet], fulfillment: delivery('AL'), subtotal: 40, shipping: 6.99 },
+    { name: 'two Mini Combo Packs to a nearby state at the regular rate', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('CO'), subtotal: 96, shipping: 5.99 },
+    { name: 'two Mini Combo Packs in Texas', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('TX'), subtotal: 96, shipping: 3.99 },
     { name: 'far at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('NC'), subtotal: 80, shipping: 11.99 },
-    { name: 'Florida (now nearby) below $60 with no minimum', items: [sweet], fulfillment: delivery('FL'), subtotal: 40, shipping: 10.99 },
-    { name: 'Tennessee (now nearby) at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('TN'), subtotal: 80, shipping: 8.99 },
-    { name: 'Georgia (now nearby) at $120', items: [{ ...sweet, quantity: 3 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 7.99 },
-    { name: 'Oklahoma at exactly $100', items: [assorted, { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }], fulfillment: delivery('OK'), subtotal: 100, shipping: 7.99 },
-    { name: 'Mini Combo Pack mixed with Malpuri pays nearby rates', items: [mini, sweet], fulfillment: delivery('OK'), subtotal: 88, shipping: 8.99 },
+    { name: 'Florida (now nearby) below $60 with no minimum', items: [sweet], fulfillment: delivery('FL'), subtotal: 40, shipping: 6.99 },
+    { name: 'Tennessee (now nearby) at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('TN'), subtotal: 80, shipping: 5.99 },
+    { name: 'Georgia (now nearby) at $120', items: [{ ...sweet, quantity: 3 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 4.99 },
+    { name: 'Oklahoma at exactly $100 with a 10:10 box (the higher box rate)', items: [assorted, { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }], fulfillment: delivery('OK'), subtotal: 100, shipping: 5.99 },
+    { name: 'Oklahoma from $100 without a box', items: [{ ...sweet, quantity: 2 }, { productId: 'sweet-kova', quantity: 1, selectedTier: 25 }], fulfillment: delivery('OK'), subtotal: 136.25, shipping: 4.99 },
+    { name: 'Mini Combo Pack mixed with Malpuri pays nearby rates', items: [mini, sweet], fulfillment: delivery('OK'), subtotal: 88, shipping: 5.99 },
     { name: 'far at $92.25 with Kova boxes', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 25 }, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('WA'), subtotal: 92.25, shipping: 11.99 },
     { name: 'assorted box pickup', items: [assorted], fulfillment: pickup, subtotal: 60, shipping: 0 },
-    // One 10:10 box and nothing else: $4.99 Texas, $6.99 nearby, $8.99 far (owner, 2026-10-10).
-    { name: 'one assorted box alone in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 60, shipping: 4.99 },
-    { name: 'one assorted box alone to a nearby state', items: [assorted], fulfillment: delivery('FL'), subtotal: 60, shipping: 6.99 },
+    // 10:10 boxes only, any number: $3.99 Texas, $5.99 nearby, $6.99 far (owner, 2026-10-12).
+    { name: 'one assorted box alone in Texas', items: [assorted], fulfillment: delivery('TX'), subtotal: 60, shipping: 3.99 },
+    { name: 'one assorted box alone to a nearby state', items: [assorted], fulfillment: delivery('FL'), subtotal: 60, shipping: 5.99 },
     { name: 'two assorted boxes in Texas', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('TX'), subtotal: 120, shipping: 3.99 },
-    { name: 'two assorted boxes to a nearby state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 8.99 },
-    { name: 'one assorted box alone to a far state, no minimum', items: [assorted], fulfillment: delivery('NY'), subtotal: 60, shipping: 8.99 },
-    { name: 'two assorted boxes to a far state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('CA'), subtotal: 120, shipping: 9.99 },
+    { name: 'two assorted boxes to a nearby state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 5.99 },
+    { name: 'one assorted box alone to a far state, no minimum', items: [assorted], fulfillment: delivery('NY'), subtotal: 60, shipping: 6.99 },
+    { name: 'two assorted boxes to a far state', items: [{ ...assorted, quantity: 2 }], fulfillment: delivery('CA'), subtotal: 120, shipping: 6.99 },
     { name: 'far assorted box plus Kova at $96', items: [assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('NY'), subtotal: 96, shipping: 11.99 },
   ])('$name', async ({ items, fulfillment, subtotal, shipping }) => {
     const response = await post(checkout(items, fulfillment));
@@ -285,8 +286,8 @@ describe('create-session retains approved shipping and gift-box rules', () => {
   });
 
   it.each([
-    ['TX', 6.99],
-    ['FL', 9.99],
+    ['TX', 5.99],
+    ['FL', 6.99],
     ['NY', 10.99],
     ['CA', 10.99],
   ])('ships a Malai Khaja-only cart to %s for %s with no minimum', async (state, shipping) => {
@@ -376,12 +377,12 @@ describe('create-session retains approved shipping and gift-box rules', () => {
       { productId: 'pickle-chicken', quantity: 1, product: { name: 'Free jar' }, lineTotal: 0 },
     ], delivery('AL')));
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 106, tax: 1.49, shipping: 7.99, totalAmount: 115.48 });
+    expect(await response.json()).toMatchObject({ subtotal: 106, tax: 1.49, shipping: 4.99, totalAmount: 112.48 });
     const saved = JSON.parse(mocks.inserts[0][4] as string);
     expect(saved[0]).toEqual({ ...sweet, product: getProductById(sweet.productId), lineTotal: 40 });
     expect(saved[1]).toEqual({ ...mini, product: getProductById(mini.productId), lineTotal: 48 });
     expect(saved[2].lineTotal).toBe(18);
-    expect(mocks.inserts[0][6]).toBe(115.48);
+    expect(mocks.inserts[0][6]).toBe(112.48);
   });
 
   it('keeps accepted gift contents and valid coupons unchanged', async () => {
@@ -411,9 +412,9 @@ describe('Gongura Chicken price and stock enforcement', () => {
 
 describe('Texas tax and shipping recorded by checkout', () => {
   it.each([
-    { items: [{ productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 19, shipping: 6.99, tax: 2.14, totalAmount: 28.13 },
-    { items: [mini], subtotal: 48, shipping: 6.99, tax: 0, totalAmount: 54.99 },
-    { items: [mini, { productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 67, shipping: 6.99, tax: 2.14, totalAmount: 76.13 },
+    { items: [{ productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 19, shipping: 5.99, tax: 2.06, totalAmount: 27.05 },
+    { items: [mini], subtotal: 48, shipping: 3.99, tax: 0, totalAmount: 51.99 },
+    { items: [mini, { productId: 'pickle-gongura-chicken', quantity: 1 }], subtotal: 67, shipping: 5.99, tax: 2.06, totalAmount: 75.05 },
   ])('recomputes and stores subtotal $subtotal tax $tax and shipping $shipping', async ({items, ...expected}) => {
     mocks.getStockMap.mockResolvedValue({ 'pickle-gongura-chicken': 10 });
     const response = await post({ ...checkout(items, delivery('TX')), tax: 0, shipping: 0, total: 1 });
@@ -481,17 +482,17 @@ describe('Bobbatlu and Kova require next-day pickup regardless of stock', () => 
     expect(await nextDay.json()).toMatchObject({ subtotal: 48, shipping: 0, tax: 0, totalAmount: 48 });
     const shipped = await post(checkout([kovaBobbatlu], delivery('TX')));
     expect(shipped.status).toBe(201);
-    expect(await shipped.json()).toMatchObject({ subtotal: 48, shipping: 6.99, tax: 0, totalAmount: 54.99 });
+    expect(await shipped.json()).toMatchObject({ subtotal: 48, shipping: 5.99, tax: 0, totalAmount: 53.99 });
   });
 });
 
 
 describe('pickle-only shipping counts canonical jar quantities', () => {
   it.each([
-    {items:[{productId:'pickle-gongura-chicken',quantity:2}], subtotal:38,shipping:6.99,tax:3.71,totalAmount:48.70},
-    {items:[{productId:'pickle-gongura-chicken',quantity:3}], subtotal:57,shipping:6.99,tax:5.28,totalAmount:69.27},
-    {items:[{productId:'pickle-gongura-chicken',quantity:1},{productId:'pickle-chicken',quantity:1}],subtotal:37,shipping:6.99,tax:3.63,totalAmount:47.62},
-    {items:[{productId:'pickle-gongura-chicken',quantity:1},{productId:'pickle-gongura-chicken',quantity:1}],subtotal:38,shipping:6.99,tax:3.71,totalAmount:48.70},
+    {items:[{productId:'pickle-gongura-chicken',quantity:2}], subtotal:38,shipping:5.99,tax:3.63,totalAmount:47.62},
+    {items:[{productId:'pickle-gongura-chicken',quantity:3}], subtotal:57,shipping:5.99,tax:5.20,totalAmount:68.19},
+    {items:[{productId:'pickle-gongura-chicken',quantity:1},{productId:'pickle-chicken',quantity:1}],subtotal:37,shipping:5.99,tax:3.55,totalAmount:46.54},
+    {items:[{productId:'pickle-gongura-chicken',quantity:1},{productId:'pickle-gongura-chicken',quantity:1}],subtotal:38,shipping:5.99,tax:3.63,totalAmount:47.62},
   ])('stores $shipping shipping for $subtotal of jars', async ({items,...expected}) => {
     const response=await post({...checkout(items,delivery('TX')),pickleJarCount:1,picklesOnly:false,shipping:0});
     expect(response.status).toBe(201);
@@ -503,9 +504,9 @@ describe('pickle-only shipping counts canonical jar quantities', () => {
   });
   it('ignores a forged jar count and mixed-order flag', async () => {
     const response=await post({...checkout([{productId:'pickle-gongura-chicken',quantity:1}],delivery('TX')),pickleJarCount:3});
-    expect((await response.json()).shipping).toBe(6.99);
+    expect((await response.json()).shipping).toBe(5.99);
     const mixed=await post({...checkout([sweet,{productId:'pickle-gongura-chicken',quantity:2}],delivery('TX')),pickleJarCount:2,picklesOnly:true});
-    expect((await mixed.json()).shipping).toBe(6.99);
+    expect((await mixed.json()).shipping).toBe(5.99);
   });
 });
 
@@ -541,86 +542,37 @@ describe('pickle-only orders have no destination minimum', () => {
 });
 
 
-describe('authoritative coupon benefits at payment', () => {
+describe('coupons at payment (free-shipping offers ended 2026-10-12)', () => {
   const free = { code: 'SHIP', active: 1, coupon_type: 'free_delivery' as const, bonus_item: '', bonus_qty: 0, min_subtotal: 19 };
-  it.each([['TX', 0, 22.72], ['OK', 6.99, 27.56], ['NY', 6.99, 27.56]])('quotes eligible pickle shipping in %s', async (state, shipping, total) => {
+  const bonus = { code: 'BONUS', active: 1, coupon_type: 'complimentary' as const, bonus_item: 'Malai Khaja', bonus_qty: 2, min_subtotal: 0 };
+
+  it.each(['TX', 'OK', 'NY'])('refuses an old free-shipping code in %s before storing a session', async state => {
     mocks.coupon.mockResolvedValue(free);
-    const response = await post({ ...checkout([{ productId: 'pickle-gongura-chicken', quantity: 1 }], delivery(String(state))), couponCode: 'ship' });
-    expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 19, shipping, tax: state === 'TX' ? 1.73 : 1.57, maintenanceFee: state === 'TX' ? 1.99 : 0, totalAmount: total });
-    expect(JSON.parse(mocks.inserts[0][11] as string)).toEqual({ code: 'SHIP', type: 'free_delivery', minSubtotal: 19, shippingPolicy: 'texas_v3' });
-    expect(JSON.parse(mocks.inserts[1][1] as string)).toMatchObject({ shippingCents: state === 'TX' ? 199 : 699, taxableShippingCents: state === 'TX' ? 199 : 0, taxCents: state === 'TX' ? 173 : 157 });
-  });
-
-  it.each([['TX', 0, 80.09], ['OK', 6.99, 84.93], ['NY', 6.99, 84.93]])('honors the admin minimum for four pickle jars in %s', async (state, shipping, total) => {
-    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
-    const response = await post({ ...checkout([{ productId: 'pickle-chicken', quantity: 4 }], delivery(String(state))), couponCode: 'ship' });
-    expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 72, shipping, tax: state === 'TX' ? 6.10 : 5.94, maintenanceFee: state === 'TX' ? 1.99 : 0, totalAmount: total,
-      shippingQuote: { referenceShipping: 6.99, regularShipping: 6.99, couponSavings: state === 'TX' ? 6.99 : 0 } });
-  });
-
-  it.each([1, 2, 3])('rejects %s pickle jars below a $70 minimum', async quantity => {
-    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
-    const response = await post({ ...checkout([{ productId: 'pickle-mutton', quantity }], delivery('OK')), couponCode: 'SHIP', subtotal: 999 });
+    const response = await post({ ...checkout([{ productId: 'pickle-chicken', quantity: 4 }], delivery(state)), couponCode: 'ship' });
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toBe('This coupon requires a minimum cart value of $70.00 before tax and shipping.');
+    expect((await response.json()).error).toBe('That promo code is no longer valid. Please remove it or apply another code.');
     expect(mocks.inserts).toHaveLength(0);
   });
 
-  it.each([['TX', 0], ['OK', 8.99], ['NY', 11.99]])('charges mixed carts using the destination in %s', async (state, shipping) => {
-    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 70 });
-    const response = await post({ ...checkout([sweet, { productId: 'pickle-mutton', quantity: 2 }], delivery(String(state))), couponCode: 'SHIP' });
-    expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 82, shipping, tax: state === 'TX' ? 3.55 : 3.47, maintenanceFee: state === 'TX' ? 0.99 : 0 });
-  });
-
-  it('ships a Texas Mini Combo Pack + sweets order free with the coupon, without the $0.99 fee', async () => {
-    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 60 });
-    const response = await post({ ...checkout([sweet, mini], delivery('TX')), couponCode: 'SHIP' });
+  it.each([['TX', 5.99, 6.43, 84.42], ['OK', 6.99, 5.94, 84.93]])('charges full shipping with a free-piece coupon in %s, with no operational fee', async (state, shipping, tax, total) => {
+    mocks.coupon.mockResolvedValue(bonus);
+    const response = await post({ ...checkout([{ productId: 'pickle-chicken', quantity: 4 }], delivery(String(state))), couponCode: 'bonus' });
     expect(response.status).toBe(201);
     const result = await response.json();
-    expect(result).toMatchObject({ subtotal: 88, shipping: 0, totalAmount: 88 });
-    expect(result.maintenanceFee ?? 0).toBe(0);
+    expect(result).toMatchObject({ subtotal: 72, shipping, tax, totalAmount: total, coupon: { code: 'BONUS', type: 'complimentary' } });
+    expect(result).not.toHaveProperty('maintenanceFee');
+    expect(mocks.inserts[0][11]).toBe(JSON.stringify({ code: 'BONUS', type: 'complimentary', bonusItem: 'Malai Khaja', bonusQty: 2 }));
   });
 
-  it.each(['TX', 'OK'])('accepts an exact $88 sweets/gift cart in %s', async state => {
-    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 88 });
-    const response = await post({ ...checkout([sweet, mini], delivery(state)), couponCode: 'SHIP' });
-    expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 88, shipping: state === 'TX' ? 0 : 8.99 });
-  });
-
-  it('rejects one cent below minimum despite inflated client totals and forged benefit', async () => {
-    mocks.coupon.mockResolvedValue({ ...free, min_subtotal: 40.01 });
-    const response = await post({ ...checkout([{ ...sweet, lineTotal: 1000 }], delivery('TX')), couponCode: 'SHIP', subtotal: 1000, minSubtotal: 0, freeDelivery: true });
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('$40.01');
-    expect(mocks.inserts).toHaveLength(0);
-  });
-
-  it('still enforces destination minimums for free-delivery coupons', async () => {
-    mocks.coupon.mockResolvedValue(free);
-    const response = await post({ ...checkout([sweet], delivery('NY')), couponCode: 'SHIP' });
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('$60.00');
-  });
-
-  it('rejects a free-delivery coupon for pickup', async () => {
-    mocks.coupon.mockResolvedValue(free);
-    expect((await post({ ...checkout(), couponCode: 'SHIP' })).status).toBe(400);
-    expect(mocks.inserts).toHaveLength(0);
-  });
-
-  it.each([null, { ...free, active: 0 }])('rejects missing or disabled codes without creating a chargeable session', async coupon => {
+  it.each([null, { ...bonus, active: 0 }])('rejects missing or disabled codes without creating a chargeable session', async coupon => {
     mocks.coupon.mockResolvedValue(coupon);
-    expect((await post({ ...checkout([sweet], delivery('TX')), couponCode: 'SHIP' })).status).toBe(400);
+    expect((await post({ ...checkout([sweet], delivery('TX')), couponCode: 'BONUS' })).status).toBe(400);
     expect(mocks.inserts).toHaveLength(0);
   });
 
-  it('ignores a forged free-delivery flag without a valid coupon', async () => {
+  it('ignores a forged free-delivery flag', async () => {
     const response = await post({ ...checkout([sweet], delivery('TX')), freeDelivery: true, coupon: free });
-    expect((await response.json()).shipping).toBe(6.99);
+    expect((await response.json()).shipping).toBe(5.99);
   });
 });
 
@@ -668,7 +620,7 @@ describe('Assorted Bobbatlu Box', () => {
     expect(await nextDay.json()).toMatchObject({ subtotal: 49.99, tax: 0, shipping: 0, totalAmount: 49.99 });
   });
 
-  it.each([['TX', 201, 6.99], ['OK', 201, 10.99], ['NY', 400, 0]])('follows the normal sweets delivery rules in %s', async (state, status, shipping) => {
+  it.each([['TX', 201, 4.99], ['OK', 201, 7.99], ['NY', 400, 0]])('ships one box at the 8:8 box rate in %s (far states need two boxes)', async (state, status, shipping) => {
     const response = await post(checkout([box], delivery(state)));
     expect(response.status).toBe(status);
     const body = await response.json();
@@ -716,12 +668,12 @@ describe('Malai Khaja-only shipping by pack size', () => {
     ['15 to NY (flat $10.99 far)', [mk(15)], 'NY', 10.99],
     ['25 to NY', [mk(25)], 'NY', 10.99],
     ['50 to NY', [mk(50)], 'NY', 10.99],
-    ['15 to GA (under $60)', [mk(15)], 'GA', 9.99],
-    ['25 to GA ($62.50)', [mk(25)], 'GA', 8.99],
-    ['50 to GA (flat $8.99 nearby)', [mk(50)], 'GA', 8.99],
-    ['50 to TX ($3.99 from $120)', [mk(50)], 'TX', 3.99],
+    ['15 to GA (normal nearby, under $60)', [mk(15)], 'GA', 6.99],
+    ['25 to GA (normal nearby, from $60)', [mk(25)], 'GA', 5.99],
+    ['50 to GA (normal nearby, from $100)', [mk(50)], 'GA', 4.99],
+    ['50 to TX ($3.99 from $100)', [mk(50)], 'TX', 3.99],
     ['2 x 25 to CA', [mk(25, 2)], 'CA', 10.99],
-    ['15 to TX', [mk(15)], 'TX', 6.99],
+    ['15 to TX', [mk(15)], 'TX', 5.99],
   ])('charges Malai Khaja %s at $%s', async (_name, items, state, shipping) => {
     const response = await post(checkout(items, delivery(String(state))));
     expect(response.status).toBe(201);
@@ -750,10 +702,10 @@ describe('Bobbatlu Taste Pack add-on', () => {
     expect(mocks.inserts).toHaveLength(0);
   });
   it.each([
-    ['Texas', 'TX', 6.99],
-    ['a nearby state', 'GA', 8.99],
-    ['another nearby state', 'OK', 8.99],
-    ['a far state', 'NY', 9.99],
+    ['Texas', 'TX', 3.99],
+    ['a nearby state', 'GA', 5.99],
+    ['another nearby state', 'OK', 5.99],
+    ['a far state', 'NY', 6.99],
   ])('adds $24 to the 10:10 box and ships at the box rate to %s', async (_name, state, shipping) => {
     const response = await post(checkout([assorted, pack], delivery(state)));
     expect(response.status).toBe(201);
@@ -767,12 +719,6 @@ describe('Bobbatlu Taste Pack add-on', () => {
   it('rejects the old 6-piece size', async () => {
     expect((await post(checkout([assorted, { ...pack, selectedTier: 6 }], delivery('TX')))).status).toBe(400);
   });
-  it('lifts a $60 Assorted Box cart over a $70 Texas shipping coupon', async () => {
-    mocks.coupon.mockResolvedValue({ code: 'SHIP', active: 1, coupon_type: 'free_delivery', bonus_item: '', bonus_qty: 0, min_subtotal: 70 });
-    const response = await post({ ...checkout([assorted, pack], delivery('TX')), couponCode: 'SHIP' });
-    expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal: 84, shipping: 0, maintenanceFee: 0.99, totalAmount: 84.99 });
-  });
   it('needs a day of preparation for pickup', async () => {
     vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
     expect((await post(checkout([assorted, pack], { ...pickup, date: '2026-09-08' }))).status).toBe(400);
@@ -780,47 +726,39 @@ describe('Bobbatlu Taste Pack add-on', () => {
   });
 });
 
-describe('Texas $4.99 from $100 and $3.99 from $120 without a coupon', () => {
+describe('Texas $5.99, $3.99 from $100', () => {
   it.each([
     ['sweets at $120', [{ ...sweet, quantity: 3 }], 120, 0, 3.99, 123.99],
-    ['sweets at exactly $100', [assorted, { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }], 100, 0, 4.99, 104.99],
+    ['a 10:10 box + Malpuri at exactly $100', [assorted, { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }], 100, 0, 3.99, 103.99],
     ['pickles only at $126', [{ productId: 'pickle-chicken', quantity: 7 }], 126, 10.72, 3.99, 140.71],
-  ])('ships %s with the stepped rate and no operational fee', async (_name, items, subtotal, tax, shipping, totalAmount) => {
+  ])('ships %s for $3.99', async (_name, items, subtotal, tax, shipping, totalAmount) => {
     const response = await post(checkout(items, delivery('TX')));
     expect(response.status).toBe(201);
     const body = await response.json();
     expect(body).toMatchObject({ subtotal, tax, shipping, totalAmount });
-    expect(body.maintenanceFee ?? 0).toBe(0);
+    expect(body).not.toHaveProperty('maintenanceFee');
   });
-  it('keeps $6.99 under $100 and in other states', async () => {
-    expect(await (await post(checkout([{ ...sweet, quantity: 2 }], delivery('TX')))).json()).toMatchObject({ shipping: 6.99, totalAmount: 86.99 });
-    const ga = await (await post(checkout([{ ...sweet, quantity: 3 }], delivery('GA')))).json();
-    expect(ga).toMatchObject({ shipping: 7.99, totalAmount: 127.99 });
-    expect(ga.maintenanceFee ?? 0).toBe(0);
+  it('keeps $5.99 under $100, and other states on their own rates', async () => {
+    expect(await (await post(checkout([{ ...sweet, quantity: 2 }], delivery('TX')))).json()).toMatchObject({ shipping: 5.99, totalAmount: 85.99 });
+    expect(await (await post(checkout([assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], delivery('TX')))).json())
+      .toMatchObject({ subtotal: 96, shipping: 5.99 });
+    expect(await (await post(checkout([{ ...sweet, quantity: 3 }], delivery('GA')))).json()).toMatchObject({ shipping: 4.99, totalAmount: 124.99 });
   });
 });
 
-describe('Texas shipping coupon on boxes and ground-shipped carts', () => {
-  const coupon70 = { code: 'SHIP', active: 1, coupon_type: 'free_delivery' as const, bonus_item: '', bonus_qty: 0, min_subtotal: 70 };
+describe('box-only carts in Texas', () => {
   it.each([
-    ['two 10:10 Assorted Boxes', [{ ...assorted, quantity: 2 }], 120],
-    ['Assorted Box + Malai Khaja 16', [assorted, { productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 15 }], 100],
-    ['Malai Khaja 50', [{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 50 }], 125],
-    ['two Assorted Bobbatlu Boxes', [{ productId: 'sweet-assorted-bobbatlu-box', quantity: 2, selectedTier: 16 }], 99.98],
-  ])('ships %s free in Texas at $70+ with the $0.99 fee', async (_name, items, subtotal) => {
-    mocks.coupon.mockResolvedValue(coupon70);
-    const response = await post({ ...checkout(items, delivery('TX')), couponCode: 'SHIP' });
+    ['one 10:10 box', [assorted], 60, 3.99],
+    ['two 10:10 boxes', [{ ...assorted, quantity: 2 }], 120, 3.99],
+    ['Malai Khaja 50', [{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 50 }], 125, 3.99],
+    ['one 8:8 Bobbatlu box', [{ productId: 'sweet-assorted-bobbatlu-box', quantity: 1, selectedTier: 16 }], 49.99, 4.99],
+    ['three 8:8 Bobbatlu boxes', [{ productId: 'sweet-assorted-bobbatlu-box', quantity: 3, selectedTier: 16 }], 149.97, 4.99],
+  ])('ships %s for its rate', async (_name, items, subtotal, shipping) => {
+    const response = await post(checkout(items, delivery('TX')));
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ subtotal, shipping: 0, maintenanceFee: 0.99, totalAmount: Math.round((subtotal + 0.99) * 100) / 100 });
-  });
-  it('refuses the coupon for a single 10:10 box below $70', async () => {
-    mocks.coupon.mockResolvedValue(coupon70);
-    const response = await post({ ...checkout([assorted], delivery('TX')), couponCode: 'SHIP' });
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('$70.00');
+    expect(await response.json()).toMatchObject({ subtotal, shipping, totalAmount: Math.round((subtotal + shipping) * 100) / 100 });
   });
 });
-
 
 describe('sold-out pickup dates', () => {
   it('refuses pickup on a date marked sold out, before storing a session; delivery is unaffected', async () => {

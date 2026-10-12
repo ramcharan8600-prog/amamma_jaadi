@@ -14,8 +14,6 @@ import {
   SHIPPING_TX,
   TEXAS_DISCOUNTED_SHIPPING_MINIMUM,
   SHIPPING_TX_DISCOUNTED,
-  TEXAS_MID_SHIPPING_MINIMUM,
-  SHIPPING_TX_MID,
   SHIPPING_PICKLES_SINGLE,
   SHIPPING_PICKLES_DOUBLE,
   SHIPPING_PICKLES_THREE_PLUS,
@@ -23,18 +21,19 @@ import {
   SHIPPING_NEARBY_ABOVE,
   SHIPPING_NEARBY_100,
   SHIPPING_FAR,
-  SHIPPING_GROUND_OUT_OF_STATE,
-  SHIPPING_ASSORTED_BOX_NEARBY,
-  SHIPPING_ASSORTED_BOX_SINGLE_TX,
-  SHIPPING_ASSORTED_BOX_SINGLE_NEARBY,
-  SHIPPING_ASSORTED_BOX_SINGLE_FAR,
-  SHIPPING_MINI_COMBO_NEARBY,
-  SHIPPING_MALAI_KHAJA_NEARBY,
   SHIPPING_MALAI_KHAJA_FAR,
+  SHIPPING_ASSORTED_BOX_TX,
+  SHIPPING_ASSORTED_BOX_NEARBY,
+  SHIPPING_ASSORTED_BOX_FAR,
+  SHIPPING_BOBBATLU_BOX_TX,
+  SHIPPING_BOBBATLU_BOX_NEARBY,
+  SHIPPING_BOBBATLU_BOX_FAR,
+  SHIPPING_MINI_COMBO_TX,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod, Product } from '@/types';
-import { ASSORTED_BOX_PRODUCT_ID, BOBBATLU_TASTE_PACK_PRODUCT_ID, MINI_COMBO_PACK_PRODUCT_ID } from '@/data/products';
-import type { ShippingCouponPolicy } from '@/lib/coupons';
+import {
+  ASSORTED_BOBBATLU_BOX_PRODUCT_ID, ASSORTED_BOX_PRODUCT_ID, BOBBATLU_TASTE_PACK_PRODUCT_ID, MINI_COMBO_PACK_PRODUCT_ID,
+} from '@/data/products';
 
 /**
  * Texas sales tax rate.
@@ -225,49 +224,51 @@ export function deliveryRestriction(
 
 export const MALAI_KHAJA_PRODUCT_ID = 'sweet-malai-khaja';
 
-export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'assorted-box-single' | 'mini-combo';
+export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'bobbatlu-box' | 'mini-combo';
 
 /**
- * Carts shipped UPS Ground outside Texas, with no minimum. Mixing the two, or
- * adding anything else, restores the regular rates. Intentionally quiet: no
- * banner or copy mentions either rate.
- * - Only Malai Khaja: the lower of $9.99 and the regular rate.
- * - Exactly one Assorted Box and nothing else: Texas $4.99, nearby $6.99, far $8.99.
- * - Only the Assorted Box otherwise (two or more, or with the Bobbatlu Taste Pack
- *   add-on, which ships at the box's rate): Texas $6.99, nearby $8.99, far $9.99.
- * - Only the Mini Combo Pack (advertised, not quiet): regular Texas rates; nearby
- *   states the lower of $9.99 and the regular rate. It isn't delivered to far states.
+ * Carts made only of one of these get their own rate (see calculateShippingQuote);
+ * adding anything else restores the regular rates. Intentionally quiet: no
+ * banner or copy mentions these rates.
+ * - Only Malai Khaja: regular Texas and nearby rates; far states a flat $10.99, no minimum.
+ * - Only the 10:10 Assorted Box (any number, with or without the Bobbatlu Taste Pack
+ *   add-on, which ships at the box's rate): $3.99 Texas, $5.99 nearby, $6.99 far, no minimum.
+ * - Only the 8:8 Assorted Bobbatlu Box: $4.99 Texas, $7.99 nearby, $9.99 far (far keeps the $60 minimum).
+ * - Only the Mini Combo Pack: $3.99 Texas, regular nearby rates; it isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string; quantity?: number }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
-  if (items.every(({ productId }) => productId === MALAI_KHAJA_PRODUCT_ID)) return 'malai-khaja';
-  if (items.every(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID)) return 'mini-combo';
-  if (items.length === 1 && items[0].productId === ASSORTED_BOX_PRODUCT_ID && (items[0].quantity ?? 1) === 1) {
-    return 'assorted-box-single';
-  }
+  const only = (...ids: string[]) => items.every(({ productId }) => ids.includes(productId));
+  if (only(MALAI_KHAJA_PRODUCT_ID)) return 'malai-khaja';
+  if (only(MINI_COMBO_PACK_PRODUCT_ID)) return 'mini-combo';
+  if (only(ASSORTED_BOBBATLU_BOX_PRODUCT_ID)) return 'bobbatlu-box';
   if (items.some(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID) &&
-      items.every(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID || productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)) {
+      only(ASSORTED_BOX_PRODUCT_ID, BOBBATLU_TASTE_PACK_PRODUCT_ID)) {
     return 'assorted-box';
   }
   return undefined;
 }
 
-/** Orders containing the Mini Combo Pack never pay the coupon's operational fee. */
-export function containsMiniComboPack(items: ReadonlyArray<{ productId: string }>): boolean {
-  return items.some(({ productId }) => productId === MINI_COMBO_PACK_PRODUCT_ID);
+/** A 10:10 box mixed with other items: the cart pays the higher of its regular and box rates (owner, 2026-10-12). */
+export function containsAssortedBox(items: ReadonlyArray<{ productId: string }>): boolean {
+  return items.some(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID);
 }
 
 export function isGroundShippingCart(items: ReadonlyArray<{ productId: string; quantity?: number }>): boolean {
   return groundShippingKind(items) !== undefined;
 }
 
-/** Pickle-only and ground-shipped carts have no minimum; other far-state orders require $60. */
+/**
+ * Pickle-only and box/product-only carts have no minimum, except the 8:8
+ * Bobbatlu Box (one box can't ship to a far state); other far-state orders require $60.
+ */
 export function getDeliveryMinimumSubtotal(
   state: string | undefined | null,
   picklesOnly = false,
   groundShipping: GroundShippingKind | boolean | undefined = false
 ): number {
-  return !picklesOnly && !groundShipping && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
+  const waived = picklesOnly || (!!groundShipping && groundShipping !== 'bobbatlu-box');
+  return !waived && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
 
 export function getDeliveryMinimumShortfall(
@@ -283,116 +284,88 @@ export interface OrderTotals {
   subtotal: number;
   tax: number;
   shipping: number;
-  maintenanceFee?: number;
   total: number;
 }
 
 export interface ShippingOptions {
   fulfillmentType?: 'pickup' | 'delivery';
   picklesOnly?: boolean;
-  /** Cart holds only Malai Khaja or only the Assorted Box: out-of-state shipping is capped at $9.99. */
+  /** The cart is only one product or box with its own rate (see groundShippingKind). */
   groundShipping?: GroundShippingKind;
-  /** Total pieces in a ground-shipped cart; Malai Khaja rates step down at 25 and 50 pieces. */
-  groundPieces?: number;
+  /** The cart holds a 10:10 box mixed with other items (see containsAssortedBox). */
+  assortedBoxInCart?: boolean;
   pickleJarCount?: number;
   deliveryState?: string;
   shippingMethod?: DeliveryShippingMethod;
   freeDelivery?: boolean;
   /** Only for quotes saved before the flat pickle rate was introduced. */
   legacyPickleRates?: boolean;
-  shippingCoupon?: { minSubtotal: number; shippingPolicy?: ShippingCouponPolicy };
-  /** The order contains the Mini Combo Pack (see containsMiniComboPack). */
-  miniComboPack?: boolean;
 }
 
 export interface ShippingQuote {
   shipping: number;
   regularShipping: number;
-  /** Shipping before the coupon; shown struck through when a coupon applies. */
+  /** Shipping before the Texas $100 step; shown struck through when the step applies. */
   referenceShipping: number;
-  /** Shipping saved by a coupon or the Texas discounted-delivery minimum. */
-  couponSavings: number;
-  maintenanceFee?: number;
-  /** Set when the Texas order minimum (not a coupon) lowered the delivery fee. */
+  /** Shipping saved by the Texas $100 step. */
+  savings: number;
+  /** Set when the Texas $100 step lowered the delivery fee. */
   discountedShippingMinimum?: number;
 }
 
 /** One quote for the checkout display, session amount, tax, and first charge. */
 export function calculateShippingQuote(subtotal: number, opts: ShippingOptions = {}): ShippingQuote {
   let regularShipping = 0;
+  let texasStep = false;
   const zone = getShippingZone(opts.deliveryState);
   if (opts.fulfillmentType === 'delivery') {
+    // The regular rates (owner's rate card, 2026-10-12); Texas steps down to $3.99 from $100.
+    const texasRegular = zone === 'texas';
+    const regular = zone === 'texas' ? SHIPPING_TX
+      : zone === 'nearby' ? subtotal >= NEARBY_SHIPPING_TOP_THRESHOLD ? SHIPPING_NEARBY_100
+        : subtotal >= STANDARD_SHIPPING_THRESHOLD ? SHIPPING_NEARBY_ABOVE : SHIPPING_NEARBY_BELOW
+      : SHIPPING_FAR;
+    const box = { texas: SHIPPING_ASSORTED_BOX_TX, nearby: SHIPPING_ASSORTED_BOX_NEARBY, far: SHIPPING_ASSORTED_BOX_FAR }[zone];
     if (opts.picklesOnly) {
       const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
       regularShipping = opts.legacyPickleRates ? jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
-        : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE : SHIPPING_PICKLES_SINGLE;
-    } else if (zone === 'texas') {
-      regularShipping = SHIPPING_TX;
-    } else if (zone === 'nearby') {
-      regularShipping = subtotal >= NEARBY_SHIPPING_TOP_THRESHOLD ? SHIPPING_NEARBY_100
-        : subtotal >= STANDARD_SHIPPING_THRESHOLD ? SHIPPING_NEARBY_ABOVE : SHIPPING_NEARBY_BELOW;
+        : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE
+        : zone === 'texas' ? SHIPPING_TX : SHIPPING_PICKLES_SINGLE;
+      texasStep = zone === 'texas';
+    } else if (opts.groundShipping === 'assorted-box') {
+      regularShipping = box;
+    } else if (opts.groundShipping === 'bobbatlu-box') {
+      regularShipping = { texas: SHIPPING_BOBBATLU_BOX_TX, nearby: SHIPPING_BOBBATLU_BOX_NEARBY, far: SHIPPING_BOBBATLU_BOX_FAR }[zone];
+    } else if (opts.groundShipping === 'mini-combo' && zone === 'texas') {
+      regularShipping = SHIPPING_MINI_COMBO_TX;
+    } else if (opts.groundShipping === 'malai-khaja' && zone === 'far') {
+      regularShipping = SHIPPING_MALAI_KHAJA_FAR;
+    } else if (opts.assortedBoxInCart && zone !== 'texas') {
+      // A 10:10 box mixed with other items pays the higher of the two rates.
+      regularShipping = Math.max(regular, box);
     } else {
-      regularShipping = SHIPPING_FAR;
-    }
-    if (opts.groundShipping === 'malai-khaja' && !opts.picklesOnly) {
-      // Owner, 2026-10-10: nearby states $9.99 under $60, then a flat $8.99 at any
-      // size; far states a flat $10.99 at any size; Texas keeps the regular Texas
-      // rates ($6.99, $4.99 from $100, $3.99 from $120).
-      if (zone === 'nearby') regularShipping = subtotal < STANDARD_SHIPPING_THRESHOLD ? SHIPPING_GROUND_OUT_OF_STATE : SHIPPING_MALAI_KHAJA_NEARBY;
-      else if (zone === 'far') regularShipping = SHIPPING_MALAI_KHAJA_FAR;
-    } else if (opts.groundShipping === 'assorted-box-single' && !opts.picklesOnly) {
-      // One 10:10 box alone: a lower rate everywhere, Texas included.
-      regularShipping = zone === 'texas' ? SHIPPING_ASSORTED_BOX_SINGLE_TX
-        : zone === 'nearby' ? SHIPPING_ASSORTED_BOX_SINGLE_NEARBY : SHIPPING_ASSORTED_BOX_SINGLE_FAR;
-    } else if (opts.groundShipping === 'assorted-box' && !opts.picklesOnly && zone !== 'texas') {
-      // The Assorted Box is a flat $8.99 to nearby states and $9.99 to far ones.
-      regularShipping = zone === 'nearby' ? SHIPPING_ASSORTED_BOX_NEARBY : SHIPPING_GROUND_OUT_OF_STATE;
-    } else if (opts.groundShipping === 'mini-combo' && !opts.picklesOnly && zone === 'nearby') {
-      regularShipping = Math.min(regularShipping, SHIPPING_MINI_COMBO_NEARBY);
+      regularShipping = regular;
+      texasStep = texasRegular;
     }
   }
-  const coupon = opts.shippingCoupon;
-  const eligible = opts.fulfillmentType === 'delivery' && !!coupon &&
-    Number.isFinite(coupon.minSubtotal) && coupon.minSubtotal >= 0 && subtotal >= coupon.minSubtotal;
-  // Shipping coupons are Texas-only: other states always pay the regular rate.
-  // A cart that already ships free (the Mini Combo Pack in Texas) gets no coupon
-  // and so no operational fee.
-  const couponApplies = eligible && zone === 'texas' && regularShipping > 0;
-  // Texas deliveries pay $4.99 from $100 and $3.99 from $120, no coupon needed
-  // and no operational fee. A shipping coupon, which ships free, still wins, and
-  // a cheaper regular rate (e.g. the Mini Combo Pack's free shipping) is kept.
-  const texasTier = !couponApplies && opts.fulfillmentType === 'delivery' && zone === 'texas'
-    ? subtotal >= TEXAS_DISCOUNTED_SHIPPING_MINIMUM ? { minimum: TEXAS_DISCOUNTED_SHIPPING_MINIMUM, rate: SHIPPING_TX_DISCOUNTED }
-      : subtotal >= TEXAS_MID_SHIPPING_MINIMUM ? { minimum: TEXAS_MID_SHIPPING_MINIMUM, rate: SHIPPING_TX_MID } : null
-    : null;
-  const texasMinimumMet = !!texasTier && regularShipping > texasTier.rate;
-  let shipping = couponApplies ? 0 : texasMinimumMet ? texasTier!.rate : regularShipping;
+  // Texas regular-rate orders pay $3.99 from $100 (shown as savings on the $5.99 rate).
+  const stepped = texasStep && subtotal >= TEXAS_DISCOUNTED_SHIPPING_MINIMUM && regularShipping > SHIPPING_TX_DISCOUNTED;
+  let shipping = stepped ? SHIPPING_TX_DISCOUNTED : regularShipping;
   if (opts.freeDelivery) shipping = 0;
   return {
     shipping,
     regularShipping,
     referenceShipping: regularShipping,
-    couponSavings: roundMoney(regularShipping - shipping),
-    ...(couponApplies && !opts.miniComboPack && (coupon.shippingPolicy === 'texas_v3' || (coupon.shippingPolicy === 'texas_v2' && opts.picklesOnly))
-      ? { maintenanceFee: opts.picklesOnly ? 1.99 : 0.99 } : {}),
-    ...(texasMinimumMet ? { discountedShippingMinimum: texasTier!.minimum } : {}),
+    savings: roundMoney(regularShipping - shipping),
+    ...(stepped ? { discountedShippingMinimum: TEXAS_DISCOUNTED_SHIPPING_MINIMUM } : {}),
   };
 }
 
 /**
- * Break a subtotal into subtotal + tax + shipping + total.
+ * Break a subtotal into subtotal + tax + shipping + total (rates: calculateShippingQuote).
  *
- * Pickle-only, all supported states, no minimum: $6.99 for any number of jars.
- * Texas sweets and mixed carts: $6.99; Texas deliveries pay $4.99 from $100 and $3.99 from $120.
- * Current sandbox policy (mixed shipping treatment unconfirmed): taxable merchandise plus the whole delivery fee is
- * taxed when taxable merchandise is present; exempt-only carts have zero tax.
- * Sweets/mixed in nearby states (AL/AR/CO/FL/GA/IA/IL/KS/LA/MO/MS/NE/NM/OK/TN): $10.99 below $60, $8.99 from $60, $7.99 from $100.
- * Sweets/mixed in far states: $11.99 flat, with a $60 merchandise minimum.
- * Only Malai Khaja: nearby states $9.99 under $60, else a flat $8.99; far states a flat $10.99;
- * Texas the regular Texas rates; no minimum.
- * Only the Assorted Box (optionally with the Taste Pack) outside Texas: a flat $8.99 to nearby
- * states, $9.99 to far states, no minimum.
- *
+ * Taxable merchandise plus the whole delivery fee is taxed when taxable
+ * merchandise is present in a Texas delivery; exempt-only carts have zero tax.
  * Pickup is always free. `subtotal + tax + shipping === total` exactly.
  */
 export function calculateOrderTotals(
@@ -404,12 +377,10 @@ export function calculateOrderTotals(
     Math.min(safeSubtotal, Math.max(0, Number(opts.taxableSubtotal ?? safeSubtotal) || 0))
   );
 
-  const { shipping, maintenanceFee = 0 } = calculateShippingQuote(safeSubtotal, opts);
+  const { shipping } = calculateShippingQuote(safeSubtotal, opts);
 
-  const taxableShipping = opts.fulfillmentType === 'delivery' && isTexas(opts.deliveryState) && taxable > 0
-    ? shipping + maintenanceFee : 0;
+  const taxableShipping = opts.fulfillmentType === 'delivery' && isTexas(opts.deliveryState) && taxable > 0 ? shipping : 0;
   const tax = roundMoney((taxable + taxableShipping) * SALES_TAX_RATE);
 
-  return { subtotal: safeSubtotal, tax, shipping, ...(maintenanceFee > 0 ? { maintenanceFee } : {}),
-    total: roundMoney(safeSubtotal + tax + shipping + maintenanceFee) };
+  return { subtotal: safeSubtotal, tax, shipping, total: roundMoney(safeSubtotal + tax + shipping) };
 }

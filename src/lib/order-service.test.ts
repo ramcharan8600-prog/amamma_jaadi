@@ -11,6 +11,7 @@ import type { Queue } from '@cloudflare/workers-types';
 import type { EmailQueueMessage } from '@/lib/email-outbox';
 import { buildTaxSnapshot } from '@/lib/tax-records';
 import { getProductById } from '@/data/products';
+import type { CouponBenefit } from '@/lib/coupons';
 import type { CartItem } from '@/types';
 
 const schema = readFileSync(new URL('./d1-schema.sql', import.meta.url), 'utf8');
@@ -347,8 +348,11 @@ it.each([null, 'TESTBONUS'])('records Express shipping in a pickle-only confirma
 });
 
 
-it('finalizes free delivery without adding bonus pieces and counts usage only once', async () => {
-  const snapshot = { code: 'TESTBONUS', type: 'free_delivery' as const, minSubtotal: 30 };
+// Sessions paid before the 2026-10-12 rate card may hold a free-shipping offer; they still finalize.
+const legacyShippingOffer = (fields: Record<string, unknown>) => fields as unknown as CouponBenefit;
+
+it('finalizes a legacy free-delivery session without adding bonus pieces and counts usage only once', async () => {
+  const snapshot = legacyShippingOffer({ code: 'TESTBONUS', type: 'free_delivery', minSubtotal: 30 });
   const { db, sqlite, session } = setup({
     coupon_snapshot: snapshot,
     fulfillment_data: { type: 'delivery', state: 'TX', shippingMethod: 'standard' },
@@ -382,10 +386,10 @@ it('preserves the complimentary pieces promised in the session after coupon chan
   } finally { sqlite.close(); }
 });
 
-it('persists and reconciles the separate maintenance fee through the paid order and confirmation once', async () => {
+it('persists and reconciles a legacy maintenance fee through the paid order and confirmation once', async () => {
   const { db, sqlite, session } = setup({
     cart_data: [{ productId: 'pickle-chicken', quantity: 4, lineTotal: 72 }],
-    coupon_snapshot: { code: 'TESTBONUS', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' },
+    coupon_snapshot: legacyShippingOffer({ code: 'TESTBONUS', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' }),
     fulfillment_data: { type: 'delivery', state: 'TX', shippingMethod: 'standard' },
     total_amount: 80.09, tax: 6.10, shipping: 0, maintenance_fee: 1.99,
   });
@@ -417,7 +421,7 @@ it.each([['TX', 0, false], ['OK', 8.99, false], ['NY', 11.99, false]] as const)(
   'finalizes sweets in %s with the appropriate maintenance label and no complimentary pieces', async (state, shipping, gift) => {
     const { db, sqlite, session } = setup({
       cart_data: [{ productId: 'sweet-malpuri', quantity: 2, selectedTier: 15, lineTotal: 80 }],
-      coupon_snapshot: { code: 'TESTBONUS', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' },
+      coupon_snapshot: legacyShippingOffer({ code: 'TESTBONUS', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' }),
       fulfillment_data: { type: 'delivery', state, shippingMethod: 'standard' },
       total_amount: 80 + shipping + (state === 'TX' ? 0.99 : 0), tax: 0, shipping, maintenance_fee: state === 'TX' ? 0.99 : 0,
     });

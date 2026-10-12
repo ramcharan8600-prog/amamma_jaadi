@@ -32,7 +32,7 @@ import {
 import { useStock, invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
-import { couponBenefitLabel, couponMinimumMessage, type CouponBenefit } from '@/lib/coupons';
+import { couponBenefitLabel, type CouponBenefit } from '@/lib/coupons';
 import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, requiresNextDayPickup } from '@/lib/pickup-date';
 import { isValidCustomerName, isValidEmail, isValidPhone, normalizeUsPhone, PHONE_ERROR, toUsE164 } from '@/lib/contact-validation';
 import {
@@ -50,11 +50,10 @@ import {
   deliveryService,
   deliveryServiceLabel,
   EXPRESS_SWEETS_NOTE,
-  containsMiniComboPack,
+  containsAssortedBox,
 } from '@/lib/pricing';
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
-import MaintenanceFee from '@/components/checkout/MaintenanceFee';
 import PickupDateCalendar from '@/components/checkout/PickupDateCalendar';
 import { SOLD_OUT_DATE_ERROR } from '@/lib/sold-out-dates';
 import {
@@ -118,7 +117,6 @@ export default function CheckoutPage() {
     subtotal: number;
     tax: number;
     shipping: number;
-    maintenanceFee?: number;
     shippingQuote?: ShippingQuote;
     shippingMethod: DeliveryShippingMethod;
     total: number;
@@ -132,7 +130,6 @@ export default function CheckoutPage() {
   const [promoApplying, setPromoApplying] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<CouponBenefit | null>(null);
   // A shipping coupon refused only because the cart is under its minimum.
-  const [couponShortfall, setCouponShortfall] = useState<{ code: string; minSubtotal: number } | null>(null);
   const [cardReady, setCardReady] = useState(false);
   const [applePayReady, setApplePayReady] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -386,11 +383,9 @@ export default function CheckoutPage() {
   const pricingOptions = useMemo<ShippingOptions & { taxableSubtotal: number }>(
     () => ({
       taxableSubtotal,
-      shippingCoupon: appliedCoupon?.type === 'free_delivery' ? appliedCoupon : undefined,
       picklesOnly,
       groundShipping,
-      groundPieces: groundShipping ? calculateTotalPieces(items) : undefined,
-      miniComboPack: containsMiniComboPack(items),
+      assortedBoxInCart: containsAssortedBox(items),
       pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,
@@ -399,7 +394,7 @@ export default function CheckoutPage() {
           ? 'standard'
           : undefined,
     }),
-    [taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, groundShipping, appliedCoupon]
+    [taxableSubtotal, fulfillmentType, deliveryState, items, picklesOnly, groundShipping]
   );
   const totals = useMemo(() => calculateOrderTotals(subtotal, pricingOptions), [subtotal, pricingOptions]);
   const shippingQuote = useMemo(() => calculateShippingQuote(subtotal, pricingOptions), [subtotal, pricingOptions]);
@@ -461,28 +456,17 @@ export default function CheckoutPage() {
     items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
   )).join(' and ');
   // Temporary Taste Pack add-on, only for carts with its partner (the 10:10
-  // Assorted Box), for delivery, before payment, and once per cart:
-  // - Texas (or no state yet): next to a shipping coupon the pack unlocks.
-  // - Out of state: always; it ships at the box's rate, so shipping never rises.
+  // Assorted Box), for delivery once a state is chosen, before payment, and once
+  // per cart. It ships at the box's rate, so shipping never rises.
   const tastePack = getProductById(BOBBATLU_TASTE_PACK_PRODUCT_ID);
   const tastePackTier = tastePack?.quantityOptions?.[0] ?? 0;
   const tastePackPrice = tastePack ? calculateSweetPrice(tastePack, tastePackTier) : 0;
-  const offerCoupon = appliedCoupon?.type === 'free_delivery' ? appliedCoupon : appliedCoupon ? null : couponShortfall;
-  const outOfState = isSupportedDeliveryState(deliveryState) && deliveryState !== 'TX';
-  const tastePackEligible = tastePack && step !== 'payment' && fulfillmentType !== 'pickup' &&
+  const tastePackOffer = tastePack && step !== 'payment' && fulfillmentType !== 'pickup' &&
+    isSupportedDeliveryState(deliveryState) &&
     items.some(({ productId }) => productId === tastePack.addOnFor) &&
-    !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID);
-  const tastePackOffer = !tastePackEligible ? null
-    : outOfState ? { product: tastePack, tier: tastePackTier, price: tastePackPrice, gap: null }
-    : offerCoupon && (!deliveryState || deliveryState === 'TX') &&
-      subtotal < offerCoupon.minSubtotal && subtotal + tastePackPrice >= offerCoupon.minSubtotal
-      ? {
-          product: tastePack,
-          tier: tastePackTier,
-          price: tastePackPrice,
-          gap: Math.max(0, Math.round((offerCoupon.minSubtotal - subtotal) * 100) / 100),
-        }
-      : null;
+    !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)
+    ? { product: tastePack, tier: tastePackTier, price: tastePackPrice }
+    : null;
   const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, hasNextDayProduct);
   const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct)
     ?? (soldOutDates.includes(pickupDate) ? SOLD_OUT_DATE_ERROR : null);
@@ -582,36 +566,29 @@ export default function CheckoutPage() {
       if (res.ok && data.code) {
         setPromoCode(data.code);
         setAppliedCoupon(data as CouponBenefit);
-        setCouponShortfall(null);
         setPromoMsg('');
       } else {
         setAppliedCoupon(null);
-        setCouponShortfall(data.belowMinimum ?? null);
         setPromoMsg(data.error || "That promo code isn't valid.");
       }
     } catch {
       setAppliedCoupon(null);
-      setCouponShortfall(null);
       setPromoMsg('Could not verify code. Please try again.');
     }
     setPromoApplying(false);
   };
 
-  // Temporary Taste Pack add-on line. Adding it re-applies a shipping coupon that
-  // was refused only for being under its minimum.
+  // Temporary Taste Pack add-on line.
   const renderTastePackOffer = () => tastePackOffer && (
     <div className="flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2">
       <p className="text-brand-charcoal">
-        {tastePackOffer.gap === null
-          ? <>Ships together with your 10:10 box. </>
-          : <>You&apos;re <strong>{formatCurrency(tastePackOffer.gap)}</strong> away from free shipping. </>}
+        Ships together with your 10:10 box.{' '}
         Add a <strong>{tastePackOffer.product.name} ({tastePackOffer.tier} pcs)</strong> {formatCurrency(tastePackOffer.price)} →
       </p>
       <button type="button" disabled={submitting || paying || promoApplying}
         className="btn-primary shrink-0 text-xs py-1.5 px-3"
         onClick={() => {
           addItem(tastePackOffer.product, 1, tastePackOffer.tier);
-          if (!appliedCoupon && couponShortfall) applyCoupon(couponShortfall.code, useCartStore.getState().items);
         }}>
         Add
       </button>
@@ -639,8 +616,7 @@ export default function CheckoutPage() {
           phone: details.phone,
           tax: 0,
           total: subtotal, // reference only — server recomputes authoritatively
-          couponCode: appliedCoupon?.type === 'free_delivery' && details.type === 'pickup'
-            ? null : appliedCoupon?.code || null,
+          couponCode: appliedCoupon?.code || null,
         }),
       });
       if (!res.ok) {
@@ -658,7 +634,6 @@ export default function CheckoutPage() {
         tax: Number(data.tax ?? 0),
         shipping: Number(data.shipping ?? 0),
         shippingQuote: data.shippingQuote,
-        maintenanceFee: Number(data.maintenanceFee ?? 0),
         shippingMethod:
           data.shippingMethod === 'expedited'
             ? 'expedited'
@@ -921,7 +896,6 @@ export default function CheckoutPage() {
     isSupportedDeliveryState(deliveryState) &&
     /^\d{5}(?:-\d{4})?$/.test(deliveryZip.trim()) &&
     deliveryMinimumShortfall === 0 &&
-    !(appliedCoupon?.type === 'free_delivery' && subtotal < appliedCoupon.minSubtotal) &&
     !deliveryRestrictionMessage
   );
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === step);
@@ -964,22 +938,8 @@ export default function CheckoutPage() {
       {appliedCoupon && (
         <div role="status" className="card p-4 mb-6 font-body text-sm space-y-2">
           <p className="font-semibold text-brand-maroon">{appliedCoupon.code}: {couponBenefitLabel(appliedCoupon)}</p>
-          {appliedCoupon.type === 'free_delivery' && (
-            <p className="text-brand-charcoal/70">
-              {fulfillmentType === 'pickup'
-                ? 'This code applies to delivery orders only. Pickup is already free.'
-                : subtotal < appliedCoupon.minSubtotal
-                  ? couponMinimumMessage(appliedCoupon.minSubtotal)
-                  : !deliveryState
-                    ? `Select your delivery state to see the shipping offer. Minimum cart value: ${formatCurrency(appliedCoupon.minSubtotal)} before tax and shipping.`
-                    : deliveryState === 'TX'
-                      ? 'Free delivery on this order.'
-                      : 'This coupon offers free shipping within Texas only. Regular shipping rates apply to your state.'}
-            </p>
-          )}
-          {renderTastePackOffer()}
           {step !== 'payment' && <button type="button" disabled={submitting || paying} className="underline text-brand-charcoal/60"
-            onClick={() => { setAppliedCoupon(null); setCouponShortfall(null); setPromoCode(''); setPromoMsg(''); }}>Remove promo code</button>}
+            onClick={() => { setAppliedCoupon(null); setPromoCode(''); setPromoMsg(''); }}>Remove promo code</button>}
         </div>
       )}
 
@@ -1057,7 +1017,6 @@ export default function CheckoutPage() {
                 />
               )}
               {fulfillmentType === 'delivery' && showExpressNote && expressSweetsNote}
-              <MaintenanceFee amount={totals.maintenanceFee} />
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
                 <span>{SALES_TAX_LABEL}</span>
                 <span>{formatCurrency(totals.tax)}</span>
@@ -1081,7 +1040,6 @@ export default function CheckoutPage() {
                 onChange={(e) => {
                   setPromoCode(e.target.value);
                   setPromoMsg('');
-                  setCouponShortfall(null);
                   if (appliedCoupon) setAppliedCoupon(null);
                 }}
                 placeholder="Enter code"
@@ -1101,7 +1059,7 @@ export default function CheckoutPage() {
                 {promoMsg}
               </p>
             )}
-            {!appliedCoupon && <div className="font-body text-sm">{renderTastePackOffer()}</div>}
+            {tastePackOffer && <div className="font-body text-sm">{renderTastePackOffer()}</div>}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
@@ -1532,7 +1490,7 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {!appliedCoupon && <div className="font-body text-sm">{renderTastePackOffer()}</div>}
+          {tastePackOffer && <div className="font-body text-sm">{renderTastePackOffer()}</div>}
 
           {/* No totals while an item can't be delivered here: there is nothing to pay. */}
           {deliveryState.trim() && !deliveryRestrictionMessage && (
@@ -1543,7 +1501,6 @@ export default function CheckoutPage() {
               </div>
               <ShippingCharge label={serviceLabel} shipping={totals.shipping} quote={shippingQuote} />
               {showExpressNote && expressSweetsNote}
-              <MaintenanceFee amount={totals.maintenanceFee} />
               {nearbyPickup && (
                 <div className="font-body text-xs text-green-800 space-y-1 py-2">
                   <p className="font-bold">
@@ -1618,7 +1575,6 @@ export default function CheckoutPage() {
                 shipping={sessionInfo.shipping} quote={sessionInfo.shippingQuote} />
             )}
             {paymentService && !picklesOnly && expressSweetsNote}
-            <MaintenanceFee amount={sessionInfo.maintenanceFee} />
             <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
               <span>{SALES_TAX_LABEL}</span>
               <span>{formatCurrency(sessionInfo.tax)}</span>

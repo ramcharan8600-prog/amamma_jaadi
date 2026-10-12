@@ -1,10 +1,7 @@
+/** 'free_delivery' rows are old shipping offers, ended 2026-10-12: they never apply now. */
 export type CouponType = 'complimentary' | 'free_delivery';
-/** Both policies are Texas-only free shipping; they differ only in the maintenance fee. */
-export type ShippingCouponPolicy = 'texas_v2' | 'texas_v3';
 
-export type CouponBenefit =
-  | { code: string; type: 'complimentary'; bonusItem: string; bonusQty: number }
-  | { code: string; type: 'free_delivery'; minSubtotal: number; shippingPolicy?: ShippingCouponPolicy };
+export type CouponBenefit = { code: string; type: 'complimentary'; bonusItem: string; bonusQty: number };
 
 export interface CouponRow {
   code: string;
@@ -15,11 +12,11 @@ export interface CouponRow {
   min_subtotal: number;
 }
 
-/** Read only trusted database rows; never accept a benefit from checkout input. */
+/**
+ * Read only trusted database rows; never accept a benefit from checkout input.
+ * Free-shipping offers ended with the 2026-10-12 rate card, so only free-piece coupons apply.
+ */
 export function couponBenefit(coupon: CouponRow): CouponBenefit | null {
-  if (coupon.coupon_type === 'free_delivery' && isValidCouponMinimum(coupon.min_subtotal)) {
-    return { code: coupon.code, type: 'free_delivery', minSubtotal: coupon.min_subtotal, shippingPolicy: 'texas_v3' };
-  }
   if (coupon.coupon_type === 'complimentary' && coupon.bonus_item?.trim() &&
       Number.isSafeInteger(coupon.bonus_qty) && coupon.bonus_qty > 0) {
     return { code: coupon.code, type: 'complimentary', bonusItem: coupon.bonus_item, bonusQty: coupon.bonus_qty };
@@ -27,18 +24,6 @@ export function couponBenefit(coupon: CouponRow): CouponBenefit | null {
   return null;
 }
 
-export function isValidCouponMinimum(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
-    Number.isSafeInteger(Math.round(value * 100)) &&
-    Math.abs(value * 100 - Math.round(value * 100)) < 0.000001;
-}
-
 export function couponBenefitLabel(coupon: CouponBenefit): string {
-  return coupon.type === 'free_delivery'
-    ? coupon.shippingPolicy ? 'Shipping offer' : 'Free delivery'
-    : `${coupon.bonusQty} complimentary ${coupon.bonusItem} pcs`;
-}
-
-export function couponMinimumMessage(minimum: number): string {
-  return `This coupon requires a minimum cart value of $${minimum.toFixed(2)} before tax and shipping.`;
+  return `${coupon.bonusQty} complimentary ${coupon.bonusItem} pcs`;
 }

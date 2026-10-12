@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 import { ok, fail } from '@/lib/api';
-import { isValidCouponMinimum, type CouponType } from '@/lib/coupons';
+import type { CouponType } from '@/lib/coupons';
 
 interface CouponRow {
   code: string;
@@ -68,18 +68,16 @@ export async function POST(request: NextRequest) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return fail('Invalid coupon request.', 400);
   const code = String(body.code || '').trim().replace(/\s+/g, '').toUpperCase();
   const influencerName = String(body.influencerName || '').trim();
-  const couponType = body.type ?? 'complimentary';
-  if (couponType !== 'complimentary' && couponType !== 'free_delivery') {
-    return fail('Select complimentary pieces or a shipping offer.', 400);
+  // Free-shipping offers ended with the 2026-10-12 rate card: coupons give complimentary pieces.
+  if ((body.type ?? 'complimentary') !== 'complimentary') {
+    return fail('Coupons give complimentary pieces. Shipping offers ended on Oct 12, 2026.', 400);
   }
-  const bonusItem = couponType === 'complimentary' ? String(body.bonusItem ?? 'Malai Khaja').trim() : '';
-  const bonusQty = couponType === 'complimentary' ? Number(body.bonusQty ?? 2) : 0;
-  const minSubtotal = couponType === 'free_delivery' ? body.minSubtotal : 0;
-  if (!isValidCouponMinimum(minSubtotal)) {
-    return fail('Enter a minimum cart value of $0 or more, with up to two decimal places.', 400);
-  }
-  if (couponType === 'complimentary' && (!['Malai Khaja', 'Malpuri'].includes(bonusItem) ||
-      !Number.isSafeInteger(bonusQty) || bonusQty < 1 || bonusQty > 10)) {
+  const couponType: CouponType = 'complimentary';
+  const bonusItem = String(body.bonusItem ?? 'Malai Khaja').trim();
+  const bonusQty = Number(body.bonusQty ?? 2);
+  const minSubtotal = 0;
+  if (!['Malai Khaja', 'Malpuri'].includes(bonusItem) ||
+      !Number.isSafeInteger(bonusQty) || bonusQty < 1 || bonusQty > 10) {
     return fail('Select a complimentary item and a whole quantity from 1 to 10.', 400);
   }
 
@@ -105,7 +103,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PATCH /api/coupons/admin — toggle status or adjust a free-delivery minimum.
+ * PATCH /api/coupons/admin — switch a coupon on or off. Old shipping offers can't be switched on.
  */
 export async function PATCH(request: NextRequest) {
   if (!(await requireAdmin())) return fail('Unauthorized', 401);
@@ -121,17 +119,10 @@ export async function PATCH(request: NextRequest) {
     .bind(code).first<{ coupon_type: CouponType }>();
   if (!coupon) return fail('Coupon not found.', 404);
 
-  if ('minSubtotal' in body) {
-    if (coupon.coupon_type !== 'free_delivery') return fail('Only shipping coupons have a minimum cart value.', 400);
-    if (!isValidCouponMinimum(body.minSubtotal)) {
-      return fail('Enter a minimum cart value of $0 or more, with up to two decimal places.', 400);
-    }
-    await getDb().prepare('UPDATE influencer_coupons SET min_subtotal = ? WHERE code = ?')
-      .bind(body.minSubtotal, code).run();
-    return ok({ code, minSubtotal: body.minSubtotal });
-  }
+  if ('minSubtotal' in body) return fail('Shipping offers ended on Oct 12, 2026.', 400);
   if (![true, false, 0, 1].includes(body.active)) return fail('Select an active status.', 400);
   const active = body.active ? 1 : 0;
+  if (active && coupon.coupon_type === 'free_delivery') return fail('Shipping offers ended on Oct 12, 2026.', 400);
 
   await getDb()
     .prepare('UPDATE influencer_coupons SET active = ? WHERE code = ?')

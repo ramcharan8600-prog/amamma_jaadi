@@ -632,12 +632,12 @@ describe('next-day product rules before a first charge', () => {
   });
 
   it.each([
-    ['sweet-bobbatlu', 54.99],
-    ['sweet-kova-bobbatlu', 54.99],
-    ['sweet-kova', 42.99],
+    ['sweet-bobbatlu', 53.99],
+    ['sweet-kova-bobbatlu', 53.99],
+    ['sweet-kova', 41.99],
   ] as const)('keeps delivery %s chargeable after the pickup cutoff', async (productId, total) => {
     setPickupClock('2026-07-15T19:00:00Z');
-    fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, fulfillment_data = ?, shipping = 6.99, total_amount = ?')
+    fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, fulfillment_data = ?, shipping = 5.99, total_amount = ?')
       .run(JSON.stringify([{ productId, quantity: 1, selectedTier: 16 }]),
         JSON.stringify({ type: 'delivery', state: 'TX', date: '2026-07-15' }), total);
     const execute = vi.fn(async () => ({ paymentId: 'payment-delivery', status: 'COMPLETED' }));
@@ -709,24 +709,19 @@ describe('coupon pricing before the first charge', () => {
       JSON.stringify({ type: 'delivery', state: 'TX', addressLine1: '123 Test Street', city: 'Plano', zip: '75093' }),
       snapshot === null ? null : JSON.stringify(snapshot), amount, shipping);
   }
-  it('charges the free-delivery quote and forwards its immutable coupon to order finalization', async () => {
-    const snapshot = { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40, shippingPolicy: 'texas_v2' };
-    deliverySession(snapshot);
-    const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(async () => ({ paymentId: 'PAY-FREE-SHIPPING', status: 'COMPLETED' }));
-    const result = await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize });
-    expect(result).toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
-    expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(4000);
-    expect(finalize.mock.calls[0][1]).toMatchObject({ shipping: 0, coupon_snapshot: snapshot });
-  });
-  it('retains the shipping charge for complimentary coupons', async () => {
-    deliverySession({ code: 'SHIP40', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 }, 46.99, 6.99);
+  it('charges a complimentary coupon order with its shipping and forwards the coupon to order finalization', async () => {
+    const snapshot = { code: 'SHIP40', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 };
+    deliverySession(snapshot, 45.99, 5.99);
     const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(async () => ({ paymentId: 'PAY-COMPLIMENTARY', status: 'COMPLETED' }));
     expect(await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
       .toMatchObject({ success: true });
-    expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(4699);
+    expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(4599);
+    expect(finalize.mock.calls[0][1]).toMatchObject({ shipping: 5.99, coupon_snapshot: snapshot });
   });
   it.each([
     null,
+    { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40, shippingPolicy: 'texas_v2' },
+    { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40, shippingPolicy: 'texas_v3' },
     { code: 'OTHER', type: 'free_delivery', minSubtotal: 40 },
     { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40.01 },
     { code: 'SHIP40', type: 'free_delivery', minSubtotal: -1 },
@@ -735,7 +730,7 @@ describe('coupon pricing before the first charge', () => {
     { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40, shippingPolicy: 'unknown' },
     { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40 },
     { code: 'SHIP40', type: 'free_delivery', minSubtotal: 40, shippingPolicy: 'regional_v1' },
-  ])('does not charge free shipping without an eligible persisted benefit: %j', async snapshot => {
+  ])('never charges free shipping (offers ended 2026-10-12) or an invalid saved coupon: %j', async snapshot => {
     deliverySession(snapshot);
     const execute = vi.fn();
     expect(await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
@@ -745,15 +740,22 @@ describe('coupon pricing before the first charge', () => {
 });
 
 
-it.each([['TX', 0, 80.09], ['OK', 6.99, 84.93], ['NY', 6.99, 84.93]])('charges the Texas-only coupon pickle quote in %s', async (state, shipping, total) => {
+it.each(['TX', 'OK', 'NY'])('refuses a session opened with an old free-shipping offer and its fee in %s', async (state) => {
   const coupon = { code: 'REGION70', type: 'free_delivery', minSubtotal: 70, shippingPolicy: 'texas_v3' };
-  fixture.sqlite.prepare(`UPDATE payment_sessions SET cart_data=?, fulfillment_data=?, coupon_code=?, coupon_snapshot=?, shipping=?, tax=?, maintenance_fee=?, pricing_policy='texas_v3', total_amount=?`).run(
-    JSON.stringify([{ productId: 'pickle-chicken', quantity: 4 }]), JSON.stringify({ type: 'delivery', state }),
-    coupon.code, JSON.stringify(coupon), shipping, state === 'TX' ? 6.10 : 5.94, state === 'TX' ? 1.99 : 0, total);
-  const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(async () => ({ paymentId: 'PAY-REGIONAL-GIFT', status: 'COMPLETED' }));
+  fixture.sqlite.prepare(`UPDATE payment_sessions SET cart_data=?, fulfillment_data=?, coupon_code=?, coupon_snapshot=?, shipping=0, tax=6.10, maintenance_fee=1.99, pricing_policy='texas_v3', total_amount=80.09`).run(
+    JSON.stringify([{ productId: 'pickle-chicken', quantity: 4 }]), JSON.stringify({ type: 'delivery', state }), coupon.code, JSON.stringify(coupon));
+  const execute = vi.fn();
+  expect(await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
+    .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+  expect(execute).not.toHaveBeenCalled();
+});
+
+it('charges a Texas pickle order at the new rate card ($5.99 shipping, taxed)', async () => {
+  fixture.sqlite.prepare(`UPDATE payment_sessions SET cart_data=?, fulfillment_data=?, shipping=5.99, tax=6.43, pricing_policy='rate_card_2026_10', total_amount=84.42`).run(
+    JSON.stringify([{ productId: 'pickle-chicken', quantity: 4 }]), JSON.stringify({ type: 'delivery', state: 'TX' }));
+  const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(async () => ({ paymentId: 'PAY-PICKLES', status: 'COMPLETED' }));
   expect(await runPaymentAttempt(fixture.db, { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize })).toMatchObject({ success: true });
-  expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
-  expect(finalize.mock.calls[0][1]).toMatchObject({ shipping, coupon_snapshot: coupon });
+  expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(8442);
 });
 
 it('charges a far-state Malai Khaja-only order at the flat $10.99 shipping', async () => {

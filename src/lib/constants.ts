@@ -29,6 +29,9 @@ export const SITE_URL = 'https://amammajaadi.com';
 /** The shop operates in Dallas, TX (US Central). Used for all business-date math. */
 export const BUSINESS_TZ = 'America/Chicago';
 
+// Shipping rate card (owner, 2026-10-12). The private copy lives in
+// docs/internal/shipping-rules.md; never publish these numbers in customer copy.
+
 /** The $60 boundary used by nearby-state shipping. */
 export const STANDARD_SHIPPING_THRESHOLD = 60;
 
@@ -38,45 +41,35 @@ export const NEARBY_SHIPPING_TOP_THRESHOLD = 100;
 /** Minimum merchandise subtotal for far-state delivery when sweets are included. */
 export const FAR_SHIPPING_MINIMUM = 60;
 
-/** Flat UPS shipping within Texas. */
-export const SHIPPING_TX = 6.99;
-
-/** Texas deliveries at or above this merchandise subtotal pay the discounted delivery fee. */
-export const TEXAS_DISCOUNTED_SHIPPING_MINIMUM = 120;
-/** Texas delivery fee from TEXAS_DISCOUNTED_SHIPPING_MINIMUM, instead of SHIPPING_TX. */
+/** Texas delivery under TEXAS_DISCOUNTED_SHIPPING_MINIMUM. */
+export const SHIPPING_TX = 5.99;
+/** Texas deliveries at or above this merchandise subtotal pay SHIPPING_TX_DISCOUNTED. */
+export const TEXAS_DISCOUNTED_SHIPPING_MINIMUM = 100;
 export const SHIPPING_TX_DISCOUNTED = 3.99;
-/** Texas deliveries from $100 up to TEXAS_DISCOUNTED_SHIPPING_MINIMUM pay SHIPPING_TX_MID. */
-export const TEXAS_MID_SHIPPING_MINIMUM = 100;
-export const SHIPPING_TX_MID = 4.99;
 
-/** Shipping to any supported state for orders containing only pickle jars. */
+/** Pickle-only orders outside Texas (Texas pickle-only orders pay the Texas rates). */
 export const SHIPPING_PICKLES_SINGLE = 6.99;
+/** Only for quotes saved before the flat pickle rate. */
 export const SHIPPING_PICKLES_DOUBLE = 5.99;
 export const SHIPPING_PICKLES_THREE_PLUS = 4.99;
 
-/** Shipping rates for the configured nearby-state region: under $60, $60-$99.99, $100+. */
-export const SHIPPING_NEARBY_BELOW = 10.99;
-export const SHIPPING_NEARBY_ABOVE = 8.99;
-export const SHIPPING_NEARBY_100 = 7.99;
+/** Nearby-state sweets/mixed orders: under $60, $60-$99.99, $100+. */
+export const SHIPPING_NEARBY_BELOW = 6.99;
+export const SHIPPING_NEARBY_ABOVE = 5.99;
+export const SHIPPING_NEARBY_100 = 4.99;
 
-/** Flat shipping for eligible far-state orders. */
+/** Far-state sweets/mixed orders (with the $60 minimum). */
 export const SHIPPING_FAR = 11.99;
 
-/**
- * UPS Ground rate for a Malai Khaja-only cart to a nearby state under $60, and
- * an Assorted Box-only cart to a far state. No minimum applies. Not advertised.
- */
-export const SHIPPING_GROUND_OUT_OF_STATE = 9.99;
-/** Malai Khaja-only carts to a nearby state from $60 (any number of pieces); under $60 pay SHIPPING_GROUND_OUT_OF_STATE. */
-export const SHIPPING_MALAI_KHAJA_NEARBY = 8.99;
 /** Malai Khaja-only carts to a far state: flat, any number of pieces, no minimum. */
 export const SHIPPING_MALAI_KHAJA_FAR = 10.99;
-/** Flat rate for an Assorted Box-only cart to a nearby state (far states pay SHIPPING_GROUND_OUT_OF_STATE). */
-export const SHIPPING_ASSORTED_BOX_NEARBY = 8.99;
-/** A cart of exactly one 10:10 Assorted Box and nothing else (owner, 2026-10-10). */
-export const SHIPPING_ASSORTED_BOX_SINGLE_TX = 4.99;
-export const SHIPPING_ASSORTED_BOX_SINGLE_NEARBY = 6.99;
-export const SHIPPING_ASSORTED_BOX_SINGLE_FAR = 8.99;
-
-/** A Mini Combo Pack-only cart to a nearby state pays at most this (Texas uses the regular rates). */
-export const SHIPPING_MINI_COMBO_NEARBY = 9.99;
+/** 10:10 Assorted Box-only carts (any number of boxes, with or without the Taste Pack); no minimum. */
+export const SHIPPING_ASSORTED_BOX_TX = 3.99;
+export const SHIPPING_ASSORTED_BOX_NEARBY = 5.99;
+export const SHIPPING_ASSORTED_BOX_FAR = 6.99;
+/** 8:8 Assorted Bobbatlu Box-only carts; far states keep the $60 minimum (one box can't ship there). */
+export const SHIPPING_BOBBATLU_BOX_TX = 4.99;
+export const SHIPPING_BOBBATLU_BOX_NEARBY = 7.99;
+export const SHIPPING_BOBBATLU_BOX_FAR = 9.99;
+/** Mini Combo Pack-only carts in Texas (nearby states pay the regular rates; far states aren't served). */
+export const SHIPPING_MINI_COMBO_TX = 3.99;

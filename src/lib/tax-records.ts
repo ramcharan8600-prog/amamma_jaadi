@@ -35,7 +35,8 @@ export interface TaxSnapshot {
 
 /** Only pass the server-validated cart and normalized fulfillment. */
 export function buildTaxSnapshot(
-  items: CartItem[], totals: OrderTotals, fulfillment: Record<string, unknown>, environment: string
+  // maintenanceFee: only on sessions from before the 2026-10-12 rate card (free-shipping coupons).
+  items: CartItem[], totals: OrderTotals & { maintenanceFee?: number }, fulfillment: Record<string, unknown>, environment: string
 ): TaxSnapshot {
   const lines: TaxSnapshot['items'] = items.map(item => ({
     productId: item.productId, name: item.product.name, category: item.product.category,

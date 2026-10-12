@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestD1 } from '@/lib/test-utils/d1';
 import { validateCart } from '@/lib/cart-validation';
-import { calculateOrderTotals } from '@/lib/pricing';
+import { calculateOrderTotals, roundMoney, SALES_TAX_RATE } from '@/lib/pricing';
 import { buildTaxSnapshot, preparePaymentReceipt, paymentDate } from '@/lib/tax-records';
 import { createOrderFromSession, type PaymentSessionRow } from '@/lib/order-service';
 import { getTaxReport, quarterRange, taxReportCsv } from '@/lib/tax-report';
@@ -23,7 +23,10 @@ async function sale(id = 'test', paidAt = '2026-09-15T18:00:00Z', finalize = tru
   ]);
   if (!cart.ok) throw new Error(cart.error);
   const fulfillment = { type: 'delivery' as const, addressLine1: '123 Test St', city: 'Plano', state: 'TX', zip: '75093', country: 'USA' };
-  const totals = calculateOrderTotals(cart.subtotal, { taxableSubtotal: cart.taxableSubtotal, fulfillmentType: 'delivery', deliveryState: 'TX' });
+  // A Texas order charged $6.99 shipping (the rate when these records were designed);
+  // these tests are about recording what was charged, not today's rates.
+  const tax = roundMoney((cart.taxableSubtotal + 6.99) * SALES_TAX_RATE);
+  const totals = { subtotal: cart.subtotal, tax, shipping: 6.99, total: roundMoney(cart.subtotal + tax + 6.99) };
   const snapshot = buildTaxSnapshot(cart.items, totals, fulfillment, 'sandbox');
   const session: PaymentSessionRow = { id, order_id: null, customer_name: 'Test', email: 'test@example.invalid', phone_number: '2145550100',
     cart_data: cart.items, fulfillment_data: fulfillment, total_amount: totals.total, tax: totals.tax, shipping: totals.shipping, coupon_code: null };
@@ -109,9 +112,10 @@ describe('historical tax records', () => {
   it('captures known exempt, full taxable, and out-of-state policies without inventing a jurisdiction rule', () => {
     const cart = validateCart([{ productId: 'pickle-gongura-chicken', quantity: 1 }]);
     if (!cart.ok) throw new Error(cart.error);
+    // A Texas pickle-only delivery: $5.99 shipping, taxed with the jar.
     const totals = calculateOrderTotals(19, { taxableSubtotal: 19, picklesOnly: true, fulfillmentType: 'delivery', deliveryState: 'TX' });
     expect(buildTaxSnapshot(cart.items, totals, { type: 'delivery', state: 'TX' }, 'sandbox')).toMatchObject({
-      taxableShippingCents: 699, taxCents: 214, reviewReason: null,
+      taxableShippingCents: 599, taxCents: 206, reviewReason: null,
     });
     expect(buildTaxSnapshot(cart.items, totals, { type: 'delivery', state: 'OK' }, 'sandbox').reviewReason).toContain('Out-of-state');
   });
