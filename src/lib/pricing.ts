@@ -341,7 +341,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
       if (zone === 'nearby') regularShipping = subtotal < STANDARD_SHIPPING_THRESHOLD ? SHIPPING_GROUND_OUT_OF_STATE : SHIPPING_MALAI_KHAJA_NEARBY;
       else if (zone === 'far') regularShipping = SHIPPING_MALAI_KHAJA_FAR;
     } else if (opts.groundShipping === 'assorted-box-single' && !opts.picklesOnly) {
-      // One 11:11 box alone: a lower rate everywhere, Texas included.
+      // One 10:10 box alone: a lower rate everywhere, Texas included.
       regularShipping = zone === 'texas' ? SHIPPING_ASSORTED_BOX_SINGLE_TX
         : zone === 'nearby' ? SHIPPING_ASSORTED_BOX_SINGLE_NEARBY : SHIPPING_ASSORTED_BOX_SINGLE_FAR;
     } else if (opts.groundShipping === 'assorted-box' && !opts.picklesOnly && zone !== 'texas') {

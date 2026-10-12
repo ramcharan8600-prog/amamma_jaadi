@@ -70,7 +70,7 @@ describe('inventory — stock decrement on a paid order', () => {
 
   it('decrements Assorted Boxes by whole boxes, not pieces', async () => {
     const { db, rows } = makeFakeDb({ 'sweet-assorted-box': 5 });
-    await decrementStockForOrder(db, [{ productId: 'sweet-assorted-box', quantity: 2, selectedTier: 22 }], 'AJ-1100');
+    await decrementStockForOrder(db, [{ productId: 'sweet-assorted-box', quantity: 2, selectedTier: 20 }], 'AJ-1100');
     expect(rows['sweet-assorted-box']).toBe(3);
   });
 

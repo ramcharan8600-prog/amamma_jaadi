@@ -50,3 +50,15 @@ it('still counts a renamed or retired product from its name, and handles an empt
     .toEqual([{ sweet: 'Malpuri', pieces: 10 }, { sweet: 'Kova', pieces: 10 }]);
   expect(productionSheet([])).toEqual({ sweets: [], items: [] });
 });
+
+it('counts the 10:10 box as 10 + 10, and a box ordered as the old 22-piece 11:11 box as 11 + 11', () => {
+  const sheet = productionSheet([
+    line('Assorted Box — Malpuri & Malai Khaja', 2, 20),
+    line('Assorted Box — Malpuri & Malai Khaja', 1, 22),
+  ]);
+  expect(sheet.sweets).toEqual([{ sweet: 'Malpuri', pieces: 31 }, { sweet: 'Malai Khaja', pieces: 31 }]);
+  expect(sheet.items).toEqual([
+    { label: 'Assorted Box — Malpuri & Malai Khaja', count: 2, unit: 'boxes' },
+    { label: 'Assorted Box — Malpuri & Malai Khaja (22 pcs)', count: 1, unit: 'box' },
+  ]);
+});

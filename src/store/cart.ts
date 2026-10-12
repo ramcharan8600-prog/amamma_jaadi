@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem, Product, FulfillmentDetails } from '@/types';
-import { calculateSweetPrice, getProductById, getTotalPieces } from '@/data/products';
+import { calculateSweetPrice, getProductById, getTotalPieces, isFixedPriceBox } from '@/data/products';
 
 interface CartState {
   items: CartItem[];
@@ -98,7 +98,7 @@ export const useCartStore = create<CartState>()(
               lineKey(i.productId, i.selectedTier, i.selectedVariant) !==
               lineKey(productId, selectedTier, selectedVariant)
           );
-          // An add-on leaves with the item it was bought for (the Taste Pack with the 11:11 box).
+          // An add-on leaves with the item it was bought for (the Taste Pack with the 10:10 box).
           return {
             items: kept.filter((i) => !i.product.addOnFor || kept.some((k) => k.productId === i.product.addOnFor)),
           };
@@ -147,9 +147,12 @@ export const useCartStore = create<CartState>()(
         ...current,
         items: ((persisted as Partial<CartState> | undefined)?.items ?? []).flatMap((item) => {
           const product = getProductById(item.productId);
-          return product
-            ? [{ ...item, product, lineTotal: computeLineTotal(product, item.quantity, item.selectedTier) }]
-            : [];
+          if (!product) return [];
+          // A fixed box saved in a size that is gone (the 22-piece 11:11 box) moves to today's size.
+          const selectedTier = isFixedPriceBox(product) && !product.quantityOptions!.includes(item.selectedTier ?? -1)
+            ? product.quantityOptions![0]
+            : item.selectedTier;
+          return [{ ...item, product, selectedTier, lineTotal: computeLineTotal(product, item.quantity, selectedTier) }];
         }),
       }),
     }

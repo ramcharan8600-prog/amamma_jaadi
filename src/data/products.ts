@@ -108,7 +108,7 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'premium'],
   },
   {
-    // A single 22-piece box on the sweets tier, tax and pickup rules.
+    // The 10:10 box: a single 20-piece box on the sweets tier, tax and pickup rules.
     // Stock is counted separately, in whole boxes (see isStockTracked).
     id: 'sweet-assorted-box',
     slug: 'assorted-sweets-box',
@@ -117,13 +117,14 @@ export const PRODUCTS: Product[] = [
     // **…** renders bold; each new line starts a line on the card and "* " makes
     // it a bullet. Markers are stripped for search engines.
     description:
-      'Made for **your 11:11 sweet cravings**\n* **11 Guntur Malpuri**\n* **11 Nellore Malai Khaja**\nShipping throughout the USA.',
+      'Made for **your 10:10 sweet cravings**\n* **10 Guntur Malpuri**\n* **10 Nellore Malai Khaja**\nShipping throughout the USA.',
     category: 'sweets',
-    // Regular $3/pc = $66, shown struck through; the box sells for $63.
+    // 20 pieces for $60 ($3/pc). Orders placed before 2026-10-12 hold the 22-piece
+    // 11:11 box; the production sheet counts those by their own size.
     unitPrice: 3,
-    tierPrices: { 22: 63 },
+    tierPrices: { 20: 60 },
     // Shown under the item in order emails so the team packs 11 + 11.
-    emailDetails: ['Made for your 11:11 sweet cravings', '• 11 Guntur Malpuri', '• 11 Nellore Malai Khaja'],
+    emailDetails: ['Made for your 10:10 sweet cravings', '• 10 Guntur Malpuri', '• 10 Nellore Malai Khaja'],
     image: '/images/web/texas-limited-gift-box-closed.webp',
     imageFit: 'contain',
     // Shown side by side with the closed box, like the Sweet Memories gift box.
@@ -131,7 +132,7 @@ export const PRODUCTS: Product[] = [
       src: '/images/web/texas-limited-gift-box-open.webp',
       alt: 'Assorted Box open with individually wrapped Malpuri and Malai Khaja',
     }],
-    quantityOptions: [22],
+    quantityOptions: [20],
     inStock: true,
     prepNotice: 'Baked fresh every day.',
     prepNoticeTone: 'fresh',
@@ -156,7 +157,7 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
   },
   {
-    // Temporary checkout add-on (Oct 2026), only with the 11:11 Assorted Box: in
+    // Temporary checkout add-on (Oct 2026), only with the 10:10 Assorted Box: in
     // Texas next to a shipping coupon, out of state for anyone with the box (it
     // ships at the box's rate). Never listed on the Sweets page or sold alone.
     id: 'sweet-bobbatlu-taste-pack',

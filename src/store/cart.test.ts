@@ -84,16 +84,16 @@ describe('cart store', () => {
     expect(items[0].selectedTier).toBe(50);
   });
 
-  it('removes the Taste Pack with the last 11:11 box, but keeps it while a box remains', () => {
+  it('removes the Taste Pack with the last 10:10 box, but keeps it while a box remains', () => {
     const box = getProductById('sweet-assorted-box')!;
     const pack = getProductById('sweet-bobbatlu-taste-pack')!;
-    useCartStore.getState().addItem(box, 2, 22);
+    useCartStore.getState().addItem(box, 2, 20);
     useCartStore.getState().addItem(pack, 1, 8);
     useCartStore.getState().addItem(sweet, 1, 16);
-    useCartStore.getState().updateQuantity(box.id, 1, 22);
+    useCartStore.getState().updateQuantity(box.id, 1, 20);
     useCartStore.getState().removeItem(sweet.id, 16);
     expect(useCartStore.getState().items.map(i => i.productId)).toEqual([box.id, pack.id]);
-    useCartStore.getState().updateQuantity(box.id, 0, 22);
+    useCartStore.getState().updateQuantity(box.id, 0, 20);
     expect(useCartStore.getState().items).toEqual([]);
   });
 
@@ -109,9 +109,10 @@ describe('cart store', () => {
     expect(useCartStore.getState().isLargeOrder()).toBe(true);
   });
 
-  it('re-reads saved cart lines from the current catalog, so old prices never reach checkout', async () => {
+  it('re-reads saved cart lines from the current catalog, so old prices and sizes never reach checkout', async () => {
     const box = getProductById('sweet-assorted-box')!;
-    const oldBox = { ...box, unitPrice: 2.5, tierPrices: { 22: 60 } };
+    // A cart saved with the old 22-piece 11:11 box moves to today's 10:10 box at today's price.
+    const oldBox = { ...box, unitPrice: 2.5, tierPrices: { 22: 60 }, quantityOptions: [22] };
     localStorage.setItem('amamma-jaadi-cart', JSON.stringify({ version: 0, state: { items: [
       { productId: box.id, product: oldBox, quantity: 2, selectedTier: 22, lineTotal: 120 },
       { productId: 'retired-product', product: { ...oldBox, id: 'retired-product' }, quantity: 1, selectedTier: 22, lineTotal: 60 },
@@ -119,8 +120,8 @@ describe('cart store', () => {
     await useCartStore.persist.rehydrate();
     const items = useCartStore.getState().items;
     expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ selectedTier: 20, quantity: 2, lineTotal: (box.tierPrices?.[20] ?? 0) * 2 });
     expect(items[0].product.tierPrices).toEqual(box.tierPrices);
-    expect(items[0].lineTotal).toBe((box.tierPrices?.[22] ?? 0) * 2);
     localStorage.removeItem('amamma-jaadi-cart');
   });
 });

@@ -45,20 +45,16 @@ async function renderAssorted(stock: Record<string, number>) {
   return {host,cleanup};
 }
 
-it('offers the Special Edition Assorted Box as a single 22-piece $63 box (regular $66 struck through) with bold bullet lines and both gift-box photos',async()=>{
+it('offers the Special Edition Assorted Box as a single 20-piece, $60 box with bold bullet lines and both gift-box photos',async()=>{
   const {host,cleanup}=await renderAssorted({});
   try{
     expect(host.querySelector('h3')?.textContent).toBe('Assorted Box — Malpuri & Malai Khaja');
     expect(host.querySelector('span.-rotate-45')?.textContent).toBe('Special Edition');
-    const options=Array.from(host.querySelectorAll('option'));
-    expect(options.map(o=>o.textContent?.startsWith('22 pcs — $63.00'))).toEqual([true]);
-    expect(options[0].getAttribute('aria-label')).toBe('22 pcs, $63.00, regular price $66.00');
-    expect(host.textContent).toContain('$63.00');
-    expect(host.querySelector('s')?.textContent).toBe('$66.00');
+    expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['20 pcs — $60.00']);
     expect(Array.from(host.querySelectorAll('strong')).map(s=>s.textContent))
-      .toEqual(['your 11:11 sweet cravings', '11 Guntur Malpuri', '11 Nellore Malai Khaja']);
+      .toEqual(['your 10:10 sweet cravings', '10 Guntur Malpuri', '10 Nellore Malai Khaja']);
     const lines=Array.from(host.querySelectorAll('p span.block')).map(s=>s.textContent);
-    expect(lines).toEqual(['Made for your 11:11 sweet cravings', '• 11 Guntur Malpuri', '• 11 Nellore Malai Khaja',
+    expect(lines).toEqual(['Made for your 10:10 sweet cravings', '• 10 Guntur Malpuri', '• 10 Nellore Malai Khaja',
       'Shipping throughout the USA.']);
     expect(host.querySelector('p.line-clamp-2')).toBeNull();
     expect(host.textContent).not.toContain('**');
@@ -87,7 +83,7 @@ it('limits Assorted Boxes in the cart to the box count',async()=>{
     const add=()=>host.querySelector('button')!;
     await act(async()=>add().click());
     await act(async()=>add().click());
-    expect(useCartStore.getState().items).toEqual([expect.objectContaining({productId:'sweet-assorted-box',quantity:2,selectedTier:22,lineTotal:126})]);
+    expect(useCartStore.getState().items).toEqual([expect.objectContaining({productId:'sweet-assorted-box',quantity:2,selectedTier:20,lineTotal:120})]);
     expect(add().disabled).toBe(true);
     expect(add().textContent).toContain('All available boxes in cart');
   }finally{await cleanup();}

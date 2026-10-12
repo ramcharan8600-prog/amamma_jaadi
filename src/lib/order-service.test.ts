@@ -436,17 +436,17 @@ it.each([['TX', 0, false], ['OK', 8.99, false], ['NY', 11.99, false]] as const)(
 
 it('lists the Assorted Box contents under the item in the email and keeps the plain name on the order', async () => {
   const { db, sqlite, session } = setup({
-    cart_data: [{ productId: 'sweet-assorted-box', quantity: 1, selectedTier: 22, lineTotal: 60 }],
+    cart_data: [{ productId: 'sweet-assorted-box', quantity: 1, selectedTier: 20, lineTotal: 60 }],
     fulfillment_data: { type: 'delivery', addressLine1: '100 Test St', city: 'New York', state: 'NY', zip: '10001', country: 'USA', shippingMethod: 'standard' },
     total_amount: 69.99, tax: 0, shipping: 9.99, coupon_code: null,
   });
   try {
     await createOrderFromSession(db, session, 'PAY-ASSORTED-1111');
     const outbox = sqlite.prepare('SELECT html FROM email_outbox').get();
-    expect(outbox?.html).toContain('Assorted Box — Malpuri &amp; Malai Khaja<br /><span style="font-size:12px; color:#666;">Made for your 11:11 sweet cravings</span>'
-      + '<br /><span style="font-size:12px; color:#666;">• 11 Guntur Malpuri</span>'
-      + '<br /><span style="font-size:12px; color:#666;">• 11 Nellore Malai Khaja</span>');
-    expect(outbox?.html).not.toContain('(11:11)');
+    expect(outbox?.html).toContain('Assorted Box — Malpuri &amp; Malai Khaja<br /><span style="font-size:12px; color:#666;">Made for your 10:10 sweet cravings</span>'
+      + '<br /><span style="font-size:12px; color:#666;">• 10 Guntur Malpuri</span>'
+      + '<br /><span style="font-size:12px; color:#666;">• 10 Nellore Malai Khaja</span>');
+    expect(outbox?.html).not.toContain('(10:10)');
     expect(outbox?.html).not.toContain('Shipping throughout the USA');
     expect(sqlite.prepare('SELECT product_name FROM order_items').get())
       .toEqual({ product_name: 'Assorted Box — Malpuri & Malai Khaja' });
@@ -461,7 +461,7 @@ it('shows how many pieces each sweet pack holds under the item in the confirmati
       { productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 16, lineTotal: 40 },
       { productId: 'sweet-malpuri', quantity: 2, selectedTier: 25, lineTotal: 125 },
       { productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 16, lineTotal: 48 },
-      { productId: 'sweet-assorted-box', quantity: 1, selectedTier: 22, lineTotal: 60 },
+      { productId: 'sweet-assorted-box', quantity: 1, selectedTier: 20, lineTotal: 60 },
       { productId: 'pickle-chicken', quantity: 1, lineTotal: 18 },
     ],
     total_amount: 292.49, tax: 1.49, shipping: 0, coupon_code: null,
@@ -474,8 +474,8 @@ it('shows how many pieces each sweet pack holds under the item in the confirmati
     expect(row('Guntur Malpuri')).toContain('25 pcs × 2 = 50 pcs');
     expect(row('Bobbatlu')).toContain('16 pcs');
     // Boxes keep their own contents lines; pickles have no piece count.
-    expect(row('Assorted Box')).toContain('11 Guntur Malpuri');
-    expect(row('Assorted Box')).not.toContain('22 pcs');
+    expect(row('Assorted Box')).toContain('10 Guntur Malpuri');
+    expect(row('Assorted Box')).not.toContain('20 pcs');
     expect(row('Chicken Pickle')).not.toContain('pcs');
     // Saved order items keep the plain product name for reports.
     expect(sqlite.prepare("SELECT product_name, selected_tier FROM order_items WHERE product_name = 'Nellore Malai Khaja'").get())

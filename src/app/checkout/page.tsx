@@ -460,7 +460,7 @@ export default function CheckoutPage() {
   const nextDayProductNames = Array.from(new Set(
     items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
   )).join(' and ');
-  // Temporary Taste Pack add-on, only for carts with its partner (the 11:11
+  // Temporary Taste Pack add-on, only for carts with its partner (the 10:10
   // Assorted Box), for delivery, before payment, and once per cart:
   // - Texas (or no state yet): next to a shipping coupon the pack unlocks.
   // - Out of state: always; it ships at the box's rate, so shipping never rises.
@@ -603,7 +603,7 @@ export default function CheckoutPage() {
     <div className="flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2">
       <p className="text-brand-charcoal">
         {tastePackOffer.gap === null
-          ? <>Ships together with your 11:11 box. </>
+          ? <>Ships together with your 10:10 box. </>
           : <>You&apos;re <strong>{formatCurrency(tastePackOffer.gap)}</strong> away from free shipping. </>}
         Add a <strong>{tastePackOffer.product.name} ({tastePackOffer.tier} pcs)</strong> {formatCurrency(tastePackOffer.price)} →
       </p>

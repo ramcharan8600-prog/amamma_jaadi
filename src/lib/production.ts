@@ -15,7 +15,7 @@ const LOOSE_SWEET: Record<string, ProductionSweet> = {
   'sweet-bobbatlu-taste-pack': 'Bobbatlu',
 };
 
-/** "8 Kova Bobbatlu", "12 pcs Guntur Malpuri", "• 11 Nellore Malai Khaja" (Kova Bobbatlu tried first). */
+/** "8 Kova Bobbatlu", "12 pcs Guntur Malpuri", "• 10 Nellore Malai Khaja" (Kova Bobbatlu tried first). */
 const CONTENTS = /(\d+)\s*(?:pcs\s+)?(?:Guntur |Nellore )?(Kova Bobbatlu|Malai Khaja|Malpuri|Bobbatlu|Kova)\b/g;
 
 /** Units by product category (categories not in this catalog are simply never looked up). */
@@ -75,8 +75,13 @@ export function productionSheet(
       label = tier ? `${product.name} (${tier} pcs)` : product.name;
       units = ['pack', 'packs'];
     } else if (product?.emailDetails?.some(isContentsLine)) {
-      // Fixed assorted boxes list their contents for emails ("• 11 Guntur Malpuri").
-      addPieces(product.emailDetails.filter(isContentsLine).flatMap(piecesIn), quantity);
+      // Fixed assorted boxes list their contents for emails ("• 10 Guntur Malpuri").
+      // A box ordered in an older size (the 22-piece 11:11 box) is scaled to its own size.
+      const found = product.emailDetails.filter(isContentsLine).flatMap(piecesIn);
+      const size = found.reduce((sum, [, n]) => sum + n, 0);
+      const scale = tier && size && tier !== size ? tier / size : 1;
+      addPieces(found.map(([sweet, n]) => [sweet, Math.round(n * scale)]), quantity);
+      if (scale !== 1) label = `${product.name} (${tier} pcs)`;
       units = ['box', 'boxes'];
     } else if (contents) {
       addPieces(piecesIn(contents), quantity);

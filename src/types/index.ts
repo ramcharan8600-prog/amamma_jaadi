@@ -31,7 +31,7 @@ export interface Product {
   addOnFor?: string;
   /** Extra lines shown under this item in order emails only (e.g. box contents). */
   emailDetails?: string[];
-  /** Fixed price for a tier, overriding unitPrice × pieces (e.g. a $63 box of 22). */
+  /** Fixed price for a tier, overriding unitPrice × pieces (e.g. the $49.99 Assorted Bobbatlu Box of 16). */
   tierPrices?: Partial<Record<number, number>>;
   /**
    * Selectable contents for a fixed-price product (gift boxes). Same price for

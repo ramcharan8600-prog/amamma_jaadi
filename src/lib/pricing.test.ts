@@ -394,13 +394,13 @@ describe('pricing — Malai Khaja-only carts', () => {
     expect(isGroundShippingCart([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-malpuri' }])).toBe(false);
     expect(isGroundShippingCart([])).toBe(false);
     expect(groundShippingKind([{ productId: 'sweet-malai-khaja' }])).toBe('malai-khaja');
-    // Exactly one 11:11 box and nothing else has its own rate.
+    // Exactly one 10:10 box and nothing else has its own rate.
     expect(groundShippingKind([{ productId: 'sweet-assorted-box' }])).toBe('assorted-box-single');
     expect(groundShippingKind([{ productId: 'sweet-assorted-box', quantity: 1 }])).toBe('assorted-box-single');
     expect(isGroundShippingCart([{ productId: 'sweet-assorted-box', quantity: 1 }])).toBe(true);
     expect(groundShippingKind([{ productId: 'sweet-assorted-box', quantity: 2 }])).toBe('assorted-box');
     expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-assorted-box' }])).toBe('assorted-box');
-    // The Bobbatlu Taste Pack ships with the 11:11 box at the box's rate, never on its own terms.
+    // The Bobbatlu Taste Pack ships with the 10:10 box at the box's rate, never on its own terms.
     expect(groundShippingKind([{ productId: 'sweet-assorted-box' }, { productId: 'sweet-bobbatlu-taste-pack' }])).toBe('assorted-box');
     expect(groundShippingKind([{ productId: 'sweet-bobbatlu-taste-pack' }])).toBeUndefined();
     expect(groundShippingKind([{ productId: 'sweet-malpuri' }, { productId: 'sweet-bobbatlu-taste-pack' }])).toBeUndefined();
@@ -442,7 +442,7 @@ describe('pricing — Malai Khaja-only carts', () => {
   });
 });
 
-describe('pricing — exactly one 11:11 Assorted Box, nothing else', () => {
+describe('pricing — exactly one 10:10 Assorted Box, nothing else', () => {
   const ship = (deliveryState: string, shippingCoupon?: { minSubtotal: number; shippingPolicy: 'texas_v3' }) =>
     calculateShippingQuote(60, { fulfillmentType: 'delivery', deliveryState, groundShipping: 'assorted-box-single', shippingCoupon });
 
