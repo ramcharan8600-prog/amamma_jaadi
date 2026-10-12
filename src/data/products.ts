@@ -278,12 +278,14 @@ export const PRODUCTS: Product[] = [
     slug: 'mini-party-box',
     name: 'Mini Party Box',
     description:
-      'Our bigger box for parties and gatherings: 20 pieces of Guntur Malpuri, Nellore Malai Khaja, or a 10 + 10 mix, in a desi-style matt-finish sweets gift box. Available for pickup or delivery; standard delivery charges apply.',
+      'Our bigger box for parties and gatherings: 20 pieces of Guntur Malpuri, Nellore Malai Khaja, or a 10 + 10 mix, in a desi-style matt-finish sweets gift box. Pickup only, at our partner locations in Plano, Frisco and Irving. Need delivery? Choose the 10:10 Assorted Box.',
     category: 'gift-boxes',
+    // Pickup boxes are $2.50/pc; boxes that ship are $3/pc (owner, 2026-10-12).
     unitPrice: 50,
     image: '/images/web/gift-box.webp',
     isFixedQuantity: true,
     inStock: true,
+    pickupOnly: true,
     variantOptions: [
       '20 pcs Guntur Malpuri',
       '20 pcs Nellore Malai Khaja',

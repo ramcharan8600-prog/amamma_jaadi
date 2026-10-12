@@ -638,6 +638,23 @@ describe('Bobbatlu pack prices', () => {
   });
 });
 
+describe('Mini Party Box (pickup only)', () => {
+  const party = { productId: 'gift-box-party', quantity: 1, selectedVariant: 'Mix: 10 Malpuri + 10 Malai Khaja' };
+  it('costs $50 for pickup', async () => {
+    const response = await post(checkout([party], pickup));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 50, tax: 0, shipping: 0, totalAmount: 50 });
+  });
+  it.each(['TX', 'GA', 'NY'])('refuses delivery to %s, also with other items, before storing a session', async (state) => {
+    for (const items of [[party], [party, sweet]]) {
+      const response = await post(checkout(items, delivery(state)));
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe('Mini Party Box is pickup only. Choose pickup, or remove it from your cart to have your order delivered.');
+    }
+    expect(mocks.inserts).toHaveLength(0);
+  });
+});
+
 describe('Assorted Bobbatlu Box', () => {
   const box = { productId: 'sweet-assorted-bobbatlu-box', quantity: 1, selectedTier: 16 };
 

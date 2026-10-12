@@ -123,12 +123,11 @@ describe('lookups', () => {
     expect(box.deliveryStateCodes).toBeUndefined();
   });
 
-  it('names the $50 box Mini Party Box, open to pickup and delivery at standard rates', () => {
+  it('names the $50 box Mini Party Box, pickup only (pickup boxes $2.50/pc), pointing delivery to the 10:10 box', () => {
     const box = getProductById('gift-box-party')!;
-    expect(box).toMatchObject({ name: 'Mini Party Box', slug: 'mini-party-box', unitPrice: 50 });
+    expect(box).toMatchObject({ name: 'Mini Party Box', slug: 'mini-party-box', unitPrice: 50, pickupOnly: true });
     expect(box.name + box.description).not.toMatch(/event/i);
-    expect(box.description).toContain('Available for pickup or delivery; standard delivery charges apply.');
-    expect(box.pickupOnly).toBeUndefined();
+    expect(box.description).toContain('Pickup only, at our partner locations in Plano, Frisco and Irving. Need delivery? Choose the 10:10 Assorted Box.');
     expect(box.deliveryZones).toBeUndefined();
     expect(box.deliveryStateCodes).toBeUndefined();
   });
