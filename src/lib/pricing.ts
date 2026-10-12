@@ -234,7 +234,7 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'bobbatlu-box'
  * - Only the 10:10 Assorted Box (any number, with or without the Bobbatlu Taste Pack
  *   add-on, which ships at the box's rate): $3.99 Texas, $5.99 nearby, $6.99 far, no minimum.
  * - Only the 8:8 Assorted Bobbatlu Box: $4.99 Texas, $7.99 nearby, $9.99 far (far keeps the $60 minimum).
- * - Only the Mini Combo Pack: $3.99 Texas, regular nearby and far rates (far keeps the $60 minimum).
+ * - Only the Mini Combo Pack: $3.99 Texas, regular nearby rates; it isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string; quantity?: number }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
@@ -260,15 +260,14 @@ export function isGroundShippingCart(items: ReadonlyArray<{ productId: string; q
 
 /**
  * Pickle-only and box/product-only carts have no minimum, except the 8:8
- * Bobbatlu Box and the Mini Combo Pack (one can't ship to a far state alone);
- * other far-state orders require $60.
+ * Bobbatlu Box (one box can't ship to a far state); other far-state orders require $60.
  */
 export function getDeliveryMinimumSubtotal(
   state: string | undefined | null,
   picklesOnly = false,
   groundShipping: GroundShippingKind | boolean | undefined = false
 ): number {
-  const waived = picklesOnly || (!!groundShipping && groundShipping !== 'bobbatlu-box' && groundShipping !== 'mini-combo');
+  const waived = picklesOnly || (!!groundShipping && groundShipping !== 'bobbatlu-box');
   return !waived && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
 

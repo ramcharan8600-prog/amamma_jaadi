@@ -400,11 +400,12 @@ describe('deliveryRestriction', () => {
     }
   });
 
-  it('delivers the Mini Combo Pack to every state; far states need the $60 minimum', () => {
-    for (const state of ['TX', 'FL', 'NY']) expect(deliveryRestriction(mini, state, 48)).toBeNull();
-    expect(getDeliveryMinimumShortfall(48, 'NY', false, groundShippingKind([{ productId: 'gift-box-mini-combo' }]))).toBe(12);
-    expect(getDeliveryMinimumShortfall(96, 'NY', false, groundShippingKind([{ productId: 'gift-box-mini-combo', quantity: 2 }]))).toBe(0);
-    expect(getDeliveryMinimumShortfall(48, 'GA', false, groundShippingKind([{ productId: 'gift-box-mini-combo' }]))).toBe(0);
+  it('delivers the Mini Combo Pack only within Texas and nearby states', () => {
+    expect(deliveryRestriction(mini, 'TX', 48)).toBeNull();
+    expect(deliveryRestriction(mini, 'FL', 48)).toBeNull();
+    expect(deliveryRestriction(mini, 'NY', 500)).toBe(
+      'Mini Combo Pack - #Delivery is delivered within Texas and nearby states only. Choose pickup, remove it from your cart, or select an address in Texas and nearby states.'
+    );
   });
 
   it('leaves unrestricted products alone', () => {
