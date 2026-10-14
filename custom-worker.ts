@@ -19,7 +19,11 @@ import type {
   ScheduledController,
 } from '@cloudflare/workers-types';
 import { recoverPendingPaymentAttempts } from './src/lib/payment-attempts';
-import { executeSquarePaymentRequest } from './src/lib/square';
+import { executeSquarePaymentRequest, getPaymentRefundSummary, listRecentRefunds } from './src/lib/square';
+import { reconcileSquareRefunds } from './src/lib/square-webhook';
+
+/** Must match the second cron in wrangler.jsonc (both environments). */
+export const REFUND_RECONCILE_CRON = '0 */3 * * *';
 import { createOrderFromSession } from './src/lib/order-service';
 import { canonicalHostRedirect } from './src/lib/canonical-host';
 
@@ -94,10 +98,30 @@ export default {
   },
 
   async scheduled(
-    _controller: ScheduledController,
+    controller: ScheduledController,
     env: WorkerEnv,
     ctx: ExecutionContext
   ): Promise<void> {
+    // Every 3 hours (owner's choice): the refund safety net, on its own schedule.
+    if (controller.cron === REFUND_RECONCILE_CRON) {
+      // Applies any Square refund whose webhook never arrived.
+      const squareEnv = env as unknown as Record<string, unknown>;
+      ctx.waitUntil(
+        reconcileSquareRefunds(env.DB, {
+          listRefunds: (since) => listRecentRefunds(since, squareEnv),
+          lookupPayment: (paymentId) => getPaymentRefundSummary(paymentId, squareEnv),
+          emailQueue: env.EMAIL_QUEUE,
+        }).then((result) => {
+          console.log(JSON.stringify({ event: 'refund_reconcile_complete', ...result }));
+        }).catch((error) => {
+          console.error(JSON.stringify({
+            event: 'refund_reconcile_failed',
+            error: error instanceof Error ? error.message : String(error),
+          }));
+        })
+      );
+      return;
+    }
     ctx.waitUntil(
       recoverPendingEmailOutbox(env.DB, env.EMAIL_QUEUE)
         .then((published) => {

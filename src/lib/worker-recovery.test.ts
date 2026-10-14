@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(async () => new Response('mock generated Worker')),
   processEmail: vi.fn<typeof processEmailOutboxMessage>(),
   validMessage: vi.fn(),
+  reconcileRefunds: vi.fn(),
+  listRefunds: vi.fn(),
+  refundSummary: vi.fn(),
 }));
 
 vi.mock('../../.open-next/worker.js', () => ({ default: { fetch: mocks.fetch } }));
@@ -22,7 +25,12 @@ vi.mock('@/lib/email-outbox', () => ({
   isEmailQueueMessage: mocks.validMessage, markEmailOutboxEnqueued: vi.fn(), processEmailOutboxMessage: mocks.processEmail,
 }));
 vi.mock('@/lib/payment-attempts', () => ({ recoverPendingPaymentAttempts: mocks.paymentRecovery }));
-vi.mock('@/lib/square', () => ({ executeSquarePaymentRequest: mocks.execute }));
+vi.mock('@/lib/square', () => ({
+  executeSquarePaymentRequest: mocks.execute,
+  listRecentRefunds: mocks.listRefunds,
+  getPaymentRefundSummary: mocks.refundSummary,
+}));
+vi.mock('@/lib/square-webhook', () => ({ reconcileSquareRefunds: mocks.reconcileRefunds }));
 vi.mock('@/lib/order-service', () => ({ createOrderFromSession: mocks.finalize }));
 
 import worker from '../../custom-worker';
@@ -161,5 +169,28 @@ describe('scheduled Worker recovery wiring', () => {
     expect(message.ack).toHaveBeenCalledOnce();
     expect(message.retry).not.toHaveBeenCalled();
     f.sqlite.close();
+  });
+
+  it('runs only the Square refund check on the 3-hour schedule, with this Worker\'s Square config', async () => {
+    const f = fixture();
+    mocks.reconcileRefunds.mockResolvedValue({ checked: 2, applied: 1, failed: 0 });
+    await worker.scheduled({ ...f.controller, cron: '0 */3 * * *' }, f.env, f.ctx);
+    await Promise.all(f.pending);
+    expect(f.ctx.waitUntil).toHaveBeenCalledTimes(1);
+    expect(mocks.emailRecovery).not.toHaveBeenCalled();
+    expect(mocks.paymentRecovery).not.toHaveBeenCalled();
+    const [db, deps] = mocks.reconcileRefunds.mock.calls[0];
+    expect(db).toBe(f.env.DB);
+    expect(deps.emailQueue).toBe(f.env.EMAIL_QUEUE);
+    await deps.listRefunds(new Date(0));
+    await deps.lookupPayment('PAY');
+    expect(mocks.listRefunds.mock.calls[0][1]).toMatchObject({ SQUARE_ACCESS_TOKEN: 'fake-sandbox-token' });
+    expect(mocks.refundSummary.mock.calls[0]).toEqual(['PAY', expect.objectContaining({ SQUARE_ENVIRONMENT: 'sandbox' })]);
+  });
+
+  it('never runs the refund check on the 15-minute schedule', async () => {
+    const f = fixture();
+    await worker.scheduled(f.controller, f.env, f.ctx);
+    expect(mocks.reconcileRefunds).not.toHaveBeenCalled();
   });
 });

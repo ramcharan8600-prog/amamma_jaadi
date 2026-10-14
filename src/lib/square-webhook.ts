@@ -3,7 +3,8 @@ import { getPaymentRefundSummary } from '@/lib/square';
 
 import { prepareRefundFacts, type RefundFacts } from '@/lib/tax-refunds';
 import { buildRefundEmail, refundDestinationLabel } from '@/lib/email-service';
-import { prepareEmailOutboxInsert, publishPersistedEmail } from '@/lib/email-outbox';
+import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage } from '@/lib/email-outbox';
+import type { Queue } from '@cloudflare/workers-types';
 
 export type RefundPaymentLookup = (paymentId: string) => Promise<{
   totalAmount: number;
@@ -22,19 +23,28 @@ interface RefundOrderRow {
 }
 
 /**
- * The customer's "refund initiated" email, sent once per Square refund on the
- * first PENDING or COMPLETED event (card refunds can sit PENDING for hours).
- * An email problem never fails the refund webhook: it is logged and skipped.
+ * Refund emails start with refunds Square created after this feature shipped;
+ * earlier refunds were emailed by hand and must not get a second email.
+ */
+export const REFUND_EMAILS_START = '2026-10-14T17:00:00Z';
+
+/**
+ * The customer's "refund initiated" email, sent once per Square refund when it
+ * COMPLETES — the same moment the order turns refunded, so the email and the
+ * website always agree. An email problem never fails the refund: it is logged.
  */
 async function queueRefundEmail(
   db: D1Database,
   order: RefundOrderRow,
   refund: RefundFacts,
-  lookupPayment: RefundPaymentLookup
+  lookupPayment: RefundPaymentLookup,
+  emailQueue?: Queue<EmailQueueMessage>
 ): Promise<void> {
   try {
     const cents = refund.amount_money?.amount;
     if (!refund.id || !order.email || !order.order_number || !Number.isSafeInteger(cents) || (cents ?? 0) <= 0) return;
+    const createdAt = Date.parse(refund.created_at ?? refund.updated_at ?? '');
+    if (!(createdAt >= Date.parse(REFUND_EMAILS_START))) return;
     const items = await db
       .prepare('SELECT product_name, quantity, selected_tier FROM order_items WHERE order_id = ? ORDER BY rowid')
       .bind(order.id)
@@ -54,7 +64,7 @@ async function queueRefundEmail(
       initiatedOn: new Date(),
     });
     await prepareEmailOutboxInsert(db, email).statement.run();
-    await publishPersistedEmail(db, email.dedupeKey);
+    await publishPersistedEmail(db, email.dedupeKey, emailQueue);
   } catch (error) {
     console.error(JSON.stringify({
       event: 'refund_email_failed',
@@ -77,7 +87,8 @@ export async function processRefundEvent(
   db: D1Database,
   eventType: string,
   refund: RefundFacts | undefined,
-  lookupPayment: RefundPaymentLookup = getPaymentRefundSummary
+  lookupPayment: RefundPaymentLookup = getPaymentRefundSummary,
+  options: { emailQueue?: Queue<EmailQueueMessage> } = {}
 ): Promise<{
   handled: boolean;
   updated: boolean;
@@ -91,11 +102,6 @@ export async function processRefundEvent(
   if (!refund?.payment_id) {
     console.warn(JSON.stringify({ event: 'square_refund_ignored', reason: 'missing_payment_id' }));
     return { handled: true, updated: false, reason: 'missing payment id' };
-  }
-
-  if (refund.status === 'PENDING') {
-    const order = await db.prepare(REFUND_ORDER_SQL).bind(refund.payment_id).first<RefundOrderRow>();
-    if (order) await queueRefundEmail(db, order, refund, lookupPayment);
   }
 
   if (refund.status !== 'COMPLETED') {
@@ -158,8 +164,8 @@ export async function processRefundEvent(
     ).bind(order.id, refund.payment_id, payment.referenceId ?? ''),
   ]);
 
-  // Refunds that complete without a PENDING event still get their email (deduplicated per refund).
-  await queueRefundEmail(db, order, refund, lookupPayment);
+  // Deduplicated per Square refund, so webhook retries and the scheduled check never double-send.
+  await queueRefundEmail(db, order, refund, lookupPayment, options.emailQueue);
 
   console.log(JSON.stringify({
     event: paymentStatus === 'refunded'
@@ -171,4 +177,51 @@ export async function processRefundEvent(
     totalAmount: payment.totalAmount,
   }));
   return { handled: true, updated: true, paymentStatus };
+}
+
+/**
+ * Scheduled safety net (every 15 minutes): asks Square for refunds from the
+ * last 3 days and applies any the webhook missed — order marked refunded,
+ * refund recorded, customer emailed. Every step is idempotent, so refunds
+ * already applied are skipped and nothing is sent twice.
+ */
+export async function reconcileSquareRefunds(
+  db: D1Database,
+  deps: {
+    listRefunds: (since: Date) => Promise<RefundFacts[]>;
+    lookupPayment: RefundPaymentLookup;
+    emailQueue?: Queue<EmailQueueMessage>;
+    now?: Date;
+  }
+): Promise<{ checked: number; applied: number; failed: number }> {
+  const since = new Date((deps.now ?? new Date()).getTime() - 3 * 24 * 60 * 60 * 1000);
+  const refunds = (await deps.listRefunds(since)).filter((r) => r.status === 'COMPLETED' && r.id && r.payment_id);
+  let applied = 0;
+  let failed = 0;
+  for (const refund of refunds) {
+    try {
+      const state = await db.prepare(
+        `SELECT o.email,
+                EXISTS (SELECT 1 FROM order_refunds WHERE square_refund_id = ?) AS recorded,
+                EXISTS (SELECT 1 FROM email_outbox WHERE dedupe_key = ?) AS emailed
+         FROM orders o WHERE o.square_payment_id = ? LIMIT 1`
+      ).bind(refund.id, `refund:${refund.id}`, refund.payment_id)
+        .first<{ email: string | null; recorded: number; emailed: number }>();
+      // Not a website order (e.g. an in-store Square sale): nothing to apply.
+      if (!state) continue;
+      const createdAt = Date.parse(refund.created_at ?? refund.updated_at ?? '');
+      const needsEmail = !!state.email && createdAt >= Date.parse(REFUND_EMAILS_START) && !state.emailed;
+      if (state.recorded && !needsEmail) continue;
+      const result = await processRefundEvent(db, 'refund.updated', refund, deps.lookupPayment, { emailQueue: deps.emailQueue });
+      if (result.updated) applied++;
+    } catch (error) {
+      failed++;
+      console.error(JSON.stringify({
+        event: 'refund_reconcile_failed',
+        refundId: refund.id ?? null,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+  return { checked: refunds.length, applied, failed };
 }

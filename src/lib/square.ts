@@ -18,6 +18,7 @@
  */
 
 import { getCloudflareContext } from '@opennextjs/cloudflare';
+import type { RefundFacts } from '@/lib/tax-refunds';
 
 interface SquareConfig {
   accessToken: string;
@@ -293,7 +294,7 @@ export async function verifyPayment(paymentId: string): Promise<{
  * Read Square's cumulative refund totals for a payment.
  * `refunded_money` is authoritative across one or many partial refunds.
  */
-export async function getPaymentRefundSummary(paymentId: string): Promise<{
+export async function getPaymentRefundSummary(paymentId: string, runtimeEnv?: Record<string, unknown>): Promise<{
   totalAmount: number;
   refundedAmount: number;
   referenceId?: string;
@@ -301,8 +302,8 @@ export async function getPaymentRefundSummary(paymentId: string): Promise<{
   cardBrand?: string;
   cardLast4?: string;
 }> {
-  const config = getConfig();
-  if (!isSquareEnabled()) {
+  const config = getConfig(runtimeEnv);
+  if (!config.accessToken) {
     throw new Error('Square payments not configured');
   }
 
@@ -344,3 +345,37 @@ export async function getPaymentRefundSummary(paymentId: string): Promise<{
 // NOTE: sales tax is NOT calculated here. All order money math lives in
 // `src/lib/pricing.ts` (single source of truth, shared by the checkout UI and
 // create-session) so the displayed total and the charged total cannot drift.
+
+/**
+ * Refunds Square created since `beginTime` (all locations), oldest first —
+ * the scheduled safety net for refund webhooks that never arrived.
+ */
+export async function listRecentRefunds(
+  beginTime: Date,
+  runtimeEnv?: Record<string, unknown>
+): Promise<RefundFacts[]> {
+  const config = getConfig(runtimeEnv);
+  if (!config.accessToken) throw new Error('Square payments not configured');
+  const baseUrl = config.environment === 'production'
+    ? 'https://connect.squareup.com'
+    : 'https://connect.squareupsandbox.com';
+  const refunds: RefundFacts[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 5; page++) {
+    const query = new URLSearchParams({ begin_time: beginTime.toISOString(), sort_order: 'ASC', limit: '100' });
+    if (cursor) query.set('cursor', cursor);
+    const response = await fetch(`${baseUrl}/v2/refunds?${query}`, {
+      headers: {
+        'Authorization': `Bearer ${config.accessToken}`,
+        'Content-Type': 'application/json',
+        'Square-Version': '2024-01-18',
+      },
+    });
+    const data = await response.json() as { refunds?: RefundFacts[]; cursor?: string; errors?: Array<{ detail?: string }> };
+    if (!response.ok) throw new Error(data.errors?.[0]?.detail || 'Square refund list failed');
+    refunds.push(...(data.refunds ?? []));
+    cursor = data.cursor;
+    if (!cursor) break;
+  }
+  return refunds;
+}

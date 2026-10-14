@@ -5,6 +5,7 @@ export interface RefundFacts {
   id?: string; payment_id?: string; status?: string;
   amount_money?: { amount?: number; currency?: string };
   updated_at?: string;
+  created_at?: string;
 }
 
 export function prepareRefundFacts(db: D1Database, orderId: string, refund: RefundFacts): D1PreparedStatement[] {
