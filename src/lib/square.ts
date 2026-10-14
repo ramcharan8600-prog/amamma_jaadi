@@ -297,6 +297,9 @@ export async function getPaymentRefundSummary(paymentId: string): Promise<{
   totalAmount: number;
   refundedAmount: number;
   referenceId?: string;
+  /** e.g. "VISA" — for the customer refund email. */
+  cardBrand?: string;
+  cardLast4?: string;
 }> {
   const config = getConfig();
   if (!isSquareEnabled()) {
@@ -333,6 +336,8 @@ export async function getPaymentRefundSummary(paymentId: string): Promise<{
     totalAmount,
     refundedAmount,
     referenceId: data.payment?.reference_id || undefined,
+    cardBrand: data.payment?.card_details?.card?.card_brand || undefined,
+    cardLast4: data.payment?.card_details?.card?.last_4 || undefined,
   };
 }
 

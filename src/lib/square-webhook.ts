@@ -2,12 +2,70 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { getPaymentRefundSummary } from '@/lib/square';
 
 import { prepareRefundFacts, type RefundFacts } from '@/lib/tax-refunds';
+import { buildRefundEmail, refundDestinationLabel } from '@/lib/email-service';
+import { prepareEmailOutboxInsert, publishPersistedEmail } from '@/lib/email-outbox';
 
 export type RefundPaymentLookup = (paymentId: string) => Promise<{
   totalAmount: number;
   refundedAmount: number;
   referenceId?: string;
+  cardBrand?: string;
+  cardLast4?: string;
 }>;
+
+interface RefundOrderRow {
+  id: string;
+  order_number?: string;
+  customer_name?: string;
+  email?: string | null;
+  total_price?: number;
+}
+
+/**
+ * The customer's "refund initiated" email, sent once per Square refund on the
+ * first PENDING or COMPLETED event (card refunds can sit PENDING for hours).
+ * An email problem never fails the refund webhook: it is logged and skipped.
+ */
+async function queueRefundEmail(
+  db: D1Database,
+  order: RefundOrderRow,
+  refund: RefundFacts,
+  lookupPayment: RefundPaymentLookup
+): Promise<void> {
+  try {
+    const cents = refund.amount_money?.amount;
+    if (!refund.id || !order.email || !order.order_number || !Number.isSafeInteger(cents) || (cents ?? 0) <= 0) return;
+    const items = await db
+      .prepare('SELECT product_name, quantity, selected_tier FROM order_items WHERE order_id = ? ORDER BY rowid')
+      .bind(order.id)
+      .all<{ product_name: string; quantity: number; selected_tier: number | null }>();
+    let card: { cardBrand?: string; cardLast4?: string } = {};
+    try { card = await lookupPayment(refund.payment_id!); } catch { /* Fall back to "original payment method". */ }
+    const amount = (cents as number) / 100;
+    const email = buildRefundEmail({
+      to: order.email,
+      refundId: refund.id,
+      orderNumber: order.order_number,
+      customerName: order.customer_name ?? '',
+      items: (items.results ?? []).map((i) => ({ name: i.product_name, quantity: Number(i.quantity) || 1, selectedTier: i.selected_tier })),
+      amount,
+      full: amount + 0.005 >= Number(order.total_price ?? Infinity),
+      refundedTo: refundDestinationLabel(card.cardBrand, card.cardLast4),
+      initiatedOn: new Date(),
+    });
+    await prepareEmailOutboxInsert(db, email).statement.run();
+    await publishPersistedEmail(db, email.dedupeKey);
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: 'refund_email_failed',
+      refundId: refund.id ?? null,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+}
+
+const REFUND_ORDER_SQL =
+  'SELECT id, order_number, customer_name, email, total_price FROM orders WHERE square_payment_id = ? LIMIT 1';
 
 /**
  * Apply Square refund events before attempting to parse a payment object.
@@ -35,6 +93,11 @@ export async function processRefundEvent(
     return { handled: true, updated: false, reason: 'missing payment id' };
   }
 
+  if (refund.status === 'PENDING') {
+    const order = await db.prepare(REFUND_ORDER_SQL).bind(refund.payment_id).first<RefundOrderRow>();
+    if (order) await queueRefundEmail(db, order, refund, lookupPayment);
+  }
+
   if (refund.status !== 'COMPLETED') {
     console.log(JSON.stringify({
       event: 'square_refund_pending',
@@ -57,9 +120,9 @@ export async function processRefundEvent(
     : 'partially_refunded';
 
   const order = await db
-    .prepare('SELECT id FROM orders WHERE square_payment_id = ? LIMIT 1')
+    .prepare(REFUND_ORDER_SQL)
     .bind(refund.payment_id)
-    .first<{ id: string }>();
+    .first<RefundOrderRow>();
 
   if (!order) {
     // A refund for another Square sales channel is not a website order and can
@@ -94,6 +157,9 @@ export async function processRefundEvent(
        WHERE square_payment_id = ? OR id = ?`
     ).bind(order.id, refund.payment_id, payment.referenceId ?? ''),
   ]);
+
+  // Refunds that complete without a PENDING event still get their email (deduplicated per refund).
+  await queueRefundEmail(db, order, refund, lookupPayment);
 
   console.log(JSON.stringify({
     event: paymentStatus === 'refunded'

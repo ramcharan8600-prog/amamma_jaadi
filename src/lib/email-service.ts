@@ -13,7 +13,7 @@ import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/const
 import { formatPickupDate } from '@/lib/date';
 import { SALES_TAX_LABEL, shippingMethodLabel } from '@/lib/pricing';
 import { enqueueEmail, isEmailOutboxConfigured, type EmailOutboxPayload } from '@/lib/email-outbox';
-import { ORDER_CONFIRMATION_BCC } from '@/lib/email-recipients';
+import { ORDER_CONFIRMATION_BCC, REFUND_EMAIL_CC } from '@/lib/email-recipients';
 import { PRODUCTS } from '@/data/products';
 import type { DeliveryShippingMethod } from '@/types';
 
@@ -399,6 +399,65 @@ export async function sendEventInquiry(params: {
     html,
     dedupeKey: `event-inquiry:${params.inquiryId}`,
   });
+}
+
+/** "Visa ending 9268" from Square's card brand and last four. */
+export function refundDestinationLabel(cardBrand?: string, last4?: string): string {
+  if (!last4) return 'Your original payment method';
+  const brands: Record<string, string> = {
+    VISA: 'Visa', MASTERCARD: 'Mastercard', AMERICAN_EXPRESS: 'American Express', DISCOVER: 'Discover',
+    DISCOVER_DINERS: 'Diners Club', JCB: 'JCB', CHINA_UNIONPAY: 'UnionPay', SQUARE_GIFT_CARD: 'Gift card',
+  };
+  const brand = cardBrand ? brands[cardBrand] ?? 'Card' : 'Card';
+  return `${brand} ending ${last4}`;
+}
+
+/**
+ * To the customer as soon as Square reports a refund (the owner's refund
+ * template, first sent for AJ-1189). One email per Square refund.
+ */
+export function buildRefundEmail(params: {
+  to: string;
+  refundId: string;
+  orderNumber: string;
+  customerName: string;
+  items: Array<{ name: string; selectedTier?: number | null; quantity: number }>;
+  amount: number;
+  full: boolean;
+  refundedTo: string;
+  initiatedOn: Date;
+}): EmailOutboxPayload {
+  const name = escapeHtml(params.customerName.trim()) || 'there';
+  const orderNumber = escapeHtml(params.orderNumber);
+  const item = params.items
+    .map((i) => `${i.name}${i.selectedTier ? ` (${i.selectedTier} pcs)` : ''}${i.quantity > 1 ? ` × ${i.quantity}` : ''}`)
+    .join(', ');
+  const date = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Chicago' })
+    .format(params.initiatedOn);
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding: 8px 0; color: #666;">${label}</td><td style="padding: 8px 0; text-align: right; font-weight: 600;">${value}</td></tr>`;
+  const html = baseTemplate(`
+<h2 style="color: #7B1F1F; margin: 0 0 12px;">Your refund has been initiated</h2>
+<p style="margin: 0 0 12px;">Hi ${name},</p>
+<p style="margin: 0 0 16px; line-height: 1.5;">We have initiated a ${params.full ? 'full refund' : 'partial refund'} for your order <strong>${orderNumber}</strong> from our end.</p>
+<table style="width: 100%; border-collapse: collapse; font-size: 14px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; margin: 0 0 16px;">
+${row('Order', orderNumber)}
+${item ? row('Item', escapeHtml(item)) : ''}
+${row('Refund amount', `$${params.amount.toFixed(2)}`)}
+${row('Refunded to', escapeHtml(params.refundedTo))}
+${row('Refund initiated', date)}
+</table>
+<p style="margin: 0 0 16px; line-height: 1.5; background: #FFF8F0; border-left: 3px solid #C6992E; padding: 12px;">The refund will usually reflect on your card within <strong>7 business days</strong>, depending on your bank.</p>
+<p style="margin: 0 0 16px; line-height: 1.5;">Questions? WhatsApp us at ${PHONE_NUMBER} — we&apos;re happy to help.</p>
+<p style="margin: 0;">With love,<br><strong>Team ${BRAND_NAME}</strong></p>
+`);
+  return {
+    to: params.to,
+    cc: [...REFUND_EMAIL_CC],
+    subject: `Your refund for order ${params.orderNumber} has been initiated`,
+    html,
+    dedupeKey: `refund:${params.refundId}`,
+  };
 }
 
 /** 2. Pickup Ready Notification */
