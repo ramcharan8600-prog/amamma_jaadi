@@ -6,6 +6,7 @@ import { isValidPhone } from '@/lib/contact-validation';
 import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { isSoldOutDate } from '@/lib/sold-out-dates';
+import { isDeliveryPausedFor } from '@/lib/delivery-pauses';
 import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, containsAssortedBox } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
@@ -84,10 +85,14 @@ function reviewReply(): PaymentReply {
   };
 }
 
-/** True when a pickup session's date has since been marked sold out in admin. */
+/**
+ * True when a pickup session's date has since been marked sold out, or a
+ * delivery session's area has since been paused, in admin.
+ */
 async function isSoldOutPickup(db: D1Database, session: Record<string, unknown>): Promise<boolean> {
   try {
     const fulfillment = typeof session.fulfillment_data === 'string' ? JSON.parse(session.fulfillment_data) : session.fulfillment_data;
+    if (fulfillment?.type === 'delivery') return await isDeliveryPausedFor(db, fulfillment.state);
     return fulfillment?.type === 'pickup' && await isSoldOutDate(db, fulfillment.date);
   } catch {
     return false;
@@ -250,7 +255,7 @@ export async function runPaymentAttempt(
 
   if (!attempt) {
     if (!input.sourceId) return { ...pendingPaymentReply('MISSING_PAYMENT_DETAILS'), httpStatus: 400 };
-    // A pickup date marked sold out after this checkout opened must not charge either.
+    // A pickup date sold out, or a delivery area paused, after this checkout opened must not charge either.
     const canonicalItems = validateUnattemptedSession(session);
     if (!canonicalItems || await isSoldOutPickup(db, session)) {
       await db.prepare(

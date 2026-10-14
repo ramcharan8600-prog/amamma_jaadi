@@ -289,3 +289,9 @@ CREATE TABLE IF NOT EXISTS sold_out_dates (
   date TEXT PRIMARY KEY,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Delivery areas paused in Admin → Production (migration 023).
+CREATE TABLE IF NOT EXISTS delivery_pauses (
+  zone TEXT PRIMARY KEY CHECK (zone IN ('texas', 'nearby', 'far')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

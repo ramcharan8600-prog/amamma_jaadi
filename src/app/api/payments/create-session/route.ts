@@ -5,6 +5,7 @@ import { PRODUCTS, getTotalPieces, isActivePickupLocation, isBobbatluProduct } f
 import { validateCart } from '@/lib/cart-validation';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { SOLD_OUT_DATE_ERROR, isSoldOutDate } from '@/lib/sold-out-dates';
+import { DELIVERY_ZONE_PAUSED_ERROR, isDeliveryPausedFor } from '@/lib/delivery-pauses';
 import {
   calculateOrderTotals,
   calculateShippingQuote,
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
       if (!isSupportedDeliveryState(normalizedDeliveryState)) {
         return fail('Please select a valid delivery state.', 400);
       }
+      if (await isDeliveryPausedFor(getDb(), normalizedDeliveryState)) return fail(DELIVERY_ZONE_PAUSED_ERROR, 409);
 
       // Pickle-only orders have no minimum. For sweets/mixed carts, check the
       // destination minimum before the gift-box minimum to give one requirement.

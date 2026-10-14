@@ -30,6 +30,7 @@ let createdSessions: number;
 let couponResult: () => Promise<Response>;
 let bobbatluStock = 0;
 let soldOutDates: string[] = [];
+let pausedZones: string[] = [];
 let kovaBobbatluStock = 0;
 const tokenize = vi.fn();
 const destroy = vi.fn(async () => undefined);
@@ -58,6 +59,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
   if (url === '/api/payments/verify') return verifyResult();
   if (url === '/api/checkout-log') return Response.json({ success: true });
   if (url === '/api/sold-out-dates') return Response.json({ dates: soldOutDates });
+  if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones });
   throw new Error(`Unexpected test request: ${url}`);
 });
 
@@ -161,6 +163,7 @@ beforeEach(() => {
   bobbatluStock = 0;
   kovaBobbatluStock = 0;
   soldOutDates = [];
+  pausedZones = [];
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-09-10T17:00:00Z'));
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -208,6 +211,49 @@ describe('sold-out pickup dates', () => {
     expect(open?.disabled).toBe(false);
     expect(open?.textContent).not.toContain('Sold out');
     await pickDate('2026-09-11');
+    expect(button('Continue to payment').disabled).toBe(false);
+  });
+});
+
+describe('paused delivery areas (Admin → Production)', () => {
+  async function toDelivery(state: string) {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
+    await render();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    await act(async () => choice!.click());
+    await input('input[autocomplete="name"]', 'Pause Test');
+    await input('input[type="tel"]', '2145550100');
+    await input('input[type="email"]', 'pause@example.com');
+    await input('input[placeholder="Street address"]', '123 Test Street');
+    const city = Array.from(host.querySelectorAll('input')).find(field => field.parentElement?.querySelector('label')?.textContent === 'City')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(city, 'Test City');
+      city.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await input('#delivery-state', state);
+    await input('#delivery-zip', '75093');
+  }
+
+  it('turns Delivery off when every area is paused; pickup stays open', async () => {
+    pausedZones = ['texas', 'nearby', 'far'];
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
+    await render();
+    await click('Continue');
+    const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
+    expect(delivery.disabled).toBe(true);
+    expect(delivery.textContent).toContain('Delivery is paused right now. Pickup in Dallas is still available.');
+    const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup')!;
+    expect(pickup.disabled).toBe(false);
+  });
+
+  it('blocks a paused state but lets other states continue', async () => {
+    pausedZones = ['far'];
+    await toDelivery('NY');
+    expect(host.textContent).toContain('Sorry, delivery to this state is paused right now.');
+    expect(button('Continue to payment').disabled).toBe(true);
+    await input('#delivery-state', 'TX');
+    expect(host.textContent).not.toContain('delivery to this state is paused');
     expect(button('Continue to payment').disabled).toBe(false);
   });
 });

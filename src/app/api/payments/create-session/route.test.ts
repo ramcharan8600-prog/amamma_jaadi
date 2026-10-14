@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => {
     getStockMap: vi.fn(async () => ({} as Record<string, number>)),
     rateLimit: vi.fn(() => true),
     isSoldOutDate: vi.fn<(db: unknown, date: unknown) => Promise<boolean>>(async () => false),
+    isDeliveryPausedFor: vi.fn<(db: unknown, state: unknown) => Promise<boolean>>(async () => false),
   };
 });
 
@@ -39,6 +40,11 @@ vi.mock('@/lib/rate-limit', () => ({ rateLimit: mocks.rateLimit, getClientIp: ()
 vi.mock('@/lib/sold-out-dates', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/sold-out-dates')>(),
   isSoldOutDate: mocks.isSoldOutDate,
+}));
+
+vi.mock('@/lib/delivery-pauses', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/delivery-pauses')>(),
+  isDeliveryPausedFor: mocks.isDeliveryPausedFor,
 }));
 
 import { POST } from './route';
@@ -757,6 +763,18 @@ describe('box-only carts in Texas', () => {
     const response = await post(checkout(items, delivery('TX')));
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ subtotal, shipping, totalAmount: Math.round((subtotal + shipping) * 100) / 100 });
+  });
+});
+
+describe('paused delivery areas', () => {
+  it('refuses delivery to a paused state before storing a session; other states and pickup still work', async () => {
+    mocks.isDeliveryPausedFor.mockImplementation(async (_db: unknown, state: unknown) => state === 'TX');
+    const response = await post(checkout([sweet], delivery('TX')));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe('Sorry, delivery to this state is paused right now. Please choose pickup or check back soon.');
+    expect(mocks.inserts).toHaveLength(0);
+    expect((await post(checkout([sweet], pickup))).status).toBe(201);
+    mocks.isDeliveryPausedFor.mockResolvedValue(false);
   });
 });
 

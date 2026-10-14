@@ -8,6 +8,7 @@ import { getPickupLocationById } from '@/data/products';
 import { isPickupClosedDate } from '@/lib/pickup-date';
 import { d1TimestampToBusinessDate } from '@/lib/date';
 import { productionSheet } from '@/lib/production';
+import DeliveryPausePanel from '@/components/admin/DeliveryPausePanel';
 import type { PlanOrder, ProductionPlan } from '@/lib/production-plan';
 
 const DAY_NAMES = ['Today', 'Tomorrow', 'Day after tomorrow'];
@@ -193,6 +194,8 @@ export default function ProductionPlanningPage() {
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
         </button>
       </div>
+
+      <DeliveryPausePanel />
 
       {error && <p role="alert" className="font-body text-sm text-red-600 mb-4">{error}</p>}
 

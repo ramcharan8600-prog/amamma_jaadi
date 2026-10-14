@@ -785,6 +785,33 @@ it.each([
   expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
 });
 
+describe('paused delivery areas before a first charge', () => {
+  function setDeliveryTo(state: string) {
+    fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=?,maintenance_fee=0,tax=0,total_amount=?')
+      .run(JSON.stringify([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 50, lineTotal: 125 }]),
+        JSON.stringify({ type: 'delivery', state }), 10.99, 135.99);
+  }
+
+  it('closes a delivery checkout whose area was paused after it opened, without charging', async () => {
+    setDeliveryTo('NY');
+    fixture.sqlite.prepare("INSERT INTO delivery_pauses (zone) VALUES ('far')").run();
+    const execute = vi.fn();
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('still charges a delivery to an area that is not paused', async () => {
+    setDeliveryTo('NY');
+    fixture.sqlite.prepare("INSERT INTO delivery_pauses (zone) VALUES ('texas')").run();
+    const execute = vi.fn(async () => ({ paymentId: 'payment-open-area', status: 'COMPLETED' }));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
+  });
+});
+
 describe('sold-out pickup dates before a first charge', () => {
   it('closes a pickup checkout whose date was marked sold out after it opened, without charging', async () => {
     const date = openPickupDate(1);

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
 import { DELIVERY_QUEUE_NOTICE } from '@/lib/constants';
+import { DELIVERY_PAUSED_ERROR, DELIVERY_ZONES, DELIVERY_ZONE_PAUSED_ERROR } from '@/lib/delivery-pauses';
 import { cartLines, trackFunnel } from '@/lib/analytics';
 import {
   ACTIVE_PICKUP_LOCATIONS,
@@ -53,6 +54,8 @@ import {
   deliveryServiceLabel,
   EXPRESS_SWEETS_NOTE,
   containsAssortedBox,
+  getShippingZone,
+  type ShippingZone,
 } from '@/lib/pricing';
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
@@ -196,6 +199,21 @@ export default function CheckoutPage() {
 
   // Pickup dates the shop marked sold out in admin, refreshed each time pickup
   // details open; the calendar greys them out with "Sold out".
+  // Delivery areas paused in Admin → Production (the server enforces them too).
+  const [pausedZones, setPausedZones] = useState<ShippingZone[]>([]);
+  const refreshPausedZones = useCallback(async () => {
+    try {
+      const res = await fetch('/api/delivery-pauses', { cache: 'no-store' });
+      const data = res.ok ? await res.json() : null;
+      if (Array.isArray(data?.paused)) setPausedZones(data.paused);
+    } catch {
+      // The server still refuses a paused delivery at checkout.
+    }
+  }, []);
+  useEffect(() => {
+    if (step === 'method' || (step === 'details' && fulfillmentType === 'delivery')) refreshPausedZones();
+  }, [step, fulfillmentType, refreshPausedZones]);
+  const allDeliveryPaused = DELIVERY_ZONES.every((zone) => pausedZones.includes(zone));
   const [soldOutDates, setSoldOutDates] = useState<string[]>([]);
   const refreshSoldOutDates = useCallback(async () => {
     try {
@@ -453,7 +471,8 @@ export default function CheckoutPage() {
   const catalogProducts = items.map((item) => getProductById(item.productId) ?? item.product);
   const pickupOnlyProduct = catalogProducts.find((product) => product.pickupOnly);
   // Pickup-only items block delivery outright; other limits wait for a valid state and minimum.
-  const deliveryRestrictionMessage = catalogProducts
+  const deliveryStatePaused = isSupportedDeliveryState(deliveryState) && pausedZones.includes(getShippingZone(deliveryState));
+  const deliveryRestrictionMessage = (deliveryStatePaused ? DELIVERY_ZONE_PAUSED_ERROR : null) ?? catalogProducts
     .map((product) => product.pickupOnly || (isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0)
       ? deliveryRestriction(product, deliveryState, subtotal)
       : null)
@@ -679,6 +698,7 @@ export default function CheckoutPage() {
       setSubmitError(result.error);
       // Sold out since the calendar loaded: show it on the calendar too.
       if (result.error === SOLD_OUT_DATE_ERROR) refreshSoldOutDates();
+      if (result.error === DELIVERY_ZONE_PAUSED_ERROR) refreshPausedZones();
     } else {
       setStep('payment');
     }
@@ -1130,14 +1150,14 @@ export default function CheckoutPage() {
             </button>
             <button
               onClick={() => {
-                if (pickupOnlyProduct) return;
+                if (pickupOnlyProduct || allDeliveryPaused) return;
                 setFulfillmentType('delivery');
                 if (pickupName) setDeliveryName(pickupName);
                 if (pickupPhone) setDeliveryPhone(pickupPhone);
                 if (pickupEmail) setDeliveryEmail(pickupEmail);
                 setStep('details');
               }}
-              disabled={!!pickupOnlyProduct}
+              disabled={!!pickupOnlyProduct || allDeliveryPaused}
               className="card p-6 text-left hover:border-brand-maroon transition-colors group disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-brand-cream-dark"
             >
               <Truck size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
@@ -1147,6 +1167,8 @@ export default function CheckoutPage() {
                   Not available for this cart: <strong>{pickupOnlyProduct.name}</strong> is pickup only.
                   Remove it to have your order delivered.
                 </p>
+              ) : allDeliveryPaused ? (
+                <p className="font-body text-sm text-brand-maroon mt-1">{DELIVERY_PAUSED_ERROR}</p>
               ) : (
                 <>
                   <p className="font-body text-sm text-brand-charcoal/60 mt-1">
