@@ -218,7 +218,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
       <p style="margin: 0 0 6px; font-weight: bold; color: #7B1F1F;">Delivery</p>
       ${params.deliveryAddress ? `<p style="margin: 0 0 6px; color: #444; white-space: pre-line;">${escapeHtml(params.deliveryAddress)}</p>` : ''}
       <p style="margin: 0 0 6px; color: #444;"><strong>Method:</strong> ${escapeHtml(params.shippingLabel ?? shippingMethodLabel(params.shippingMethod, picklesOnly))}</p>
-      ${picklesOnly ? '' : `<p style="margin: 0 0 6px; color: #444;">Our sweets are <strong>freshly made</strong> after your order is confirmed. Please allow <strong>1–2 days</strong> for preparation.</p>`}
+      ${picklesOnly ? '' : `<p style="margin: 0 0 6px; color: #444;">Our sweets are <strong>freshly made</strong> after your order is confirmed. Please allow <strong>3–4 days</strong> for preparation.</p>`}
       <p style="margin: 0; color: #666;">We&apos;ll share tracking details for your delivery shortly.</p>
     </div>`;
 

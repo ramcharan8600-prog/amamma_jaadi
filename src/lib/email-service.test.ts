@@ -255,7 +255,7 @@ describe('fresh preparation note (delivery orders)', () => {
   const base = {
     email: 'c@example.com', orderNumber: 'AJ-2001', squarePaymentId: 'p1', customerName: 'Test', phone: '1', total: 10,
   };
-  const note = 'Our sweets are <strong>freshly made</strong> after your order is confirmed. Please allow <strong>1–2 days</strong> for preparation.';
+  const note = 'Our sweets are <strong>freshly made</strong> after your order is confirmed. Please allow <strong>3–4 days</strong> for preparation.';
 
   it('appears on sweet delivery orders only', () => {
     const sweets = [{ name: 'Kova Bobbatlu', quantity: 1, price: 10 }];
