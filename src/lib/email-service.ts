@@ -248,7 +248,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
     </table>
     ${fulfillmentHtml}
     <p style="color: #666;">Questions? WhatsApp us at ${PHONE_NUMBER}.</p>
-    ${params.fulfillmentType === 'delivery' && isWeekendDispatchOrder(params.placedAt) ? `<p style="color: #444; background: #FFF8F0; border-left: 3px solid #C6992E; padding: 12px; margin: 16px 0;">UPS doesn&apos;t ship over the weekend, and we don&apos;t want your boxes sitting in UPS trucks at room temperature. So we will dispatch your order on <strong>Monday/Tuesday</strong> and share the tracking details. Thanks for understanding.</p>` : ''}
+    ${params.fulfillmentType === 'delivery' && isWeekendDispatchOrder(params.placedAt) ? `<p style="color: #444; background: #FFF8F0; border-left: 3px solid #C6992E; padding: 12px; margin: 16px 0;">UPS doesn&apos;t ship over the weekend, so to ensure your sweets are fresh by the time they&apos;re delivered, we will dispatch your order on <strong>Monday/Tuesday</strong> and share the tracking details. Thanks for understanding.</p>` : ''}
     <p style="color: #666; margin-top: 16px;">Thanks,<br />Team ${BRAND_NAME}</p>
     <p style="color: #bbb; font-size: 11px; margin-top: 24px;">Payment reference: ${params.squarePaymentId}</p>
   `);
