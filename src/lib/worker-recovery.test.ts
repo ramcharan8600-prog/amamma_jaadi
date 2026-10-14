@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   reconcileRefunds: vi.fn(),
   listRefunds: vi.fn(),
   refundSummary: vi.fn(),
+  dailyPrep: vi.fn(),
 }));
 
 vi.mock('../../.open-next/worker.js', () => ({ default: { fetch: mocks.fetch } }));
@@ -32,6 +33,7 @@ vi.mock('@/lib/square', () => ({
 }));
 vi.mock('@/lib/square-webhook', () => ({ reconcileSquareRefunds: mocks.reconcileRefunds }));
 vi.mock('@/lib/order-service', () => ({ createOrderFromSession: mocks.finalize }));
+vi.mock('@/lib/daily-prep-email', () => ({ sendDailyPrepEmail: mocks.dailyPrep }));
 
 import worker from '../../custom-worker';
 
@@ -192,5 +194,19 @@ describe('scheduled Worker recovery wiring', () => {
     const f = fixture();
     await worker.scheduled(f.controller, f.env, f.ctx);
     expect(mocks.reconcileRefunds).not.toHaveBeenCalled();
+  });
+
+  it('sends the 9 AM prep email only on its own schedule and only when a recipient is set', async () => {
+    const f = fixture();
+    mocks.dailyPrep.mockResolvedValue('sent');
+    await worker.scheduled({ ...f.controller, cron: '0 14,15 * * *' }, f.env, f.ctx);
+    expect(mocks.dailyPrep).not.toHaveBeenCalled();
+
+    const g = fixture();
+    await worker.scheduled({ ...g.controller, cron: '0 14,15 * * *' }, { ...g.env, DAILY_PREP_EMAIL_TO: 'kitchen@example.com' }, g.ctx);
+    await Promise.all(g.pending);
+    expect(mocks.dailyPrep).toHaveBeenCalledWith(g.env.DB, { to: 'kitchen@example.com', emailQueue: g.env.EMAIL_QUEUE });
+    expect(mocks.emailRecovery).not.toHaveBeenCalled();
+    expect(mocks.paymentRecovery).not.toHaveBeenCalled();
   });
 });

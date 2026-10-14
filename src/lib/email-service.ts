@@ -49,7 +49,7 @@ function itemDetailsHtml(details: string[] | undefined): string {
 }
 
 /** Escape user-influenced values before interpolating into email HTML. */
-function escapeHtml(value: unknown): string {
+export function escapeHtml(value: unknown): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -77,7 +77,7 @@ async function sendEmail(params: EmailParams): Promise<{ success: boolean; id?: 
 
 // ─── Email Templates ──────────────────────────────────────────
 
-function baseTemplate(content: string): string {
+export function baseTemplate(content: string): string {
   return `
     <!DOCTYPE html>
     <html>
