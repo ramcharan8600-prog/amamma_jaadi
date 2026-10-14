@@ -16,6 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
+import { cartLines, trackFunnel } from '@/lib/analytics';
 import {
   ACTIVE_PICKUP_LOCATIONS,
   getPickupLocationById,
@@ -243,6 +244,9 @@ export default function CheckoutPage() {
     return () => { checkoutActive.current = false; window.removeEventListener('storage', onStorage); };
   }, []);
 
+  // Latest cart and totals for the 'Order Completed' analytics event (the cart is cleared right after).
+  const funnelRef = useRef<{ items: typeof items; total: number; shipping: number; tax: number }>({ items: [], total: 0, shipping: 0, tax: 0 });
+
   const completePayment = useCallback((sessionId: string, number: string) => {
     if (!checkoutActive.current) return;
     try {
@@ -253,6 +257,8 @@ export default function CheckoutPage() {
     setPendingPayment(null);
     setOrderNumber(number);
     setOrderComplete(true);
+    const paid = funnelRef.current;
+    trackFunnel('Order Completed', { order_id: number, products: cartLines(paid.items), value: paid.total, shipping: paid.shipping, tax: paid.tax });
     mark('order_created', number);
     flushTrail('completed');
     clearCart();
@@ -398,6 +404,17 @@ export default function CheckoutPage() {
   );
   const totals = useMemo(() => calculateOrderTotals(subtotal, pricingOptions), [subtotal, pricingOptions]);
   const shippingQuote = useMemo(() => calculateShippingQuote(subtotal, pricingOptions), [subtotal, pricingOptions]);
+  useEffect(() => {
+    funnelRef.current = { items, total: totals.total, shipping: totals.shipping, tax: totals.tax };
+  }, [items, totals]);
+  // One funnel event per step the customer reaches.
+  useEffect(() => {
+    if (!mounted || items.length === 0) return;
+    const event = step === 'cart' ? 'Cart Viewed' : step === 'method' ? 'Checkout Started' : step === 'payment' ? 'Payment Info Entered' : null;
+    if (event) trackFunnel(event, { products: cartLines(items), value: step === 'payment' ? totals.total : subtotal });
+    // Only a step change should fire; cart edits within a step should not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, mounted]);
   const service = deliveryService(deliveryState, picklesOnly, groundShipping);
   const serviceLabel = deliveryServiceLabel(service);
   const expressSweetsNote = <p className="font-body text-xs text-brand-maroon">{EXPRESS_SWEETS_NOTE}</p>;

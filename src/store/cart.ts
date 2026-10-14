@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem, Product, FulfillmentDetails } from '@/types';
 import { calculateSweetPrice, getProductById, getTotalPieces } from '@/data/products';
+import { productLine, trackFunnel } from '@/lib/analytics';
 
 interface CartState {
   items: CartItem[];
@@ -55,6 +56,8 @@ export const useCartStore = create<CartState>()(
       fulfillment: null,
 
       addItem: (product, quantity, selectedTier, selectedVariant) => {
+        const added = computeLineTotal(product, quantity, selectedTier);
+        trackFunnel('Product Added', { products: [productLine(product, quantity, added, selectedTier, selectedVariant)], value: added });
         set((state) => {
           const key = lineKey(product.id, selectedTier, selectedVariant);
           const existing = state.items.find(
