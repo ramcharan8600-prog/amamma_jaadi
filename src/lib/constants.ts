@@ -79,4 +79,4 @@ export const SHIPPING_MINI_COMBO_TX = 3.99;
  * a backlog (owner, 2026-10-14). Set to null to remove it.
  */
 export const DELIVERY_QUEUE_NOTICE: string | null =
-  'Currently we are sold out and have a queue of orders ahead. We are freshly preparing, so please allow us 3–4 days of preparation time. Thanks for understanding.';
+  'Currently we are sold out and have a queue of orders ahead. We are freshly preparing, so please allow us 3–4 days of preparation time. As sweets are best enjoyed fresh, we only dispatch sweets that are prepared the same day. Thanks for understanding.';

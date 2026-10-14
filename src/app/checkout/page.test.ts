@@ -265,7 +265,8 @@ describe('delivery queue notice', () => {
     await click('Continue');
     const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
     expect(delivery?.textContent).toContain('Currently we are sold out and have a queue of orders ahead.');
-    expect(delivery?.textContent).toContain('please allow us 3–4 days of preparation time. Thanks for understanding.');
+    expect(delivery?.textContent).toContain('please allow us 3–4 days of preparation time. As sweets are best enjoyed fresh, we only dispatch sweets that are prepared the same day. Thanks for understanding.');
+    expect(delivery?.querySelector('strong')?.textContent).toBe('sold out');
     const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
     expect(pickup?.textContent).not.toContain('queue of orders');
   });

@@ -1176,7 +1176,8 @@ export default function CheckoutPage() {
                   </p>
                   {DELIVERY_QUEUE_NOTICE && (
                     <p role="note" className="font-body text-sm text-amber-900 bg-amber-50 border border-amber-300 rounded-lg p-3 mt-3">
-                      ⏳ {DELIVERY_QUEUE_NOTICE}
+                      ⏳ {DELIVERY_QUEUE_NOTICE.split(/(sold out)/i).map((part, i) =>
+                        i % 2 ? <strong key={i} className="font-bold">{part}</strong> : part)}
                     </p>
                   )}
                 </>
