@@ -212,6 +212,19 @@ describe('sold-out pickup dates', () => {
   });
 });
 
+describe('delivery queue notice', () => {
+  it('shows the preparation-time notice under Delivery while the kitchen has a queue', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
+    await render();
+    await click('Continue');
+    const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    expect(delivery?.textContent).toContain('Currently we are sold out and have a queue of orders ahead.');
+    expect(delivery?.textContent).toContain('please allow us 3–4 days of preparation time. Thanks for understanding.');
+    const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
+    expect(pickup?.textContent).not.toContain('queue of orders');
+  });
+});
+
 describe('checkout pickup date controls', () => {
   it.each(['Pickup', 'Delivery'])('hides the cutoff banner on cart, method, and details steps (%s)', async (method) => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);

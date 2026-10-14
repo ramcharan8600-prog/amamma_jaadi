@@ -16,6 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
+import { DELIVERY_QUEUE_NOTICE } from '@/lib/constants';
 import { cartLines, trackFunnel } from '@/lib/analytics';
 import {
   ACTIVE_PICKUP_LOCATIONS,
@@ -1147,9 +1148,16 @@ export default function CheckoutPage() {
                   Remove it to have your order delivered.
                 </p>
               ) : (
-                <p className="font-body text-sm text-brand-charcoal/60 mt-1">
-                  Nationwide shipping with destination-based rates shown before payment.
-                </p>
+                <>
+                  <p className="font-body text-sm text-brand-charcoal/60 mt-1">
+                    Nationwide shipping with destination-based rates shown before payment.
+                  </p>
+                  {DELIVERY_QUEUE_NOTICE && (
+                    <p role="note" className="font-body text-sm text-amber-900 bg-amber-50 border border-amber-300 rounded-lg p-3 mt-3">
+                      ⏳ {DELIVERY_QUEUE_NOTICE}
+                    </p>
+                  )}
+                </>
               )}
             </button>
           </div>
