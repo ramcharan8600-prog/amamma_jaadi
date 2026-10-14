@@ -1,24 +1,31 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Leaf, Heart, Sparkles, Truck } from 'lucide-react';
-import { PRODUCTS, calculateSweetPrice, isFixedPriceBox } from '@/data/products';
+import { ArrowRight, Leaf, MapPin, Sparkles, Truck } from 'lucide-react';
+import { MINI_COMBO_PACK_PRODUCT_ID, PRODUCTS, calculateSweetPrice, getProductById, isFixedPriceBox } from '@/data/products';
 import { renderDescription } from '@/lib/description';
+import SweetCard from '@/components/product/SweetCard';
+import GiftBoxCard from '@/components/product/GiftBoxCard';
+import PickleCard from '@/components/product/PickleCard';
 
 export const metadata: Metadata = {
   alternates: { canonical: 'https://amammajaadi.com' },
 };
 
 const PROMISES = [
+  { icon: Sparkles, label: 'Freshly Made to Order' },
   { icon: Leaf, label: 'Pure Ghee & A2 Milk' },
-  { icon: Heart, label: 'Made with Love' },
-  { icon: Sparkles, label: 'Freshly Baked Daily' },
-  { icon: Truck, label: 'Same-Day Pickup' },
+  { icon: Truck, label: 'Delivery Across the USA' },
+  { icon: MapPin, label: 'Free Pickup in Dallas' },
 ];
+
+/** What customers buy most, shown with Add to Cart right below the hero. */
+const BEST_SELLER_IDS = ['sweet-assorted-box', MINI_COMBO_PACK_PRODUCT_ID, 'sweet-assorted-bobbatlu-box', 'pickle-chicken'];
 
 export default function HomePage() {
   // Assorted boxes live on the Sweets page; the homepage keeps featuring single sweets.
   const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && !isFixedPriceBox(p) && !p.addOnOnly).slice(0, 3);
+  const bestSellers = BEST_SELLER_IDS.map((id) => getProductById(id)).filter((p) => p !== undefined);
 
   return (
     <>
@@ -28,6 +35,10 @@ export default function HomePage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <div className="space-y-4">
+                <p className="inline-flex items-center gap-2 rounded-full bg-brand-maroon text-white px-4 py-1.5 font-body text-xs sm:text-sm font-semibold">
+                  <Truck size={16} className="shrink-0" aria-hidden="true" />
+                  Delivery across the USA · Free pickup in Dallas
+                </p>
                 <p className="font-body text-sm font-semibold tracking-widest text-brand-gold uppercase">
                   Dallas, Texas
                 </p>
@@ -43,14 +54,11 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Link href="/sweets" className="btn-primary gap-2">
-                  Order Sweets <ArrowRight size={16} />
+                <Link href="/sweets" className="btn-primary gap-2 text-base px-7 py-3.5">
+                  Shop Sweets <ArrowRight size={16} />
                 </Link>
-                <Link href="/gift-boxes" className="btn-gold gap-2">
-                  Sweets Gift Packs
-                </Link>
-                <Link href="/pickles" className="btn-secondary">
-                  Pickles
+                <Link href="/pickles" className="btn-gold gap-2 text-base px-7 py-3.5">
+                  Shop Pickles <ArrowRight size={16} />
                 </Link>
               </div>
 
@@ -122,6 +130,30 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Best Sellers (order right here) ──────────────── */}
+      <section aria-labelledby="best-sellers-title" className="pt-12 sm:pt-16">
+        <div className="section-padding">
+          <div className="text-center space-y-3 mb-10">
+            <p className="font-body text-sm font-semibold tracking-widest text-brand-gold uppercase">
+              Customer Favorites
+            </p>
+            <h2 id="best-sellers-title" className="font-display text-3xl sm:text-4xl font-bold text-brand-charcoal">
+              Best Sellers
+            </h2>
+            <p className="font-body text-brand-charcoal/60 max-w-md mx-auto">
+              Freshly made after you order. Add to cart right here.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {bestSellers.map((product) =>
+              product.category === 'pickles' ? <PickleCard key={product.id} product={product} />
+                : product.category === 'sweets' ? <SweetCard key={product.id} product={product} />
+                  : <GiftBoxCard key={product.id} product={product} />
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* ── Featured Sweets ──────────────────────────────── */}
       <section className="py-16 sm:py-24">
         <div className="section-padding">
@@ -130,7 +162,7 @@ export default function HomePage() {
               Our Specialties
             </p>
             <h2 className="font-display text-3xl sm:text-4xl font-bold text-brand-charcoal">
-              Freshly Made Every Day
+              Freshly Made to Order
             </h2>
             <p className="font-body text-brand-charcoal/60 max-w-md mx-auto">
               Each sweet is crafted with organic ingredients, pure ghee, and recipes

@@ -6,13 +6,13 @@ import JsonLd from '@/components/JsonLd';
 import { getProductListSchema, pageShareMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Sweets — Freshly Baked South Indian Sweets',
+  title: 'Sweets — Freshly Made South Indian Sweets',
   description:
-    'Order fresh Bobbatlu, Kova Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & Assorted Boxes. Made daily with pure ghee, A2 milk & organic ingredients. Pickup or delivery in Dallas, TX.',
+    'Order fresh Bobbatlu, Kova Bobbatlu, Malai Khaja, Kova, Guntur Malpuri & Assorted Boxes. Freshly made with pure ghee, A2 milk & organic ingredients. Free pickup in Dallas, TX or delivery across the USA.',
   alternates: { canonical: 'https://amammajaadi.com/sweets' },
   ...pageShareMetadata({
     path: '/sweets',
-    title: 'Sweets — Freshly Baked South Indian Sweets',
+    title: 'Sweets — Freshly Made South Indian Sweets',
     description: 'Order fresh Bobbatlu, Kova Bobbatlu, Malai Khaja, Kova & Guntur Malpuri in Dallas, TX.',
   }),
 };
@@ -34,7 +34,7 @@ export default function SweetsPage() {
           Sweets
         </h1>
         <p className="font-body text-brand-charcoal/60 max-w-lg mx-auto">
-          Freshly baked every day with pure ghee, A2 milk, and organic
+          Freshly made after you order, with pure ghee, A2 milk, and organic
           ingredients — just like Amamma used to make.
         </p>
       </div>
