@@ -184,6 +184,17 @@ export interface OrderConfirmationParams {
   pickupHours?: string;
   /** Delivery address — shown for delivery orders. */
   deliveryAddress?: string;
+  /** When the order was placed (defaults to now); drives the weekend dispatch note. */
+  placedAt?: Date;
+}
+
+/**
+ * UPS doesn't move boxes over the weekend, so delivery orders placed
+ * Thursday–Sunday (Dallas time) are dispatched on Monday/Tuesday instead.
+ */
+export function isWeekendDispatchOrder(placedAt: Date = new Date()): boolean {
+  const day = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'America/Chicago' }).format(placedAt);
+  return ['Thu', 'Fri', 'Sat', 'Sun'].includes(day);
 }
 
 /** Render before the order transaction so its durable email intent commits with it. */
@@ -237,6 +248,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
     </table>
     ${fulfillmentHtml}
     <p style="color: #666;">Questions? WhatsApp us at ${PHONE_NUMBER}.</p>
+    ${params.fulfillmentType === 'delivery' && isWeekendDispatchOrder(params.placedAt) ? `<p style="color: #444; background: #FFF8F0; border-left: 3px solid #C6992E; padding: 12px; margin: 16px 0;">UPS doesn&apos;t ship over the weekend, and we don&apos;t want your boxes sitting in UPS trucks at room temperature. So we will dispatch your order on <strong>Monday/Tuesday</strong> and share the tracking details. Thanks for understanding.</p>` : ''}
     <p style="color: #666; margin-top: 16px;">Thanks,<br />Team ${BRAND_NAME}</p>
     <p style="color: #bbb; font-size: 11px; margin-top: 24px;">Payment reference: ${params.squarePaymentId}</p>
   `);

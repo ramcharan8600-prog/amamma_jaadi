@@ -11,6 +11,7 @@ vi.mock('@/lib/email-outbox', () => ({
 
 import {
   buildOrderConfirmationEmail,
+  isWeekendDispatchOrder,
   buildOwnerOrderAlertEmail,
   sendOrderConfirmation,
   type OrderConfirmationParams,
@@ -223,5 +224,29 @@ describe('pickup confirmation email hours', () => {
 
   it('keeps the previous window when no location hours are given', () => {
     expect(buildOrderConfirmationEmail(pickupParams).html).toContain('between <strong>6:30 PM and 12:45 AM</strong>');
+  });
+});
+describe('weekend dispatch note (Thu–Sun delivery orders)', () => {
+  const base = {
+    email: 'c@example.com', orderNumber: 'AJ-2000', squarePaymentId: 'p1', customerName: 'Test', phone: '1',
+    total: 10, items: [{ name: 'Kova Bobbatlu', quantity: 1, price: 10 }],
+  };
+  const note = 'UPS doesn&apos;t ship over the weekend';
+
+  it('uses Dallas time for the day of week', () => {
+    expect(isWeekendDispatchOrder(new Date('2026-10-14T17:00:00Z'))).toBe(false); // Wed
+    expect(isWeekendDispatchOrder(new Date('2026-10-15T17:00:00Z'))).toBe(true); // Thu
+    expect(isWeekendDispatchOrder(new Date('2026-10-18T17:00:00Z'))).toBe(true); // Sun
+    expect(isWeekendDispatchOrder(new Date('2026-10-19T03:00:00Z'))).toBe(true); // Sun 10 PM Dallas
+    expect(isWeekendDispatchOrder(new Date('2026-10-19T17:00:00Z'))).toBe(false); // Mon
+  });
+
+  it('shows the note before the sign-off only on Thu–Sun delivery orders', () => {
+    const thu = buildOrderConfirmationEmail({ ...base, fulfillmentType: 'delivery', placedAt: new Date('2026-10-15T17:00:00Z') }).html;
+    expect(thu).toContain(note);
+    expect(thu).toContain('dispatch your order on <strong>Monday/Tuesday</strong> and share the tracking details. Thanks for understanding.');
+    expect(thu.indexOf(note)).toBeLessThan(thu.indexOf('Team Amamma Jaadi'));
+    expect(buildOrderConfirmationEmail({ ...base, fulfillmentType: 'delivery', placedAt: new Date('2026-10-13T17:00:00Z') }).html).not.toContain(note);
+    expect(buildOrderConfirmationEmail({ ...base, fulfillmentType: 'pickup', placedAt: new Date('2026-10-16T17:00:00Z') }).html).not.toContain(note);
   });
 });
