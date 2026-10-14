@@ -250,3 +250,17 @@ describe('weekend dispatch note (Thu–Sun delivery orders)', () => {
     expect(buildOrderConfirmationEmail({ ...base, fulfillmentType: 'pickup', placedAt: new Date('2026-10-16T17:00:00Z') }).html).not.toContain(note);
   });
 });
+
+describe('fresh preparation note (delivery orders)', () => {
+  const base = {
+    email: 'c@example.com', orderNumber: 'AJ-2001', squarePaymentId: 'p1', customerName: 'Test', phone: '1', total: 10,
+  };
+  const note = 'Our sweets are freshly made after your order is confirmed. Please allow <strong>1–2 days</strong> for preparation.';
+
+  it('appears on sweet delivery orders only', () => {
+    const sweets = [{ name: 'Kova Bobbatlu', quantity: 1, price: 10 }];
+    expect(buildOrderConfirmationEmail({ ...base, items: sweets, fulfillmentType: 'delivery' }).html).toContain(note);
+    expect(buildOrderConfirmationEmail({ ...base, items: sweets, fulfillmentType: 'pickup' }).html).not.toContain(note);
+    expect(buildOrderConfirmationEmail({ ...base, items: [{ name: 'Chicken Pickle', quantity: 1, price: 10 }], fulfillmentType: 'delivery', picklesOnly: true }).html).not.toContain(note);
+  });
+});
