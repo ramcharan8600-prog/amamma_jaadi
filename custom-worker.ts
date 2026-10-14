@@ -22,6 +22,7 @@ import { recoverPendingPaymentAttempts } from './src/lib/payment-attempts';
 import { executeSquarePaymentRequest } from './src/lib/square';
 import { createOrderFromSession } from './src/lib/order-service';
 import { canonicalHostRedirect } from './src/lib/canonical-host';
+import { sendDailyPrepEmail } from './src/lib/daily-prep-email';
 
 type WorkerEnv = EmailWorkerEnv & Pick<WorkerBindings,
   'SQUARE_ENVIRONMENT' | 'NEXT_PUBLIC_SQUARE_LOCATION_ID' | 'NEXT_PUBLIC_SQUARE_APP_ID' | 'EMAIL_PROVIDER'
@@ -29,7 +30,12 @@ type WorkerEnv = EmailWorkerEnv & Pick<WorkerBindings,
   // Secret bindings are provisioned independently of the non-secret config.
   SQUARE_ACCESS_TOKEN: string;
   RESEND_API_KEY?: string;
+  /** Who gets the 9 AM prep email (a secret: the repo is public). Unset = no email. */
+  DAILY_PREP_EMAIL_TO?: string;
 };
+
+/** Must match the daily cron in wrangler.jsonc: 9 AM Dallas is 14:00 UTC (CDT) or 15:00 UTC (CST). */
+export const DAILY_PREP_CRON = '0 14,15 * * *';
 
 export default {
   fetch(request, env, ctx) {
@@ -94,10 +100,27 @@ export default {
   },
 
   async scheduled(
-    _controller: ScheduledController,
+    controller: ScheduledController,
     env: WorkerEnv,
     ctx: ExecutionContext
   ): Promise<void> {
+    if (controller.cron === DAILY_PREP_CRON) {
+      const to = env.DAILY_PREP_EMAIL_TO?.trim();
+      if (!to) return;
+      ctx.waitUntil(
+        sendDailyPrepEmail(env.DB, { to, emailQueue: env.EMAIL_QUEUE })
+          .then((result) => {
+            console.log(JSON.stringify({ event: 'daily_prep_email', result }));
+          })
+          .catch((error) => {
+            console.error(JSON.stringify({
+              event: 'daily_prep_email_failed',
+              error: error instanceof Error ? error.message : String(error),
+            }));
+          })
+      );
+      return;
+    }
     ctx.waitUntil(
       recoverPendingEmailOutbox(env.DB, env.EMAIL_QUEUE)
         .then((published) => {
