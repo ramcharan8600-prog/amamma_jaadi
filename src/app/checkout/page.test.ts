@@ -278,6 +278,28 @@ describe('delivery queue notice', () => {
   });
 });
 
+describe('pickup order total breakdown', () => {
+  it('opens and closes a line-by-line breakdown from the blue order total', async () => {
+    await pickupDetails();
+    const total = host.querySelector<HTMLButtonElement>('button[aria-controls="pickup-total-breakdown"]')!;
+    expect(total.textContent).toBe('Order total: $40.00');
+    expect(total.className).toContain('text-blue-700');
+    expect(total.getAttribute('aria-expanded')).toBe('false');
+    expect(host.querySelector('#pickup-total-breakdown')).toBeNull();
+
+    await act(async () => total.click());
+    const breakdown = host.querySelector('#pickup-total-breakdown')!;
+    expect(total.getAttribute('aria-expanded')).toBe('true');
+    expect(breakdown.textContent).toContain('Guntur Malpuri (16 pcs) × 1$40.00');
+    expect(breakdown.textContent).toContain('Subtotal$40.00');
+    expect(breakdown.textContent).toContain('PickupFREE');
+    expect(breakdown.textContent).toContain('Total$40.00');
+
+    await act(async () => total.click());
+    expect(host.querySelector('#pickup-total-breakdown')).toBeNull();
+  });
+});
+
 describe('checkout pickup date controls', () => {
   it.each(['Pickup', 'Delivery'])('hides the cutoff banner on cart, method, and details steps (%s)', async (method) => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);

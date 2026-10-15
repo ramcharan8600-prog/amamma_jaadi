@@ -14,6 +14,7 @@ import {
   Package,
   Trash2,
   Loader2,
+  ChevronDown,
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
 import { DELIVERY_QUEUE_NOTICE } from '@/lib/constants';
@@ -90,6 +91,8 @@ export default function CheckoutPage() {
 
   const [step, setStep] = useState<Step>('cart');
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType | null>(null);
+  // Pickup details: the blue "Order total" opens a line-by-line breakdown.
+  const [showPickupBreakdown, setShowPickupBreakdown] = useState(false);
 
   // Pickup state
   const [pickupDate, setPickupDate] = useState('');
@@ -618,6 +621,20 @@ export default function CheckoutPage() {
     setPromoApplying(false);
   };
 
+  // "Guntur Malpuri (16 pcs) × 1" with the chosen box contents underneath.
+  const renderItemLabel = (item: (typeof items)[number]) => (
+    <span className="text-brand-charcoal/80">
+      {item.product.name}
+      {item.selectedTier ? ` (${item.selectedTier} pcs)` : ''}
+      <span className="text-brand-charcoal/40"> × {item.quantity}</span>
+      {item.selectedVariant && (
+        <span className="block text-xs text-brand-charcoal/50">
+          {item.selectedVariant}
+        </span>
+      )}
+    </span>
+  );
+
   // Temporary Taste Pack add-on line.
   const renderTastePackOffer = () => tastePackOffer && (
     <div className="flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2">
@@ -1019,16 +1036,7 @@ export default function CheckoutPage() {
                 key={`${item.productId}-${item.selectedTier}-${item.selectedVariant ?? ''}`}
                 className="flex justify-between items-start gap-3 font-body text-sm"
               >
-                <span className="text-brand-charcoal/80">
-                  {item.product.name}
-                  {item.selectedTier ? ` (${item.selectedTier} pcs)` : ''}
-                  <span className="text-brand-charcoal/40"> × {item.quantity}</span>
-                  {item.selectedVariant && (
-                    <span className="block text-xs text-brand-charcoal/50">
-                      {item.selectedVariant}
-                    </span>
-                  )}
-                </span>
+                {renderItemLabel(item)}
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="font-medium text-brand-charcoal">
                     {formatCurrency(item.lineTotal)}
@@ -1255,9 +1263,52 @@ export default function CheckoutPage() {
             )}
           </div>
 
-          <p className="font-body text-sm text-brand-charcoal">
-            Free pickup · Order total: <strong>{formatCurrency(totals.total)}</strong>
-          </p>
+          <div>
+            <p className="font-body text-sm text-brand-charcoal">
+              Free pickup ·{' '}
+              <button
+                type="button"
+                onClick={() => setShowPickupBreakdown((open) => !open)}
+                aria-expanded={showPickupBreakdown}
+                aria-controls="pickup-total-breakdown"
+                className="inline-flex items-center gap-1 text-blue-700 underline underline-offset-2 hover:text-blue-800"
+              >
+                Order total: <strong>{formatCurrency(totals.total)}</strong>
+                <ChevronDown size={14} aria-hidden="true" className={`transition-transform ${showPickupBreakdown ? 'rotate-180' : ''}`} />
+              </button>
+            </p>
+            {showPickupBreakdown && (
+              <div id="pickup-total-breakdown" className="card p-4 mt-2 space-y-3">
+                {items.map((item) => (
+                  <div
+                    key={`${item.productId}-${item.selectedTier}-${item.selectedVariant ?? ''}`}
+                    className="flex justify-between items-start gap-3 font-body text-sm"
+                  >
+                    {renderItemLabel(item)}
+                    <span className="font-medium text-brand-charcoal shrink-0">{formatCurrency(item.lineTotal)}</span>
+                  </div>
+                ))}
+                <div className="border-t border-brand-cream-dark pt-3 space-y-1.5">
+                  <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(totals.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                    <span>Pickup</span>
+                    <span>FREE</span>
+                  </div>
+                  <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
+                    <span>{SALES_TAX_LABEL}</span>
+                    <span>{formatCurrency(totals.tax)}</span>
+                  </div>
+                  <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
+                    <span>Total</span>
+                    <span className="text-brand-maroon">{formatCurrency(totals.total)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {pickupLocationId && (
             <div className="bg-[#F7F0DF] border border-[#DDC795] rounded-xl p-4">
