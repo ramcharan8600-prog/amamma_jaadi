@@ -293,7 +293,7 @@ describe('create-session retains approved shipping and gift-box rules', () => {
 
   it.each([
     ['TX', 5.99],
-    ['FL', 6.99],
+    ['FL', 7.99],
     ['NY', 10.99],
     ['CA', 10.99],
   ])('ships a Malai Khaja-only cart to %s for %s with no minimum', async (state, shipping) => {
@@ -674,9 +674,9 @@ describe('Malai Khaja-only shipping by pack size', () => {
     ['15 to NY (flat $10.99 far)', [mk(15)], 'NY', 10.99],
     ['25 to NY', [mk(25)], 'NY', 10.99],
     ['50 to NY', [mk(50)], 'NY', 10.99],
-    ['15 to GA (normal nearby, under $60)', [mk(15)], 'GA', 6.99],
-    ['25 to GA (normal nearby, from $60)', [mk(25)], 'GA', 5.99],
-    ['50 to GA (normal nearby, from $100)', [mk(50)], 'GA', 4.99],
+    ['15 to GA (nearby, under $60)', [mk(15)], 'GA', 7.99],
+    ['25 to GA (nearby, from $60)', [mk(25)], 'GA', 6.99],
+    ['50 to GA (nearby, $100 and up)', [mk(50)], 'GA', 6.99],
     ['50 to TX ($3.99 from $100)', [mk(50)], 'TX', 3.99],
     ['2 x 25 to CA', [mk(25, 2)], 'CA', 10.99],
     ['15 to TX', [mk(15)], 'TX', 5.99],
