@@ -147,6 +147,11 @@ function withSecurityHeaders(response: NextResponse, request: NextRequest): Next
   // in search results. This never applies to the custom amammajaadi.com host.
   if (isPreviewHost(request.nextUrl.hostname)) {
     response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  } else if (isNoIndexPath(pathname)) {
+    // Cart/payment, admin and API addresses stay out of Google. robots.txt lets
+    // Google fetch checkout and admin so it can read this (Search Console
+    // otherwise reports them as "Blocked by robots.txt").
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   }
 
   // CSP + HSTS only in production: local `next dev` serves over plain http and
@@ -192,6 +197,12 @@ export function cacheControlForPath(pathname: string): string {
   return isPrivate
     ? 'private, no-store'
     : 'public, max-age=0, s-maxage=60, must-revalidate';
+}
+
+/** Pages that must never appear in search results. */
+export function isNoIndexPath(pathname: string): boolean {
+  return pathname === '/checkout' || pathname.startsWith('/checkout/') ||
+    pathname.startsWith('/admin') || pathname.startsWith('/api/');
 }
 
 export function isPreviewHost(hostname: string): boolean {

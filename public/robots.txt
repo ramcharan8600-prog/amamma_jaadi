@@ -1,8 +1,7 @@
 # Amamma Jaadi - amammajaadi.com
 User-agent: *
 Allow: /
-Disallow: /admin/
+# Checkout and admin pages carry a noindex tag instead, so Google can see it.
 Disallow: /api/
-Disallow: /checkout
 
 Sitemap: https://amammajaadi.com/sitemap.xml

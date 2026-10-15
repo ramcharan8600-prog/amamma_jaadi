@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCsp, cacheControlForPath, isPreviewHost } from './middleware';
+import { readFileSync } from 'node:fs';
+import { buildCsp, cacheControlForPath, isNoIndexPath, isPreviewHost } from './middleware';
 
 describe('checkout Content Security Policy', () => {
   it('allows issuer-hosted HTTPS frames and 3-D Secure form submissions', () => {
@@ -28,5 +29,21 @@ describe('sandbox indexing protection', () => {
   it('identifies workers.dev preview hosts without affecting production', () => {
     expect(isPreviewHost('amammajaadi-sandbox.ramcharan8600.workers.dev')).toBe(true);
     expect(isPreviewHost('amammajaadi.com')).toBe(false);
+  });
+});
+
+describe('search engines (Search Console "Blocked by robots.txt")', () => {
+  it('marks checkout, admin and API addresses noindex, and leaves shop pages indexable', () => {
+    for (const path of ['/checkout', '/admin/login', '/admin/orders', '/api/sold-out-dates']) expect(isNoIndexPath(path)).toBe(true);
+    for (const path of ['/', '/sweets', '/pickles', '/gift-boxes', '/events', '/about', '/checkouts-guide']) expect(isNoIndexPath(path)).toBe(false);
+  });
+
+  it('robots.txt lets Google read checkout and admin pages (they carry noindex) and still skips the API', () => {
+    const robots = readFileSync(new URL('../public/robots.txt', import.meta.url), 'utf8');
+    expect(robots).toContain('Allow: /');
+    expect(robots).toContain('Disallow: /api/');
+    expect(robots).not.toMatch(/Disallow: \/checkout/);
+    expect(robots).not.toMatch(/Disallow: \/admin/);
+    expect(robots).toContain('Sitemap: https://amammajaadi.com/sitemap.xml');
   });
 });
