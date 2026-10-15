@@ -38,7 +38,7 @@ export const FAQS: FaqItem[] = [
   {
     question: 'Are your sweets freshly made?',
     answer:
-      'Yes. Guntur Malpuri and Nellore Malai Khaja are baked fresh every day. Bobbatlu and Kova Bobbatlu are available from ready stock; when your order exceeds available stock, please allow 1 day for preparation. Kova is made to order; please allow 1–2 days for preparation. Pickup orders containing Bobbatlu, Kova Bobbatlu or Kova can be scheduled from the next day. Other eligible orders offer same-day pickup when placed on or before 1:30 PM Central.',
+      'Yes. Guntur Malpuri and Nellore Malai Khaja are made fresh every day. Bobbatlu and Kova Bobbatlu are available from ready stock; when your order exceeds available stock, please allow 1 day for preparation. Kova is made to order; please allow 1–2 days for preparation. Pickup orders containing Bobbatlu, Kova Bobbatlu or Kova can be scheduled from the next day. Other eligible orders offer same-day pickup when placed on or before 1:30 PM Central.',
   },
   {
     question: 'Do you cater sweets for weddings, parties and corporate events?',
@@ -59,11 +59,6 @@ export const FAQS: FaqItem[] = [
     question: 'Will you send me emails?',
     answer:
       'Yes, but very few. By entering your details at checkout, you agree to receive emails from Amamma Jaadi: order notifications such as your confirmation, pickup and tracking updates, plus occasional updates and promotions. We keep it to a minimum, and you can opt out of promotional emails at any time by replying to any of our emails or contacting us.',
-  },
-  {
-    question: 'What is the $0.99 operational fee?',
-    answer:
-      'When a Texas delivery ships free with a Texas free-shipping coupon, we add a small $0.99 operational fee in place of shipping ($1.99 for pickle-only orders). It covers packaging, drop-off at the carrier, shipping label printing and our digital operations. The fee is always shown before payment.',
   },
   {
     question: 'Where can I pick up my order?',
