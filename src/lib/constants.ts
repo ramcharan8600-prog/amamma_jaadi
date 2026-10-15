@@ -63,6 +63,9 @@ export const SHIPPING_FAR = 11.99;
 
 /** Malai Khaja-only carts to a far state: flat, any number of pieces, no minimum. */
 export const SHIPPING_MALAI_KHAJA_FAR = 10.99;
+/** Malai Khaja-only carts to a nearby state: under $60, and from $60 (owner, 2026-10-15). */
+export const SHIPPING_MALAI_KHAJA_NEARBY_BELOW = 7.99;
+export const SHIPPING_MALAI_KHAJA_NEARBY = 6.99;
 /** 10:10 Assorted Box-only carts (any number of boxes, with or without the Taste Pack); no minimum. */
 export const SHIPPING_ASSORTED_BOX_TX = 3.99;
 export const SHIPPING_ASSORTED_BOX_NEARBY = 5.99;

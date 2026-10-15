@@ -183,15 +183,27 @@ describe('shipping rate card — Mini Combo only', () => {
 });
 
 describe('shipping rate card — Malai Khaja only', () => {
-  it('follows the normal Texas and nearby rates, and ships far for a flat $10.99 with no minimum', () => {
+  it('pays normal Texas rates, $7.99 / $6.99 to nearby states, and a flat $10.99 far with no minimum', () => {
     expect(ship([khaja], 40, 'TX')).toBe(5.99);
     expect(ship([khaja], 125, 'TX')).toBe(3.99);
-    expect(ship([khaja], 40, 'GA')).toBe(6.99);
-    expect(ship([khaja], 62.5, 'GA')).toBe(5.99);
-    expect(ship([khaja], 125, 'GA')).toBe(4.99);
+    // Nearby (owner, 2026-10-15): $7.99 under $60, $6.99 from $60 — including $100 and up.
+    expect(ship([khaja], 40, 'GA')).toBe(7.99);
+    expect(ship([khaja], 59.99, 'IL')).toBe(7.99);
+    expect(ship([khaja], 60, 'OK')).toBe(6.99);
+    expect(ship([khaja], 62.5, 'GA')).toBe(6.99);
+    expect(ship([khaja], 125, 'GA')).toBe(6.99);
+    expect(getDeliveryMinimumShortfall(40, 'GA', false, groundShippingKind([khaja]))).toBe(0);
     expect(ship([khaja], 40, 'NY')).toBe(10.99);
     expect(ship([khaja], 125, 'CA')).toBe(10.99);
     expect(getDeliveryMinimumShortfall(40, 'NY', false, groundShippingKind([khaja]))).toBe(0);
+  });
+});
+
+describe('Malai Khaja mixed with anything else', () => {
+  it('goes back to the regular nearby rates', () => {
+    expect(ship([khaja, malpuri], 40, 'GA')).toBe(6.99);
+    expect(ship([khaja, malpuri], 80, 'GA')).toBe(5.99);
+    expect(ship([khaja, malpuri], 125, 'GA')).toBe(4.99);
   });
 });
 
