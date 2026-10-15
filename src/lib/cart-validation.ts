@@ -1,4 +1,4 @@
-import { PRODUCTS, currentVariant, getProductById, isProductTaxExempt } from '@/data/products';
+import { PRODUCTS, calculateSweetPrice, currentVariant, getProductById, isProductTaxExempt } from '@/data/products';
 import type { CartItem } from '@/types';
 
 export const MAX_CART_LINES = 50;
@@ -84,8 +84,8 @@ export function validateCart(input: unknown): CartValidationResult {
     }
 
     const unitCents = Math.round(product.unitPrice * 100);
-    const tierPrice = selectedTier === undefined ? undefined : product.tierPrices?.[selectedTier];
-    const lineCents = (tierPrice === undefined ? unitCents * (selectedTier ?? 1) : Math.round(tierPrice * 100)) * quantity;
+    // Same price rule as the storefront card (packs and pack prices).
+    const lineCents = (selectedTier === undefined ? unitCents : Math.round(calculateSweetPrice(product, selectedTier) * 100)) * quantity;
     if (
       !Number.isFinite(product.unitPrice) ||
       !Number.isSafeInteger(unitCents) ||

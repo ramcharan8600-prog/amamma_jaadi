@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getProductById } from '@/data/products';
+import { PRODUCTS, calculateSweetPrice, getProductById } from '@/data/products';
 import { MAX_PRODUCT_QUANTITY, validateCart } from './cart-validation';
 
 const sweet = { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 };
@@ -116,5 +116,16 @@ describe('renamed gift box contents', () => {
 
   it('still rejects contents that were never offered', () => {
     expect(validateCart([{ productId: 'gift-box-party', quantity: 1, selectedVariant: 'Mix — 20 pcs' }]).ok).toBe(false);
+  });
+});
+
+describe('server line prices match the storefront price rule', () => {
+  const packs = PRODUCTS.filter((p) => p.category === 'sweets' && !p.addOnOnly && p.quantityOptions?.length)
+    .flatMap((p) => p.quantityOptions!.map((tier) => [p.id, tier] as const));
+  it.each(packs)('%s × %i pcs', (productId, selectedTier) => {
+    const product = PRODUCTS.find((p) => p.id === productId)!;
+    const result = validateCart([{ productId, quantity: 2, selectedTier }]);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.items[0].lineTotal).toBeCloseTo(calculateSweetPrice(product, selectedTier) * 2, 2);
   });
 });
