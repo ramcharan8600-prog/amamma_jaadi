@@ -8,6 +8,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('next/link', () => ({ default: ({ children, ...props }: { children: ReactNode; href: string }) => createElement('a', props, children) }));
 
 let host: HTMLDivElement;
+let productionLines: Array<{ product_name: string; selected_tier: number | null; quantity: number }> = [];
 let root: Root;
 
 // 60 pickup orders, newest first: AJ-1060 … AJ-1001.
@@ -31,7 +32,7 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   const path = String(input);
   if (path === '/api/auth') return Response.json({ authenticated: true });
   if (path.startsWith('/api/orders/production?')) {
-    return Response.json({ orderCounts: { pickup: orders.length, delivery: 0 }, lines: [] });
+    return Response.json({ orderCounts: { pickup: orders.length, delivery: 0 }, lines: productionLines });
   }
   if (path.startsWith('/api/orders?')) {
     // Pages like the server: newest first, `pageSize` at a time, with the total.
@@ -45,6 +46,7 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  productionLines = [];
   vi.stubGlobal('fetch', fetchMock);
   Element.prototype.scrollIntoView = vi.fn();
   host = document.createElement('div');
@@ -129,4 +131,19 @@ it('is its own page with a way back to the dashboard and to Production Planning'
   expect(host.querySelector('h1')?.textContent).toContain('All Orders');
   expect(host.querySelector('a[href="/admin/dashboard"]')?.textContent).toContain('Back to dashboard');
   expect(host.querySelector('a[href="/admin/production"]')?.textContent).toContain('Production Planning');
+});
+
+it('shows sweets to make (boxes included) and what to pack for every matching order', async () => {
+  productionLines = [
+    { product_name: 'Assorted Box — Malpuri & Malai Khaja', selected_tier: 20, quantity: 2 },
+    { product_name: 'Guntur Malpuri', selected_tier: 16, quantity: 1 },
+    { product_name: 'Chicken Pickle', selected_tier: null, quantity: 3 },
+  ];
+  await render();
+  const make = host.querySelector('section[aria-labelledby="sweets-to-make"]')!.textContent;
+  expect(make).toContain('36pcsMalpuri');
+  expect(make).toContain('20pcsMalai Khaja');
+  const pack = host.querySelector('section[aria-labelledby="items-to-pack"]')!.textContent;
+  expect(pack).toContain('Chicken Pickle3 jars');
+  expect(pack).toContain('Guntur Malpuri (16 pcs)1 pack');
 });

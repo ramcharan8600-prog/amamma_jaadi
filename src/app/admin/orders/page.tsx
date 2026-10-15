@@ -15,7 +15,8 @@ import { formatCurrency } from '@/lib/utils';
 import { d1TimestampToBusinessDate } from '@/lib/date';
 import { shippingMethodLabel } from '@/lib/pricing';
 import { PICKUP_LOCATIONS } from '@/data/products';
-import type { OrderRecord, ShipmentStatus } from '@/types';
+import { productionSheet } from '@/lib/production';
+import type { OrderItemRecord, OrderRecord, ShipmentStatus } from '@/types';
 
 interface ProductionItem {
   name: string;
@@ -48,6 +49,7 @@ export default function AdminOrdersPage() {
   // Orders matching the filters across all pages, and what they need.
   const [totalOrders, setTotalOrders] = useState(0);
   const [production, setProduction] = useState<ProductionItem[]>([]);
+  const [productionLines, setProductionLines] = useState<OrderItemRecord[]>([]);
   const [filter, setFilter] = useState<FilterType>('today');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState('');
@@ -194,6 +196,7 @@ export default function AdminOrdersPage() {
         { name: 'Pickup Orders', quantity: Number(counts.pickup) || 0, unit: 'orders' },
         { name: 'Delivery Orders', quantity: Number(counts.delivery) || 0, unit: 'orders' },
       ] as ProductionItem[]).filter((item) => item.quantity > 0).sort((a, b) => b.quantity - a.quantity));
+      setProductionLines(Array.isArray(data.lines) ? data.lines : []);
     } catch (e) {
       if (requestId === latestProductionRequest.current) console.error('Failed to fetch production summary:', e);
     }
@@ -394,6 +397,8 @@ export default function AdminOrdersPage() {
     );
   }
 
+  // What to make and pack for every paid order matching the filters (all pages).
+  const sheet = productionSheet(productionLines);
   const FILTERS: { key: FilterType; label: string }[] = [
     { key: 'today', label: 'Today' },
     { key: 'tomorrow', label: 'Tomorrow' },
@@ -450,6 +455,40 @@ export default function AdminOrdersPage() {
               </div>
             ))}
           </div>
+
+          {sheet.sweets.length > 0 && (
+            <section aria-labelledby="sweets-to-make" className="mt-6">
+              <h3 id="sweets-to-make" className="font-display text-base font-semibold text-brand-charcoal">
+                Sweets to make
+              </h3>
+              <p className="font-body text-xs text-brand-charcoal/60 mb-3">Pieces, including what goes inside boxes.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {sheet.sweets.map(({ sweet, pieces }) => (
+                  <div key={sweet} className="bg-brand-gold/10 rounded-lg p-3 text-center">
+                    <p className="font-display text-xl font-bold text-brand-maroon">{pieces}</p>
+                    <p className="font-body text-xs text-brand-charcoal/60">pcs</p>
+                    <p className="font-body text-sm font-medium text-brand-charcoal mt-1">{sweet}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {sheet.items.length > 0 && (
+            <section aria-labelledby="items-to-pack" className="mt-6">
+              <h3 id="items-to-pack" className="font-display text-base font-semibold text-brand-charcoal mb-2">
+                To pack
+              </h3>
+              <ul className="divide-y divide-brand-cream-dark border border-brand-cream-dark rounded-lg">
+                {sheet.items.map(({ label, count, unit }) => (
+                  <li key={label} className="flex items-start justify-between gap-3 px-3 py-2 font-body text-sm">
+                    <span className="text-brand-charcoal">{label}</span>
+                    <span className="font-semibold text-brand-maroon whitespace-nowrap">{count} {unit}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       )}
 
