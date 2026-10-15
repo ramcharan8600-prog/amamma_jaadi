@@ -142,8 +142,8 @@ export default function HomePage() {
             {featuredSweets.map((product) => (
               <Link
                 key={product.id}
-                href="/sweets"
-                className="card group cursor-pointer"
+                href={`/sweets#${product.slug}`}
+                className="card group cursor-pointer flex flex-col"
               >
                 {/* Same fit as the Sweets page: tall photos (Malpuri) show whole, not cropped. */}
                 <div className="relative aspect-[4/3] overflow-hidden bg-brand-cream">
@@ -155,16 +155,22 @@ export default function HomePage() {
                     className={`${product.imageFit === 'contain' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
                   />
                 </div>
-                <div className="p-5">
+                <div className="p-5 flex flex-col flex-1">
                   <h3 className="font-display text-xl font-semibold text-brand-charcoal">
                     {product.name}
                   </h3>
                   <p className="font-body text-sm text-brand-charcoal/60 mt-1 line-clamp-2">
                     {renderDescription(product.description)}
                   </p>
-                  <p className="font-body text-sm font-semibold text-brand-maroon mt-3">
-                    Starting at ${calculateSweetPrice(product, product.quantityOptions?.[0] ?? 16)}
-                  </p>
+                  <div className="flex items-center justify-between gap-3 mt-auto pt-4">
+                    <p className="font-body text-sm font-semibold text-brand-maroon">
+                      Starting at ${calculateSweetPrice(product, product.quantityOptions?.[0] ?? 16)}
+                    </p>
+                    {/* The whole card is the link; this shows where to tap. */}
+                    <span className="btn-primary text-sm px-4 py-2 gap-1.5">
+                      Buy now <ArrowRight size={14} aria-hidden="true" />
+                    </span>
+                  </div>
                 </div>
               </Link>
             ))}

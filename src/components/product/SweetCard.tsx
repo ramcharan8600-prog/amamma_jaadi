@@ -69,7 +69,8 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
   );
 
   return (
-    <div className="card group">
+    // The home page's "Buy now" links here (/sweets#slug); scroll-mt keeps it below the sticky header.
+    <div id={product.slug} className="card group scroll-mt-40">
       {photos.length > 1 ? (
         // Boxed sweets (the Assorted Box) use the gift-box look: closed and
         // open photos side by side with a Gift Box badge.
