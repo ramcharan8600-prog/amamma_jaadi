@@ -62,6 +62,8 @@ import {
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
 import ShippingCharge from '@/components/checkout/ShippingCharge';
 import PickupDateCalendar from '@/components/checkout/PickupDateCalendar';
+import AddressAutocomplete from '@/components/checkout/AddressAutocomplete';
+import type { ResolvedAddress } from '@/lib/address-autocomplete';
 import { SOLD_OUT_DATE_ERROR } from '@/lib/sold-out-dates';
 import { discardWarmSquare, loadSquareSdk, squareSdkUrl, takeWarmSquare, warmSquare, type SquareWarmup } from '@/lib/square-client';
 import {
@@ -493,6 +495,18 @@ export default function CheckoutPage() {
   const pickupLocations = nearbyPickup
     ? [...ACTIVE_PICKUP_LOCATIONS].sort((a, b) => Number(b.zip === nearbyPickup.zip) - Number(a.zip === nearbyPickup.zip))
     : ACTIVE_PICKUP_LOCATIONS;
+
+  /** A tapped Google address suggestion fills the rest of the delivery form. */
+  const fillDeliveryAddress = (address: ResolvedAddress) => {
+    trackStep('address_suggestion_used');
+    setDeliveryAddressLine1(address.line1);
+    if (address.line2) setDeliveryAddressLine2(address.line2);
+    if (address.city) setDeliveryCity(address.city);
+    if (DELIVERY_STATE_OPTIONS.some(({ code }) => code === address.state)) setDeliveryState(address.state);
+    if (address.zip) setDeliveryZip(address.zip);
+    // Apartment or suite numbers are the detail most often missed; ask for it next.
+    if (!address.line2) document.getElementById('delivery-address-line2')?.focus();
+  };
 
   const switchToPickup = () => {
     if (!nearbyPickup || submitting || paying || pendingPayment) return;
@@ -1560,11 +1574,12 @@ export default function CheckoutPage() {
 
           <div>
             <label htmlFor="delivery-address-line1" className="label-text">Address Line 1</label>
-            <input
+            <AddressAutocomplete
               id="delivery-address-line1"
-              type="text"
               value={deliveryAddressLine1}
-              onChange={(e) => setDeliveryAddressLine1(e.target.value)}
+              onChange={setDeliveryAddressLine1}
+              onSelect={fillDeliveryAddress}
+              onSuggestionsShown={() => trackStep('address_suggestions_shown')}
               className="input-field"
               placeholder="Street address"
               autoComplete="shipping address-line1"

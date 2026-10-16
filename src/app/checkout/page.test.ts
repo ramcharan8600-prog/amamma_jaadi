@@ -37,6 +37,10 @@ const squareConfigOk = () => Response.json({
   squareEnabled: true, squareAppId: 'test-app', squareLocationId: 'test-location', squareEnvironment: 'sandbox',
 });
 let squareConfig: () => Promise<Response> | Response = squareConfigOk;
+const suggestOk = () => Response.json({ enabled: true, suggestions: [
+  { placeId: 'ChIJ5YQQf1GHhYARPKG7WLIaOko', main: '123 Main St', secondary: 'Plano, TX, USA' },
+] });
+let suggestResult: () => Response = suggestOk;
 const destroy = vi.fn(async () => undefined);
 const completed = () => Response.json({ success: true, status: 'completed', orderNumber: 'AJ-1234' });
 const pending = () => Response.json({
@@ -63,6 +67,10 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
   if (url === '/api/payments/verify') return verifyResult();
   if (url === '/api/checkout-log') return Response.json({ success: true });
   if (url === '/api/checkout-funnel') return new Response(null, { status: 204 });
+  if (url === '/api/address/suggest') return suggestResult();
+  if (url === '/api/address/resolve') return Response.json({ address: {
+    line1: '123 Main St', line2: '', city: 'Plano', state: 'TX', zip: '75093',
+  } });
   if (url === '/api/sold-out-dates') return Response.json({ dates: soldOutDates });
   if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones });
   if (url === '/api/payments/config') return squareConfig();
@@ -181,6 +189,7 @@ beforeEach(() => {
   fetchMock.mockClear();
   tokenize.mockReset().mockResolvedValue({ status: 'OK', token: 'TEST_CARD_TOKEN' });
   squareConfig = squareConfigOk;
+  suggestResult = suggestOk;
   destroy.mockClear();
   paymentResult = async () => pending();
   verifyResult = async () => pending();
@@ -279,6 +288,60 @@ describe('checkout step counts (pickup vs delivery)', () => {
     const next = funnelReports();
     expect(next.map(({ step }) => step)).toEqual(['method_viewed']);
     expect(next[0].visitId).not.toBe(first[0].visitId);
+  });
+});
+
+describe('Google address suggestions on delivery', () => {
+  async function typeStreet(text: string) {
+    const field = host.querySelector<HTMLInputElement>('#delivery-address-line1')!;
+    await act(async () => field.focus());
+    await input('#delivery-address-line1', text);
+    // The lookup waits for a 300 ms pause in typing.
+    await act(async () => { await new Promise((done) => setTimeout(done, 350)); });
+  }
+  async function toDeliveryForm() {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
+    await render();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    await act(async () => choice!.click());
+  }
+
+  it('fills street, city, state and ZIP from a tapped suggestion, then asks for the apartment', async () => {
+    await toDeliveryForm();
+    await typeStreet('123 Mai');
+    const option = host.querySelector<HTMLElement>('[role="option"]')!;
+    expect(option.textContent).toContain('123 Main St');
+    expect(option.textContent).toContain('Plano, TX, USA');
+    expect(host.querySelector('[role="listbox"]')!.parentElement!.textContent).toContain('Google Maps');
+    await act(async () => { option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); });
+    expect(host.querySelector<HTMLInputElement>('#delivery-address-line1')!.value).toBe('123 Main St');
+    expect(host.querySelector<HTMLInputElement>('#delivery-city')!.value).toBe('Plano');
+    expect(host.querySelector<HTMLSelectElement>('#delivery-state')!.value).toBe('TX');
+    expect(host.querySelector<HTMLInputElement>('#delivery-zip')!.value).toBe('75093');
+    expect(document.activeElement?.id).toBe('delivery-address-line2');
+    expect(host.querySelector('[role="listbox"]')).toBeNull();
+    const steps = calls('/api/checkout-funnel').map(([, init]) => JSON.parse(String(init?.body)).step);
+    expect(steps).toEqual(expect.arrayContaining(['address_suggestions_shown', 'address_suggestion_used']));
+    const sent = JSON.parse(String(calls('/api/address/suggest')[0][1]?.body));
+    expect(sent.input).toBe('123 Mai');
+    expect(JSON.parse(String(calls('/api/address/resolve')[0][1]?.body)).sessionToken).toBe(sent.sessionToken);
+  });
+
+  it('stays quiet without a Google key: no list, no more lookups, typing works as before', async () => {
+    suggestResult = () => Response.json({ enabled: false, suggestions: [] });
+    await toDeliveryForm();
+    await typeStreet('123 Mai');
+    await typeStreet('123 Main Street');
+    expect(calls('/api/address/suggest')).toHaveLength(1);
+    expect(host.querySelector('[role="listbox"]')).toBeNull();
+    expect(host.querySelector<HTMLInputElement>('#delivery-address-line1')!.value).toBe('123 Main Street');
+  });
+
+  it('waits for 4 characters before looking anything up', async () => {
+    await toDeliveryForm();
+    await typeStreet('12');
+    expect(calls('/api/address/suggest')).toHaveLength(0);
   });
 });
 

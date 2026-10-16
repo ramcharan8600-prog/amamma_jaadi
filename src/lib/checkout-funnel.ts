@@ -17,6 +17,8 @@ export const CHECKOUT_FUNNEL_STEPS = [
   'pickup_date_chosen', // detail: days ahead of today
   'delivery_fee_shown', // detail: texas | nearby | far
   'delivery_blocked', // detail: paused | minimum | restricted | unsupported
+  'address_suggestions_shown', // Google address suggestions appeared
+  'address_suggestion_used', // the customer tapped one and the form filled in
   'payment_reached', // detail: pickup | delivery
   'order_completed', // detail: pickup | delivery
 ] as const;
