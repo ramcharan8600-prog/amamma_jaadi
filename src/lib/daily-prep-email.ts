@@ -29,9 +29,11 @@ export function shipToCity(address: string | null | undefined): string {
 
 /** One line per item, already HTML-escaped. */
 function itemsHtml(order: PlanOrder): string {
-  return order.items
+  const items = order.items
     .map((i) => escapeHtml(`${i.product_name}${i.selected_tier ? ` (${i.selected_tier} pcs)` : ''} × ${i.quantity}`))
     .join('<br>');
+  const note = order.admin_note?.trim();
+  return note ? `${items}<br><span style="color:#9a3412; font-style:italic;">Note: ${escapeHtml(note).replace(/\n/g, '<br>')}</span>` : items;
 }
 
 const th = 'text-align:left; padding:6px 8px; font-size:12px; color:#666; border-bottom:2px solid #eee;';

@@ -14,6 +14,8 @@ export interface PlanOrder {
   created_at: string;
   /** Delivery orders only: the ship-to address (several lines). */
   delivery_address?: string | null;
+  /** Owner's private note (admin only). */
+  admin_note?: string | null;
   items: Array<{ product_name: string; quantity: number; selected_tier: number | null }>;
 }
 
@@ -39,7 +41,7 @@ export async function loadProductionPlan(db: D1Database, dates: string[]): Promi
   const [orders, items] = await Promise.all([
     db.prepare(
       `SELECT o.id, o.order_number, o.customer_name, o.order_type, o.pickup_date, o.pickup_location, o.created_at,
-              o.delivery_address
+              o.delivery_address, o.admin_note
        FROM orders o WHERE ${planned}
        ORDER BY o.pickup_date, o.pickup_location, o.created_at, o.id`
     ).bind(...dates).all<Omit<PlanOrder, 'items'>>(),

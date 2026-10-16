@@ -38,6 +38,14 @@ describe('9 AM daily prep email', () => {
     expect(email.html).not.toContain('$');
   });
 
+  it("shows the owner's note under that order's items, escaped", () => {
+    const noted: ProductionPlan = { ...plan, days: [{ date: '2026-10-15', orders: [
+      order({ id: 'p2', order_number: 'AJ-1197', admin_note: 'Free Kova 16 <gift>\nPickup Sunday', items: [{ product_name: 'Kova', quantity: 1, selected_tier: 16 }] }),
+    ] }] };
+    const html = buildDailyPrepEmail({ to: 'k@example.com', date: '2026-10-15', plan: noted }).html;
+    expect(html).toContain('Note: Free Kova 16 &lt;gift&gt;<br>Pickup Sunday');
+  });
+
   it('says so when there are no pickups, and on Tuesdays that pickup is closed', () => {
     const empty = { days: [{ date: '2026-10-20', orders: [] }], delivery: [] };
     const tue = buildDailyPrepEmail({ to: 'k@example.com', date: '2026-10-20', plan: empty }).html;

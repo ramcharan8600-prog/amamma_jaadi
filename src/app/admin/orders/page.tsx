@@ -18,6 +18,7 @@ import { PICKUP_LOCATIONS } from '@/data/products';
 import { productionSheet } from '@/lib/production';
 import { effectiveShipRoute, stateFromAddress } from '@/lib/ship-routing';
 import ShipPanel from '@/components/admin/ShipPanel';
+import AdminNoteCell from '@/components/admin/AdminNoteCell';
 import type { OrderItemRecord, OrderRecord, ShipmentStatus } from '@/types';
 
 interface ProductionItem {
@@ -673,6 +674,7 @@ export default function AdminOrdersPage() {
                   'Status',
                   'Shipment Status',
                   'Tracking ID',
+                  'Note',
                 ].map((h) => (
                   <th
                     key={h}
@@ -857,6 +859,14 @@ export default function AdminOrdersPage() {
                       ) : (
                         <span className="font-body text-xs text-brand-charcoal/40">—</span>
                       )}
+                    </td>
+                    <td className="py-3 px-2 align-top">
+                      <AdminNoteCell
+                        orderId={order.id}
+                        orderNumber={order.order_number}
+                        note={order.admin_note}
+                        onSaved={(note) => setOrders((current) => current.map((o) => (o.id === order.id ? { ...o, admin_note: note } : o)))}
+                      />
                     </td>
                   </tr>
                 ))}

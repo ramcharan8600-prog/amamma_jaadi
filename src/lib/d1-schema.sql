@@ -34,7 +34,9 @@ CREATE TABLE IF NOT EXISTS orders (
   ship_route TEXT CHECK (ship_route IN ('shippo', 'pirate_ship')),
   ship_box TEXT,
   ship_weight_lb REAL,
-  tracking_emailed_at TEXT
+  tracking_emailed_at TEXT,
+  -- Owner's private note (migration 026): admin pages and the prep email only
+  admin_note TEXT
 );
 
 CREATE TABLE IF NOT EXISTS order_items (

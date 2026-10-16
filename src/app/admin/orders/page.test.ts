@@ -31,6 +31,7 @@ const orders = Array.from({ length: 60 }, (_, i) => ({
 const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   const path = String(input);
   if (path === '/api/auth') return Response.json({ authenticated: true });
+  if (path === '/api/orders/note') return Response.json({ success: true, note: 'On hold until he asks' });
   if (path.startsWith('/api/admin/shipping?orderId=')) {
     return Response.json({ order: { id: 'd1', orderNumber: 'AJ-2001', customerName: 'Far Buyer', items: [], labels: [], activeLabel: null,
       route: 'pirate_ship', autoRoute: 'pirate_ship', routeReason: 'Far state with Malpuri', routeOverride: null, shipmentStatus: 'yet_to_ship',
@@ -177,4 +178,21 @@ it('gives each delivery order a Ship button with its route or label, opening the
   const panel = host.querySelector('[role="dialog"]')!;
   expect(panel.getAttribute('aria-label')).toBe('Ship AJ-2001');
   expect(panel.textContent).toContain('Ship this order on Pirate Ship');
+});
+
+it('has a Note column the owner can type into, saved when the box is left', async () => {
+  orders.splice(0, orders.length, { ...orders[0], id: 'n1', order_number: 'AJ-3001', admin_note: 'Free Kova 16' } as unknown as typeof orders[number]);
+  await render();
+  expect([...host.querySelectorAll('thead th')].map((th) => th.textContent)).toContain('Note');
+  const box = host.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note for AJ-3001"]')!;
+  expect(box.value).toBe('Free Kova 16');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(box, 'On hold until he asks');
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => { box.focus(); box.blur(); });
+  await act(async () => {});
+  const call = fetchMock.mock.calls.find(([input]) => String(input) === '/api/orders/note')!;
+  expect(JSON.parse(String(((call as unknown[])[1] as RequestInit).body))).toEqual({ orderId: 'n1', note: 'On hold until he asks' });
+  expect(host.textContent).toContain('Saved');
 });

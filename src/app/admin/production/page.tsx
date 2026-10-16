@@ -112,6 +112,7 @@ function PlanCard({ title, subtitle, orders, note, icon }: {
                     </p>
                     <ul className="mt-1 font-body text-sm text-brand-charcoal/80 list-disc pl-5">
                       {order.items.map((item, i) => <li key={i}>{itemLabel(item)}</li>)}
+                      {order.admin_note && <li className="list-none text-amber-800 italic whitespace-pre-line">Note: {order.admin_note}</li>}
                     </ul>
                   </li>
                 ))}

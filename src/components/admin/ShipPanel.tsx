@@ -151,6 +151,12 @@ export default function ShipPanel({ orderId, onClose, onChanged }: { orderId: st
                 </p>
               </section>
 
+              {order.adminNote && (
+                <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 whitespace-pre-line">
+                  <strong>Note:</strong> {order.adminNote}
+                </p>
+              )}
+
               <section aria-label="Packing list">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-charcoal/60 mb-1">Packing list</h3>
                 <ul className="list-disc pl-5 text-brand-charcoal/80">

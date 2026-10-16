@@ -85,6 +85,8 @@ export interface ShippingOrder {
   groundOnly: boolean;
   activeLabel: LabelRow | null;
   labels: LabelRow[];
+  /** Owner's private note (e.g. "on hold until the customer asks"). */
+  adminNote: string | null;
 }
 
 /** Structured address from the paid checkout session, else the saved address text. */
@@ -148,6 +150,7 @@ export async function loadShippingOrder(db: D1Database, orderId: string): Promis
     groundOnly: isMalaiKhajaGround(lines),
     activeLabel: labelRows.find((l) => l.status === 'buying' || l.status === 'purchased') ?? null,
     labels: labelRows,
+    adminNote: (row.admin_note as string | null) ?? null,
   };
 }
 

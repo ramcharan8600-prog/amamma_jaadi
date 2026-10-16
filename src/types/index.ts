@@ -185,6 +185,8 @@ export interface OrderRecord {
   label_amount?: number | null;
   /** When the customer's tracking email was queued (ISO time), 'emails-off', 'before-shippo', or null = waiting for 6:30 PM. */
   tracking_emailed_at?: string | null;
+  /** Owner's private note; never shown to customers. */
+  admin_note?: string | null;
   created_at: string;
   /** Present when the query joins order_items (e.g. analytics). */
   order_items?: OrderItemRecord[] | null;
