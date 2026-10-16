@@ -262,6 +262,24 @@ describe('checkout step counts (pickup vs delivery)', () => {
       ['delivery_fee_shown', 'texas'],
     ]);
   });
+
+  it('reports the finished order, then starts a fresh visit for the next checkout in the tab', async () => {
+    paymentResult = async () => completed();
+    await readyToPay();
+    await click('Pay $40.00');
+    expect(host.textContent).toContain('AJ-1234');
+    const first = funnelReports();
+    expect(first.at(-1)).toMatchObject({ step: 'order_completed', detail: 'pickup' });
+    expect(sessionStorage.getItem('aj-checkout-visit')).toBeNull();
+    await unmount();
+    fetchMock.mockClear();
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 16);
+    await render();
+    await click('Continue');
+    const next = funnelReports();
+    expect(next.map(({ step }) => step)).toEqual(['method_viewed']);
+    expect(next[0].visitId).not.toBe(first[0].visitId);
+  });
 });
 
 describe('paused delivery areas (Admin → Production)', () => {
