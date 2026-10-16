@@ -77,7 +77,12 @@ export async function GET(request: NextRequest) {
     const ordersRes = await db
       .prepare(`SELECT orders.*, EXISTS (
         SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = orders.id
-      ) AS is_test_order FROM orders WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT ? OFFSET ?`)
+      ) AS is_test_order,
+      -- The order's usable Shippo label, if any (for the Ship button's badge).
+      (SELECT l.status FROM shipping_labels l WHERE l.order_id = orders.id AND l.status IN ('buying', 'purchased')) AS label_status,
+      (SELECT l.service_name FROM shipping_labels l WHERE l.order_id = orders.id AND l.status IN ('buying', 'purchased')) AS label_service,
+      (SELECT l.amount FROM shipping_labels l WHERE l.order_id = orders.id AND l.status IN ('buying', 'purchased')) AS label_amount
+      FROM orders WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT ? OFFSET ?`)
       .bind(...binds, pageSize, offset)
       .all<Record<string, unknown>>();
     const orders = ordersRes.results ?? [];

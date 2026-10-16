@@ -507,3 +507,156 @@ export async function sendDeliveryConfirmation(params: {
     dedupeKey: `delivery-confirmation:${params.orderNumber}:${params.estimatedDelivery}`,
   });
 }
+
+// ─── Project Shippo emails ────────────────────────────────────
+
+/** UPS public tracking page for a tracking number. */
+export function upsTrackingUrl(trackingNumber: string): string {
+  return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(trackingNumber)}`;
+}
+
+/** To the shop, right after a label is bought: the label link, tracking and the packing list. */
+export function buildShippingLabelEmail(params: {
+  to: string;
+  labelId: string;
+  orderNumber: string;
+  customerName: string;
+  cityState: string;
+  serviceName: string;
+  amount: number;
+  trackingNumber: string | null;
+  labelUrl: string | null;
+  box: string;
+  weightLb: number;
+  shipDate: string;
+  items: Array<{ name: string; quantity: number }>;
+}): EmailOutboxPayload {
+  const rows = params.items
+    .map((i) => `<tr><td style="padding:6px 0;">${escapeHtml(i.name)}</td><td style="text-align:right;">× ${Number(i.quantity) || 0}</td></tr>`)
+    .join('');
+  const html = baseTemplate(`
+    <h2 style="color: #7B1F1F; margin-top: 0;">Label ready: ${escapeHtml(params.orderNumber)}</h2>
+    <p style="margin: 0 0 12px;">${escapeHtml(params.customerName)} · ${escapeHtml(params.cityState)}</p>
+    ${params.labelUrl ? `<p style="margin: 16px 0;"><a href="${escapeHtml(params.labelUrl)}" style="background:#7B1F1F; color:#fff; padding:10px 18px; border-radius:8px; text-decoration:none; font-weight:bold;">Download 4×6 label (PDF)</a></p>` : ''}
+    <div style="background: #FFF8F0; padding: 14px 16px; border-radius: 8px; margin: 16px 0;">
+      <p style="margin: 4px 0;"><strong>Service:</strong> ${escapeHtml(params.serviceName)} · $${params.amount.toFixed(2)}</p>
+      <p style="margin: 4px 0;"><strong>Tracking:</strong> ${params.trackingNumber ? escapeHtml(params.trackingNumber) : '—'}</p>
+      <p style="margin: 4px 0;"><strong>Box:</strong> ${escapeHtml(params.box)} in · ${params.weightLb} lb packed</p>
+      <p style="margin: 4px 0;"><strong>Ship date:</strong> ${escapeHtml(params.shipDate)}</p>
+    </div>
+    <h3 style="margin: 16px 0 6px;">Packing list</h3>
+    <table style="width:100%; border-collapse: collapse;">${rows}</table>
+  `);
+  return {
+    to: params.to,
+    subject: `${params.orderNumber} · ${params.serviceName} · ${params.cityState}`,
+    html,
+    dedupeKey: `shipping-label:${params.labelId}`,
+  };
+}
+
+/** To the shop every night: delivery orders still waiting for a label or a Pirate Ship tracking number. */
+export function buildShippingWaitingEmail(params: {
+  to: string;
+  date: string;
+  waiting: Array<{ orderNumber: string; customerName: string; cityState: string; route: string; orderedOn: string }>;
+}): EmailOutboxPayload {
+  const rows = params.waiting
+    .map((o) => `<tr><td style="padding:6px 0;"><strong>${escapeHtml(o.orderNumber)}</strong></td><td>${escapeHtml(o.customerName)}</td><td>${escapeHtml(o.cityState)}</td><td>${escapeHtml(o.route)}</td><td>${escapeHtml(o.orderedOn)}</td></tr>`)
+    .join('');
+  const html = baseTemplate(params.waiting.length === 0
+    ? `<h2 style="color: #1B4332; margin-top: 0;">All orders have labels ✅</h2><p>No delivery orders are waiting for a label tonight.</p>`
+    : `<h2 style="color: #7B1F1F; margin-top: 0;">${params.waiting.length} delivery ${params.waiting.length === 1 ? 'order is' : 'orders are'} waiting</h2>
+       <p>These paid delivery orders have no label (Shippo) or tracking number (Pirate Ship) yet.</p>
+       <table style="width:100%; border-collapse: collapse; font-size: 14px;">
+         <tr style="text-align:left; color:#666;"><th>Order</th><th>Customer</th><th>To</th><th>Ship by</th><th>Ordered</th></tr>${rows}
+       </table>`);
+  return {
+    to: params.to,
+    subject: params.waiting.length === 0 ? `All orders have labels · ${params.date}` : `${params.waiting.length} delivery orders waiting · ${params.date}`,
+    html,
+    dedupeKey: `shipping-waiting:${params.date}`,
+  };
+}
+
+/** Where a tracking number can be followed: UPS (1Z…), USPS (Pirate Ship), or unknown. */
+function trackingCarrier(trackingNumber: string): { name: string; url: string } | null {
+  const n = trackingNumber.trim();
+  if (/^1Z[0-9A-Z]{16}$/i.test(n)) return { name: 'UPS', url: upsTrackingUrl(n) };
+  if (/^9\d{19,21}$/.test(n)) {
+    return { name: 'USPS', url: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(n)}` };
+  }
+  return null;
+}
+
+/**
+ * To the customer, once, after UPS has their box: the owner's approved
+ * "Your order is on its way!" email (2026-09-02 template), with the UPS card
+ * and button. Non-UPS numbers get the same email without UPS branding.
+ */
+export function buildTrackingEmail(params: {
+  to: string;
+  cc?: string[];
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  trackingNumber: string;
+  delivered?: boolean;
+}): EmailOutboxPayload {
+  const trackingNumber = params.trackingNumber.trim();
+  const carrier = trackingCarrier(trackingNumber);
+  const ups = carrier?.name === 'UPS';
+  const name = escapeHtml(params.customerName.trim()) || 'there';
+  const orderNumber = escapeHtml(params.orderNumber);
+  const status = params.delivered ? 'Delivered' : 'In transit';
+  const p = 'margin:0 0 12px;font-size:16px;line-height:1.65;';
+  const label = 'margin-top:10px;font-size:14px;color:#75665c;';
+  const html = `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="x-apple-disable-message-reformatting"></head>
+<body style="margin:0;padding:0;background:#f4f1ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#2d2926;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your ${BRAND_NAME} order tracking details are ready.</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f1ec;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 3px 14px rgba(69,45,26,.10);">
+<tr><td align="center" style="padding:22px 20px;border-bottom:2px solid #7b1f1f;">
+<table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;"><tr>
+<td valign="middle" style="padding-right:14px;"><img src="${SITE_URL}/images/brand/email-logo.png" alt="${BRAND_NAME}" width="68" height="68" style="display:block;width:68px;height:68px;border-radius:50%;border:0;"></td>
+<td valign="middle" align="left"><div style="color:#7b1f1f;font-size:29px;font-weight:bold;line-height:1.1;">${BRAND_NAME}</div><div style="margin-top:4px;color:#c6992e;font-size:13px;letter-spacing:2.3px;">FLAVORS OF HOME</div></td>
+</tr></table></td></tr>
+<tr><td style="padding:34px 40px 8px;">
+<div style="font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:#c6992e;font-weight:bold;margin-bottom:12px;">Shipping confirmation</div>
+<h1 style="margin:0 0 20px;font-size:29px;line-height:1.2;color:#1b4332;">Your order is on its way!</h1>
+<p style="margin:0 0 14px;font-size:16px;line-height:1.65;">Hi ${name},</p>
+<p style="${p}">Your order has been packed and dispatched${carrier ? ` via ${carrier.name}` : ''} to your destination.</p>
+<p style="margin:0 0 24px;font-size:16px;line-height:1.65;">${params.delivered
+    ? `${carrier ? carrier.name : 'The carrier'} shows your package as delivered. Please use the tracking link below for the delivery details.`
+    : 'Your package is currently in transit. Please use the tracking link below for the latest delivery estimate.'}</p>
+</td></tr>
+<tr><td style="padding:0 40px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#fff8f0;border:1px solid #eadbc9;border-radius:8px;"><tr>
+${ups ? `<td width="106" align="center" valign="middle" style="padding:22px 10px 22px 20px;"><img src="${SITE_URL}/images/email/ups-logo.png" width="72" height="72" alt="UPS" style="display:block;width:72px;height:72px;border:0;"></td>\n` : ''}<td valign="middle" style="padding:22px 22px 22px ${ups ? '8px' : '22px'};">
+<div style="font-size:12px;letter-spacing:1.3px;text-transform:uppercase;color:#75665c;">${carrier ? `${carrier.name} shipment` : 'Shipment'}</div>
+<div style="${label}">Order ID</div>
+<div style="font-size:18px;line-height:1.4;color:#7b1f1f;font-weight:bold;">${orderNumber}</div>
+<div style="${label}">Tracking number</div>
+<div style="font-size:18px;line-height:1.4;color:#1b4332;font-weight:bold;word-break:break-all;">${escapeHtml(trackingNumber)}</div>
+<div style="${label}">Current status</div>
+<div style="font-size:17px;line-height:1.4;color:#7b1f1f;font-weight:bold;">${status}</div>
+</td></tr></table></td></tr>
+${carrier ? `<tr><td align="center" style="padding:26px 40px 18px;"><a href="${escapeHtml(carrier.url)}" style="display:inline-block;background:#351c15;color:#ffbf27;text-decoration:none;font-size:16px;font-weight:bold;padding:15px 32px;border-radius:7px;">Track Package with ${carrier.name}</a></td></tr>` : '<tr><td style="padding:18px 40px 0;"></td></tr>'}
+<tr><td style="padding:4px 40px 32px;">
+<p style="margin:0 0 18px;font-size:14px;line-height:1.65;color:#6b625d;">${carrier ? `${carrier.name} tracking` : 'Tracking'} will show the latest movement and estimated delivery date.</p>
+<p style="margin:0;font-size:16px;line-height:1.65;">Thank you for choosing ${BRAND_NAME}. We hope you enjoy every bite!</p>
+<p style="margin:20px 0 0;font-size:16px;line-height:1.6;">Thanks,<br><strong style="color:#7b1f1f;">Team ${BRAND_NAME}</strong></p>
+</td></tr>
+<tr><td align="center" style="border-top:1px solid #eee;padding:18px 24px;color:#999999;"><div style="font-size:12px;line-height:1.6;">${BRAND_NAME} · Dallas, TX · <a href="https://www.amammajaadi.com" style="color:#7b1f1f;">www.AmammaJaadi.com</a></div></td></tr>
+</table></td></tr></table></body></html>`;
+  return {
+    to: params.to,
+    ...(params.cc?.length ? { cc: params.cc } : {}),
+    subject: `${BRAND_NAME}: ${params.orderNumber} Your Order is on its way`,
+    html,
+    dedupeKey: `tracking:${params.orderId}:${params.trackingNumber}`,
+  };
+}

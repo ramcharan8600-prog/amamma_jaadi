@@ -25,7 +25,9 @@
     "OWNER_NOTIFICATION_EMAIL": "ramcharan8600@gmail.com,amammajaadi@gmail.com",
     "FROM_EMAIL": "orders@amammajaadi.com",
     // Other email types retain Resend. Order confirmations always use EMAIL.
-    "EMAIL_PROVIDER": "resend"
+    "EMAIL_PROVIDER": "resend",
+    // Project Shippo customer tracking emails stay off until the owner approves the email.
+    "CUSTOMER_TRACKING_EMAILS": "off"
   },
   "send_email": [
     {
@@ -77,7 +79,8 @@
         "EMAIL_PROVIDER": "cloudflare",
         // Fail-closed delivery gate; never reroute old test/customer messages.
         "SANDBOX_EMAIL_RECIPIENT": "ramcharan8600@gmail.com",
-        "SANDBOX_EMAIL_TEST_RECIPIENT": "sairamcharan20@gmail.com"
+        "SANDBOX_EMAIL_TEST_RECIPIENT": "sairamcharan20@gmail.com",
+        "CUSTOMER_TRACKING_EMAILS": "on"
       },
       "send_email": [
         {

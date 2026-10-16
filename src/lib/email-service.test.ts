@@ -10,6 +10,7 @@ vi.mock('@/lib/email-outbox', () => ({
 }));
 
 import {
+  buildTrackingEmail,
   buildOrderConfirmationEmail,
   isWeekendDispatchOrder,
   buildOwnerOrderAlertEmail,
@@ -226,6 +227,65 @@ describe('pickup confirmation email hours', () => {
     expect(buildOrderConfirmationEmail(pickupParams).html).toContain('between <strong>6:30 PM and 12:45 AM</strong>');
   });
 });
+
+describe('customer tracking email (owner template, 2026-09-02)', () => {
+  const build = (over: Partial<Parameters<typeof buildTrackingEmail>[0]> = {}) => buildTrackingEmail({
+    to: 'buyer@example.com', orderId: 'o1', orderNumber: 'AJ-1020', customerName: 'Aishwarya Gantasala',
+    trackingNumber: '1Z2752H30320025610', ...over,
+  });
+
+  it('matches the approved UPS layout: subject, greeting, card, button and footer', () => {
+    const email = build();
+    expect(email.subject).toBe('Amamma Jaadi: AJ-1020 Your Order is on its way');
+    expect(email.dedupeKey).toBe('tracking:o1:1Z2752H30320025610');
+    expect(email).not.toHaveProperty('cc');
+    for (const text of [
+      'Shipping confirmation', 'Your order is on its way!', 'Hi Aishwarya Gantasala,',
+      'Your order has been packed and dispatched via UPS to your destination.',
+      'Your package is currently in transit. Please use the tracking link below for the latest delivery estimate.',
+      'UPS shipment', 'AJ-1020', '1Z2752H30320025610', 'In transit',
+      'https://amammajaadi.com/images/email/ups-logo.png',
+      'href="https://www.ups.com/track?loc=en_US&amp;tracknum=1Z2752H30320025610"', 'Track Package with UPS',
+      'UPS tracking will show the latest movement and estimated delivery date.',
+      'Thank you for choosing Amamma Jaadi. We hope you enjoy every bite!', 'Team Amamma Jaadi',
+      'www.AmammaJaadi.com',
+    ]) expect(email.html).toContain(text);
+    // No sweets claim: the same email goes to pickle-only orders.
+    expect(email.html).not.toContain('ghee');
+  });
+
+  it('copies the shop when given a Cc and reports a delivered package', () => {
+    const email = build({ cc: ['amamma.jaadi@gmail.com'], delivered: true });
+    expect(email.cc).toEqual(['amamma.jaadi@gmail.com']);
+    expect(email.html).toContain('UPS shows your package as delivered.');
+    expect(email.html).toContain('>Delivered<');
+    expect(email.html).not.toContain('In transit');
+  });
+
+  it('never puts UPS branding on a USPS or unknown tracking number', () => {
+    const usps = build({ trackingNumber: '9400111899223344556677' });
+    expect(usps.html).toContain('href="https://tools.usps.com/go/TrackConfirmAction?tLabels=9400111899223344556677"');
+    expect(usps.html).toContain('Track Package with USPS');
+    expect(usps.html).toContain('dispatched via USPS');
+    expect(usps.html).not.toContain('ups-logo.png');
+    expect(usps.html).not.toContain('ups.com');
+
+    const unknown = build({ trackingNumber: 'ABC123' });
+    expect(unknown.html).toContain('ABC123');
+    expect(unknown.html).toContain('Your order has been packed and dispatched to your destination.');
+    expect(unknown.html).not.toContain('Track Package with');
+    expect(unknown.html).not.toContain('ups-logo.png');
+  });
+
+  it('escapes customer details and greets "there" without a name', () => {
+    const email = build({ customerName: '<b>Eve</b>', orderNumber: 'AJ-<1>' });
+    expect(email.html).toContain('Hi &lt;b&gt;Eve&lt;/b&gt;,');
+    expect(email.html).toContain('AJ-&lt;1&gt;');
+    expect(email.html).not.toContain('<b>Eve</b>');
+    expect(build({ customerName: '  ' }).html).toContain('Hi there,');
+  });
+});
+
 describe('weekend dispatch note (Thu–Sun delivery orders)', () => {
   const base = {
     email: 'c@example.com', orderNumber: 'AJ-2000', squarePaymentId: 'p1', customerName: 'Test', phone: '1',

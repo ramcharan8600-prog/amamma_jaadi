@@ -41,7 +41,7 @@ describe('shipment tracking', () => {
 
     expect(updated).toBe(true);
     expect(sql).toContain("order_type = 'delivery'");
-    expect(binds).toEqual(['shipped', 'TRACK123', 'ORDER_1']);
+    expect(binds).toEqual(['shipped', 'TRACK123', 'TRACK123', 'ORDER_1']);
   });
 
   it('saves a sheet of delivery changes in one D1 batch and reports missing rows', async () => {
@@ -70,8 +70,8 @@ describe('shipment tracking', () => {
     ]);
 
     expect(binds).toEqual([
-      ['shipped', 'TRACK123', 'ORDER_1'],
-      ['delivered', null, 'ORDER_2'],
+      ['shipped', 'TRACK123', 'TRACK123', 'ORDER_1'],
+      ['delivered', null, null, 'ORDER_2'],
     ]);
     expect(result).toEqual({
       updatedOrderIds: ['ORDER_1'],

@@ -16,6 +16,8 @@ import { d1TimestampToBusinessDate } from '@/lib/date';
 import { shippingMethodLabel } from '@/lib/pricing';
 import { PICKUP_LOCATIONS } from '@/data/products';
 import { productionSheet } from '@/lib/production';
+import { effectiveShipRoute, stateFromAddress } from '@/lib/ship-routing';
+import ShipPanel from '@/components/admin/ShipPanel';
 import type { OrderItemRecord, OrderRecord, ShipmentStatus } from '@/types';
 
 interface ProductionItem {
@@ -42,10 +44,33 @@ function pageNumbers(current: number, count: number): Array<number | 'gap'> {
   return pages;
 }
 
+/** Mirrors the server: a new tracking number goes into the next 6:30 PM tracking email batch. */
+function emailedAfterSave(order: OrderRecord, trackingId: string): OrderRecord['tracking_emailed_at'] {
+  const next = trackingId.trim();
+  return next && next !== (order.tracking_id ?? '').trim() ? null : order.tracking_emailed_at;
+}
+
+/** The customer's tracking email for this order's saved number, in a few words. */
+function trackingEmailNote(order: OrderRecord): string | null {
+  const at = order.tracking_emailed_at;
+  if (!order.tracking_id?.trim() || at === undefined || at === 'before-shippo') return null;
+  if (at === null) {
+    return order.label_status === 'purchased'
+      ? 'Tracking email queued · 6:30 PM, after UPS scans the box'
+      : 'Tracking email queued · goes out at 6:30 PM';
+  }
+  if (at === 'emails-off') return 'Tracking email not sent (emails were off)';
+  const sent = new Date(at);
+  return Number.isNaN(sent.getTime()) ? null
+    : `Tracking email sent ${sent.toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric' })}`;
+}
+
 /** Admin → All Orders: every order with filters, shipment tracking and the production summary. */
 export default function AdminOrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+  // Delivery order whose Ship panel is open (Project Shippo).
+  const [shipOrderId, setShipOrderId] = useState<string | null>(null);
   // Orders matching the filters across all pages, and what they need.
   const [totalOrders, setTotalOrders] = useState(0);
   const [production, setProduction] = useState<ProductionItem[]>([]);
@@ -246,6 +271,7 @@ export default function AdminOrdersPage() {
             ...order,
             shipment_status: normalizedDraft.shipmentStatus,
             tracking_id: normalizedDraft.trackingId || null,
+            tracking_emailed_at: emailedAfterSave(order, normalizedDraft.trackingId),
           }
         : order));
       setShipmentDrafts((current) => ({ ...current, [orderId]: normalizedDraft }));
@@ -294,6 +320,7 @@ export default function AdminOrdersPage() {
           ...order,
           shipment_status: update.shipmentStatus,
           tracking_id: update.trackingId || null,
+          tracking_emailed_at: emailedAfterSave(order, update.trackingId),
         };
       }));
       setShipmentDrafts((current) => {
@@ -665,6 +692,28 @@ export default function AdminOrdersPage() {
                     <td className="py-3 px-2 font-body text-xs font-medium text-brand-maroon">
                       {order.order_number}
                       {!!order.is_test_order && <span className="block mt-1 text-brand-charcoal/60">Test order · excluded from reports</span>}
+                      {order.order_type === 'delivery' && (() => {
+                        const route = effectiveShipRoute(order.ship_route, stateFromAddress(order.delivery_address), order.order_items ?? []).route;
+                        return (
+                          <span className="block mt-1.5 space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => setShipOrderId(order.id)}
+                              className="inline-flex items-center gap-1 rounded-md border border-brand-maroon/40 px-2 py-0.5 font-semibold text-brand-maroon hover:bg-brand-cream"
+                              aria-label={`Ship ${order.order_number}`}
+                            >
+                              🚚 Ship
+                            </button>
+                            <span className={`block text-[11px] font-normal ${order.label_status === 'purchased' ? 'text-green-700' : order.label_status === 'buying' ? 'text-amber-700' : 'text-brand-charcoal/60'}`}>
+                              {order.label_status === 'purchased'
+                                ? `Label · ${order.label_service ?? ''}${order.label_amount != null ? ` ${formatCurrency(order.label_amount)}` : ''}`
+                                : order.label_status === 'buying'
+                                  ? 'Label not confirmed'
+                                  : route === 'shippo' ? 'Shippo' : 'Pirate Ship'}
+                            </span>
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-3 px-2 font-body text-xs">
                       {order.customer_name || '—'}
@@ -801,6 +850,9 @@ export default function AdminOrdersPage() {
                                 ? 'Saved'
                                 : 'Save'}
                           </button>
+                          {trackingEmailNote(order) && (
+                            <p className="font-body text-[11px] text-brand-charcoal/60">{trackingEmailNote(order)}</p>
+                          )}
                         </div>
                       ) : (
                         <span className="font-body text-xs text-brand-charcoal/40">—</span>
@@ -854,6 +906,13 @@ export default function AdminOrdersPage() {
             )}
           </nav>
         </div>
+      )}
+      {shipOrderId && (
+        <ShipPanel
+          orderId={shipOrderId}
+          onClose={() => setShipOrderId(null)}
+          onChanged={() => { fetchOrders(); }}
+        />
       )}
     </div>
   );

@@ -178,6 +178,13 @@ export interface OrderRecord {
   refunded_amount: number;
   shipment_status: ShipmentStatus;
   tracking_id: string | null;
+  /** Project Shippo: the owner's route override, and the usable label's summary (from /api/orders). */
+  ship_route?: 'shippo' | 'pirate_ship' | null;
+  label_status?: 'buying' | 'purchased' | null;
+  label_service?: string | null;
+  label_amount?: number | null;
+  /** When the customer's tracking email was queued (ISO time), 'emails-off', 'before-shippo', or null = waiting for 6:30 PM. */
+  tracking_emailed_at?: string | null;
   created_at: string;
   /** Present when the query joins order_items (e.g. analytics). */
   order_items?: OrderItemRecord[] | null;

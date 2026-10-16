@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(async () => new Response('mock generated Worker')),
   processEmail: vi.fn<typeof processEmailOutboxMessage>(),
   validMessage: vi.fn(),
+  shippingJobs: vi.fn(async () => ({})),
+  selfTests: vi.fn(async () => 0),
   reconcileRefunds: vi.fn(),
   listRefunds: vi.fn(),
   refundSummary: vi.fn(),
@@ -33,6 +35,8 @@ vi.mock('@/lib/square', () => ({
 }));
 vi.mock('@/lib/square-webhook', () => ({ reconcileSquareRefunds: mocks.reconcileRefunds }));
 vi.mock('@/lib/order-service', () => ({ createOrderFromSession: mocks.finalize }));
+vi.mock('@/lib/shipping-jobs', () => ({ runShippingJobs: mocks.shippingJobs }));
+vi.mock('@/lib/shippo-self-test', () => ({ runShippoSelfTests: mocks.selfTests }));
 vi.mock('@/lib/daily-prep-email', () => ({ sendDailyPrepEmail: mocks.dailyPrep }));
 
 import worker from '../../custom-worker';
@@ -87,7 +91,7 @@ describe('scheduled Worker recovery wiring', () => {
   it('registers independent recoveries and passes sandbox config and the queue to injected operations', async () => {
     const f = fixture();
     await worker.scheduled(f.controller, f.env, f.ctx);
-    expect(f.ctx.waitUntil).toHaveBeenCalledTimes(2);
+    expect(f.ctx.waitUntil).toHaveBeenCalledTimes(3);
     expect(mocks.emailRecovery).toHaveBeenCalledExactlyOnceWith(f.db, f.env.EMAIL_QUEUE);
     expect(mocks.paymentRecovery).toHaveBeenCalledOnce();
     const [db, dependencies] = mocks.paymentRecovery.mock.calls[0];
@@ -114,7 +118,12 @@ describe('scheduled Worker recovery wiring', () => {
     };
     await dependencies.finalize!(f.db, session, 'test-payment');
     expect(mocks.finalize).toHaveBeenCalledExactlyOnceWith(f.db, session, 'test-payment', { emailQueue: f.env.EMAIL_QUEUE });
-    await expect(Promise.all(f.pending)).resolves.toEqual([undefined, undefined]);
+    await expect(Promise.all(f.pending)).resolves.toEqual([0, undefined, undefined]);
+    // Project Shippo jobs get the invocation's own settings: no key here, sandbox inbox, emails off.
+    expect(mocks.shippingJobs).toHaveBeenCalledWith(f.db, expect.objectContaining({
+      apiKey: '', trackingEmails: false, queue: f.env.EMAIL_QUEUE,
+    }), new Date(f.controller.scheduledTime));
+    expect(mocks.selfTests).toHaveBeenCalledWith(f.db, expect.objectContaining({ environment: 'sandbox' }));
     f.sqlite.close();
   });
 
@@ -139,8 +148,8 @@ describe('scheduled Worker recovery wiring', () => {
     await expect(worker.scheduled(f.controller, f.env, f.ctx)).resolves.toBeUndefined();
     expect(mocks.emailRecovery).toHaveBeenCalledOnce();
     expect(mocks.paymentRecovery).toHaveBeenCalledOnce();
-    expect(f.pending).toHaveLength(2);
-    await expect(Promise.all(f.pending)).resolves.toEqual([undefined, undefined]);
+    expect(f.pending).toHaveLength(3);
+    await expect(Promise.all(f.pending)).resolves.toEqual([0, undefined, undefined]);
     if (failure !== 'payment') expect(console.error).toHaveBeenCalledWith(expect.stringContaining('email_outbox_recovery_failed'));
     if (failure !== 'email') expect(console.error).toHaveBeenCalledWith(expect.stringContaining('payment_recovery_failed'));
     f.sqlite.close();

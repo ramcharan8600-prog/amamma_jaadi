@@ -31,6 +31,12 @@ const orders = Array.from({ length: 60 }, (_, i) => ({
 const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   const path = String(input);
   if (path === '/api/auth') return Response.json({ authenticated: true });
+  if (path.startsWith('/api/admin/shipping?orderId=')) {
+    return Response.json({ order: { id: 'd1', orderNumber: 'AJ-2001', customerName: 'Far Buyer', items: [], labels: [], activeLabel: null,
+      route: 'pirate_ship', autoRoute: 'pirate_ship', routeReason: 'Far state with Malpuri', routeOverride: null, shipmentStatus: 'yet_to_ship',
+      addressText: '9 Way\nNew York, NY 10001', shippingPaid: 11.99, createdAt: '2026-10-09 15:00:00' },
+      boxes: [], priceLimit: 20, defaultShipDate: '2026-10-12', shippoConfigured: true });
+  }
   if (path.startsWith('/api/orders/production?')) {
     return Response.json({ orderCounts: { pickup: orders.length, delivery: 0 }, lines: productionLines });
   }
@@ -146,4 +152,29 @@ it('shows sweets to make (boxes included) and what to pack for every matching or
   const pack = host.querySelector('section[aria-labelledby="items-to-pack"]')!.textContent;
   expect(pack).toContain('Chicken Pickle3 jars');
   expect(pack).toContain('Guntur Malpuri (16 pcs)1 pack');
+});
+
+it('gives each delivery order a Ship button with its route or label, opening the Ship panel', async () => {
+  const delivery = (id: string, number: string, extra: Record<string, unknown>) => ({
+    ...orders[0], id, order_number: number, order_type: 'delivery', pickup_date: null, pickup_location: null,
+    delivery_address: '1 Main St\nDallas, TX 75201\nUSA', order_items: [{ product_name: 'Guntur Malpuri', quantity: 1, selected_tier: 16 }], ...extra,
+  });
+  orders.splice(0, orders.length, ...[
+    delivery('d1', 'AJ-2001', { delivery_address: '9 Way\nNew York, NY 10001\nUSA' }),
+    delivery('d2', 'AJ-2002', {}),
+    delivery('d3', 'AJ-2003', { label_status: 'purchased', label_service: 'UPS Ground', label_amount: 7.85 }),
+  ] as unknown as typeof orders);
+  await render();
+  const cell = (n: string) => [...host.querySelectorAll('tbody tr')].find((tr) => tr.querySelector('td')?.textContent?.startsWith(n))!.querySelector('td')!;
+  expect(cell('AJ-2001').textContent).toContain('Pirate Ship');
+  expect(cell('AJ-2002').textContent).toContain('Shippo');
+  expect(cell('AJ-2003').textContent).toContain('Label · UPS Ground $7.85');
+  // Pickup orders have no Ship button.
+  expect(host.querySelectorAll('button[aria-label^="Ship AJ-"]')).toHaveLength(3);
+
+  await act(async () => cell('AJ-2001').querySelector('button')!.click());
+  await act(async () => {});
+  const panel = host.querySelector('[role="dialog"]')!;
+  expect(panel.getAttribute('aria-label')).toBe('Ship AJ-2001');
+  expect(panel.textContent).toContain('Ship this order on Pirate Ship');
 });

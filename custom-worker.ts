@@ -26,6 +26,9 @@ import { reconcileSquareRefunds } from './src/lib/square-webhook';
 export const REFUND_RECONCILE_CRON = '0 */3 * * *';
 import { createOrderFromSession } from './src/lib/order-service';
 import { canonicalHostRedirect } from './src/lib/canonical-host';
+import { runShippingJobs } from './src/lib/shipping-jobs';
+import { runShippoSelfTests } from './src/lib/shippo-self-test';
+import { customerTrackingEmailsOn, shopShippingEmail, trackingEmailCc } from './src/lib/shipping-env';
 import { sendDailyPrepEmail } from './src/lib/daily-prep-email';
 
 type WorkerEnv = EmailWorkerEnv & Pick<WorkerBindings,
@@ -34,6 +37,9 @@ type WorkerEnv = EmailWorkerEnv & Pick<WorkerBindings,
   // Secret bindings are provisioned independently of the non-secret config.
   SQUARE_ACCESS_TOKEN: string;
   RESEND_API_KEY?: string;
+  // Project Shippo: API key (secret) and the customer tracking-email switch ("on" / "off").
+  SHIPPO_API_KEY?: string;
+  CUSTOMER_TRACKING_EMAILS?: string;
   /** Who gets the 9 AM prep email (a secret: the repo is public). Unset = no email. */
   DAILY_PREP_EMAIL_TO?: string;
 };
@@ -145,6 +151,21 @@ export default {
       );
       return;
     }
+    // Project Shippo: refund voids every run, tracking emails at 6:30 PM, waiting list at 10 PM (Dallas).
+    const vars = env as unknown as Record<string, string | undefined>;
+    const shippingEnv = {
+      apiKey: env.SHIPPO_API_KEY ?? '', shopEmail: shopShippingEmail(vars),
+      trackingEmails: customerTrackingEmailsOn(vars), trackingCc: trackingEmailCc(vars), queue: env.EMAIL_QUEUE,
+    };
+    ctx.waitUntil(
+      runShippingJobs(env.DB, shippingEnv, new Date(controller.scheduledTime))
+        .then((result) => console.log(JSON.stringify({ event: 'shipping_jobs_complete', result })))
+        .catch((error) => console.error(JSON.stringify({
+          event: 'shipping_jobs_failed', error: error instanceof Error ? error.message : String(error),
+        })))
+        .then(() => runShippoSelfTests(env.DB, { environment: env.SQUARE_ENVIRONMENT, ...shippingEnv }))
+        .catch((error) => console.error(JSON.stringify({ event: 'shippo_self_test_failed', error: String(error) })))
+    );
     ctx.waitUntil(
       recoverPendingEmailOutbox(env.DB, env.EMAIL_QUEUE)
         .then((published) => {
