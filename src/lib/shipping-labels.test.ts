@@ -100,6 +100,15 @@ describe('helpers', () => {
     expect(slow.find((o) => o.service === 'air')?.overLimit).toBe(true);
   });
 
+  it('warns when the box would spend a weekend with UPS', () => {
+    // Thursday + 2 business days = Monday: Saturday and Sunday in a truck.
+    const thu = rateOptions([rate('g', 'ups_ground', 'Ground', 7.85, 2), rate('a', 'ups_second_day_air', '2nd Day Air', 14.2, 1)],
+      { pickleOnly: false, shipDate: '2026-10-15', shippingPaid: 10.99 });
+    expect(thu.map((o) => [o.service, o.arrivesOn, o.overWeekend])).toEqual([['ground', '2026-10-19', true], ['air', '2026-10-16', false]]);
+    // Monday + 2 = Wednesday: no weekend.
+    expect(rateOptions([rate('g', 'ups_ground', 'Ground', 7.85, 2)], { pickleOnly: false, shipDate: '2026-10-12', shippingPaid: null })[0].overWeekend).toBe(false);
+  });
+
   it('gives pickle-only orders Ground Saver, or Ground when Ground Saver is not offered', () => {
     const saver = rateOptions([rate('s', 'ups_ground_saver', 'Ground Saver', 6.2, 4), rate('g', 'ups_ground', 'Ground', 7.5, 3)],
       { pickleOnly: true, shipDate: '2026-10-12', shippingPaid: 6.99 });

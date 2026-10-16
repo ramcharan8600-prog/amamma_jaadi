@@ -36,13 +36,17 @@ const SCANNED = new Set(['TRANSIT', 'DELIVERED', 'RETURNED', 'FAILURE']);
  * never emails); hand-shipped (Pirate Ship) orders use the number the owner saved.
  * With emails switched off, orders are only marked done, so nothing old is sent later.
  */
-export async function sendTrackingEmails(db: D1Database, env: ShippingJobEnv): Promise<{ emailed: number; waiting: number }> {
+export async function sendTrackingEmails(
+  db: D1Database, env: ShippingJobEnv, options: { labelsOnly?: boolean } = {},
+): Promise<{ emailed: number; waiting: number }> {
   const orders = await db.prepare(
     `SELECT id, order_number, customer_name, email, tracking_id, shipment_status FROM orders
      WHERE order_type = 'delivery' AND payment_status IN ('paid', 'partially_refunded') AND status != 'cancelled'
        AND tracking_id IS NOT NULL AND TRIM(tracking_id) != '' AND tracking_emailed_at IS NULL
+       AND (? = 0 OR EXISTS (SELECT 1 FROM shipping_labels l
+         WHERE l.order_id = orders.id AND l.status = 'purchased' AND l.tracking_number = orders.tracking_id))
      ORDER BY created_at LIMIT 100`,
-  ).all<{ id: string; order_number: string; customer_name: string; email: string | null; tracking_id: string; shipment_status: string }>();
+  ).bind(options.labelsOnly ? 1 : 0).all<{ id: string; order_number: string; customer_name: string; email: string | null; tracking_id: string; shipment_status: string }>();
   let emailed = 0;
   let waiting = 0;
   for (const order of orders.results ?? []) {
@@ -133,14 +137,20 @@ export async function voidLabelsOfRefundedOrders(db: D1Database, env: ShippingJo
 }
 
 /**
- * Called by the 15-minute cron: refund voids every run (needs the Shippo key),
- * tracking emails at 6:30 PM and the waiting list at 10 PM Dallas time (these
- * also run without a key: hand-shipped orders and the list don't need Shippo).
+ * Called by the 15-minute cron: refund voids every run (needs the Shippo key)
+ * and the waiting list at 10 PM Dallas time. Tracking emails start at 6:30 PM
+ * and keep checking every run until midnight, so a box UPS scans at 8 PM is
+ * emailed that evening, not a day later; from 7 AM to noon only scan-checked
+ * Shippo labels are looked at (a number typed in by hand in the morning waits
+ * for the evening, after the drop-off). Hand-shipped orders and the waiting
+ * list also run without a key.
  */
 export async function runShippingJobs(db: D1Database, env: ShippingJobEnv, now = new Date()) {
   const { hour, minute } = dallasClock(now);
   const result: Record<string, unknown> = { voided: env.apiKey ? await voidLabelsOfRefundedOrders(db, env) : 0 };
-  if (hour === 18 && minute >= 30 && minute < 45) result.tracking = await sendTrackingEmails(db, env);
+  const evening = (hour === 18 && minute >= 30) || hour >= 19;
+  const morning = hour >= 7 && hour < 12;
+  if (evening || morning) result.tracking = await sendTrackingEmails(db, env, { labelsOnly: !evening });
   if (hour === 22 && minute < 15) result.waiting = await sendWaitingList(db, env, now);
   return result;
 }

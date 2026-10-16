@@ -277,6 +277,9 @@ export default function ShipPanel({ orderId, onClose, onChanged }: { orderId: st
                           <p className="text-brand-charcoal/70">
                             Arrives {dayLabel(rate.arrivesOn)}{rate.estimatedDays != null ? ` · ${rate.estimatedDays} business day${rate.estimatedDays === 1 ? '' : 's'}` : ''}
                           </p>
+                          {rate.overWeekend && (
+                            <p className="text-amber-800">Spends the weekend with UPS: arrives after a Saturday/Sunday</p>
+                          )}
                           {rate.margin != null && (
                             <p className={rate.margin >= 0 ? 'text-green-700' : 'text-red-700'}>
                               vs {formatCurrency(order.shippingPaid ?? 0)} paid: {rate.margin >= 0 ? '+' : '−'}{formatCurrency(Math.abs(rate.margin))}

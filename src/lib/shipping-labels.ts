@@ -188,6 +188,16 @@ export function addBusinessDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** True when a Saturday or Sunday falls after the ship date and before arrival. */
+export function crossesWeekend(shipDate: string, arrivesOn: string | null): boolean {
+  if (!arrivesOn) return false;
+  const d = new Date(`${shipDate}T00:00:00Z`);
+  for (d.setUTCDate(d.getUTCDate() + 1); d.toISOString().slice(0, 10) < arrivesOn; d.setUTCDate(d.getUTCDate() + 1)) {
+    if (d.getUTCDay() === 0 || d.getUTCDay() === 6) return true;
+  }
+  return false;
+}
+
 /** Default ship date: today on a weekday before 5 PM Dallas time, else the next weekday. */
 export function defaultShipDate(now = new Date()): string {
   const today = toBusinessDateString(now);
@@ -207,6 +217,8 @@ export interface RateOption {
   arrivesOn: string | null;
   /** What the customer paid for shipping minus this label (null if unknown). */
   margin: number | null;
+  /** The box would sit with UPS over a Saturday or Sunday (owner: sweets should not). */
+  overWeekend: boolean;
   recommended: boolean;
   overLimit: boolean;
 }
@@ -232,11 +244,13 @@ export function rateOptions(rates: ShippoRate[], params: { pickleOnly: boolean; 
       : ['ground', 'air'];
   const options = wanted.filter((k) => best.has(k)).map((service) => {
     const r = best.get(service)!;
+    const arrivesOn = r.estimatedDays == null ? null : addBusinessDays(params.shipDate, r.estimatedDays);
     return {
       rateId: r.rateId, service, serviceName: SERVICE_NAMES[service], amount: r.amount, currency: r.currency,
       estimatedDays: r.estimatedDays,
-      arrivesOn: r.estimatedDays == null ? null : addBusinessDays(params.shipDate, r.estimatedDays),
+      arrivesOn,
       margin: params.shippingPaid == null ? null : Math.round((params.shippingPaid - r.amount) * 100) / 100,
+      overWeekend: crossesWeekend(params.shipDate, arrivesOn),
       recommended: false, overLimit: r.amount > LABEL_PRICE_LIMIT,
     } satisfies RateOption;
   });

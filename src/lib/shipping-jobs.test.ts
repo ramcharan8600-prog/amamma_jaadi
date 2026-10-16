@@ -156,6 +156,31 @@ it('runs tracking emails at 6:30 PM and the waiting list at 10 PM Dallas time on
   expect(await runShippingJobs(fixture.db, env(), new Date('2026-10-11T03:00:00Z'))).toMatchObject({ waiting: 0 });
 });
 
+it('keeps checking for the UPS scan all evening and the next morning, so the email is not a day late', async () => {
+  order('late', { tracking_id: '1ZLATE' });
+  label('ll', 'late', '1ZLATE');
+  // 6:30 PM: the box is not scanned yet.
+  expect(await runShippingJobs(fixture.db, env(), new Date('2026-10-12T23:30:00Z'))).toMatchObject({ tracking: { emailed: 0, waiting: 1 } });
+  // 9:15 PM: UPS has it now; the customer is emailed that evening.
+  shippo.getTrackingStatus.mockResolvedValue('TRANSIT');
+  expect(await runShippingJobs(fixture.db, env(), new Date('2026-10-13T02:15:00Z'))).toMatchObject({ tracking: { emailed: 1 } });
+  expect(emails().map((e) => e.dedupe_key)).toEqual(['tracking:late:1ZLATE']);
+});
+
+it('in the morning emails only scan-checked Shippo labels; a number typed in by hand waits for the evening', async () => {
+  order('morning', { tracking_id: '1ZMORN' });
+  label('lm', 'morning', '1ZMORN');
+  order('typed', { tracking_id: '9400TYPED' });
+  shippo.getTrackingStatus.mockResolvedValue('TRANSIT');
+  // 8:00 AM Dallas.
+  expect(await runShippingJobs(fixture.db, env(), new Date('2026-10-13T13:00:00Z'))).toMatchObject({ tracking: { emailed: 1, waiting: 0 } });
+  expect(emails().map((e) => e.dedupe_key)).toEqual(['tracking:morning:1ZMORN']);
+  expect(col('typed', 'tracking_emailed_at')).toBeNull();
+  // 6:30 PM: the hand-typed number goes out.
+  expect(await runShippingJobs(fixture.db, env(), new Date('2026-10-13T23:30:00Z'))).toMatchObject({ tracking: { emailed: 1 } });
+  expect(emails().map((e) => e.dedupe_key)).toEqual(['tracking:morning:1ZMORN', 'tracking:typed:9400TYPED']);
+});
+
 it('without a Shippo key still emails hand-shipped orders and sends the waiting list, but leaves Shippo labels and voids alone', async () => {
   order('pirate', { tracking_id: '9400' });
   order('shippo', { tracking_id: '1ZS' });
