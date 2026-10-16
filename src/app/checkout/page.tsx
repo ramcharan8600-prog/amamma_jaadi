@@ -37,7 +37,8 @@ import { useStock, invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
 import { couponBenefitLabel, type CouponBenefit } from '@/lib/coupons';
-import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, requiresNextDayPickup } from '@/lib/pickup-date';
+import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, isPickupClosedDate, requiresNextDayPickup } from '@/lib/pickup-date';
+import { daysBetween, type CheckoutFunnelStep } from '@/lib/checkout-funnel';
 import { isValidCustomerName, isValidEmail, isValidPhone, normalizeUsPhone, PHONE_ERROR, toUsE164 } from '@/lib/contact-validation';
 import {
   calculateOrderTotals,
@@ -201,6 +202,39 @@ export default function CheckoutPage() {
     }
   }, []);
 
+  // ── Checkout step counts (anonymous, stored in our D1) ──────────────
+  // Answers "where do shoppers leave": pickup vs delivery, a sold-out soonest
+  // pickup day, a delivery fee or block. One random id per checkout visit, kept
+  // across reloads in this tab; each step is reported once per visit.
+  const funnelVisitRef = useRef('');
+  const funnelSentRef = useRef(new Set<string>());
+  const trackStep = useCallback((stepName: CheckoutFunnelStep, detail = '') => {
+    try {
+      if (funnelSentRef.current.has(stepName)) return;
+      if (!funnelVisitRef.current) {
+        let id = '';
+        try { id = window.sessionStorage.getItem('aj-checkout-visit') || ''; } catch { /* Private mode. */ }
+        if (!id) {
+          id = crypto.randomUUID();
+          try { window.sessionStorage.setItem('aj-checkout-visit', id); } catch { /* Private mode. */ }
+        }
+        funnelVisitRef.current = id;
+      }
+      funnelSentRef.current.add(stepName);
+      const payload = JSON.stringify({ visitId: funnelVisitRef.current, step: stepName, detail });
+      if (navigator.sendBeacon) navigator.sendBeacon('/api/checkout-funnel', new Blob([payload], { type: 'application/json' }));
+      else fetch('/api/checkout-funnel', { method: 'POST', body: payload, keepalive: true }).catch(() => {});
+    } catch {
+      /* Tracking must never break checkout. */
+    }
+  }, []);
+  /** After an order, the next checkout in this tab counts as a new visit. */
+  const endFunnelVisit = useCallback(() => {
+    funnelVisitRef.current = '';
+    funnelSentRef.current = new Set();
+    try { window.sessionStorage.removeItem('aj-checkout-visit'); } catch { /* Private mode. */ }
+  }, []);
+
   // Pickup dates the shop marked sold out in admin, refreshed each time pickup
   // details open; the calendar greys them out with "Sold out".
   // Delivery areas paused in Admin → Production (the server enforces them too).
@@ -271,6 +305,9 @@ export default function CheckoutPage() {
   // Latest cart and totals for the 'Order Completed' analytics event (the cart is cleared right after).
   const funnelRef = useRef<{ items: typeof items; total: number; shipping: number; tax: number }>({ items: [], total: 0, shipping: 0, tax: 0 });
 
+  const fulfillmentTypeRef = useRef('');
+  useEffect(() => { fulfillmentTypeRef.current = fulfillmentType ?? ''; }, [fulfillmentType]);
+
   const completePayment = useCallback((sessionId: string, number: string) => {
     if (!checkoutActive.current) return;
     try {
@@ -285,9 +322,11 @@ export default function CheckoutPage() {
     trackFunnel('Order Completed', { order_id: number, products: cartLines(paid.items), value: paid.total, shipping: paid.shipping, tax: paid.tax });
     mark('order_created', number);
     flushTrail('completed');
+    trackStep('order_completed', fulfillmentTypeRef.current);
+    endFunnelVisit();
     clearCart();
     invalidateStock();
-  }, [clearCart, mark, flushTrail]);
+  }, [clearCart, mark, flushTrail, trackStep, endFunnelVisit]);
 
   const releasePayment = useCallback((sessionId: string, message: string) => {
     if (!checkoutActive.current) return;
@@ -460,6 +499,7 @@ export default function CheckoutPage() {
     setPickupName(deliveryName);
     setPickupPhone(deliveryPhone);
     setPickupEmail(deliveryEmail);
+    trackStep('pickup_chosen');
     setFulfillmentType('pickup');
     setSessionInfo(null);
     sessionIdRef.current = '';
@@ -514,6 +554,36 @@ export default function CheckoutPage() {
   const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct)
     ?? (soldOutDates.includes(pickupDate) ? SOLD_OUT_DATE_ERROR : null);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
+
+  // Checkout step counts — see trackStep().
+  useEffect(() => {
+    if (!mounted || items.length === 0) return;
+    if (step === 'method') trackStep('method_viewed');
+    if (step === 'payment' && fulfillmentType) trackStep('payment_reached', fulfillmentType);
+  }, [step, mounted, items.length, fulfillmentType, trackStep]);
+  // Sold-out days can't be clicked, so record when the soonest pickup day was
+  // sold out on arrival and how many days away the first open day was.
+  useEffect(() => {
+    if (step !== 'details' || fulfillmentType !== 'pickup' || !soldOutDates.includes(pickupBounds.min)) return;
+    let open = pickupBounds.min;
+    for (let i = 0; i < 30 && (soldOutDates.includes(open) || isPickupClosedDate(open)); i++) {
+      const next = new Date(`${open}T00:00:00Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      open = next.toISOString().slice(0, 10);
+    }
+    trackStep('pickup_soonest_sold_out', String(daysBetween(pickupBounds.today, open)));
+  }, [step, fulfillmentType, soldOutDates, pickupBounds.min, pickupBounds.today, trackStep]);
+  const deliveryBlock = step !== 'details' || fulfillmentType !== 'delivery' || !isSupportedDeliveryState(deliveryState)
+    ? null
+    : deliveryStatePaused ? 'paused'
+    : deliveryMinimumShortfall > 0 ? 'minimum'
+    : deliveryRestrictionMessage ? 'restricted'
+    : '';
+  useEffect(() => {
+    if (deliveryBlock === null) return;
+    if (deliveryBlock) trackStep('delivery_blocked', deliveryBlock);
+    else trackStep('delivery_fee_shown', getShippingZone(deliveryState));
+  }, [deliveryBlock, deliveryState, trackStep]);
   // Refresh at the Central-time cutoff or midnight, and when returning to the tab.
   useEffect(() => {
     if (step !== 'details' || fulfillmentType !== 'pickup') return;
@@ -1140,6 +1210,7 @@ export default function CheckoutPage() {
           <div className="grid sm:grid-cols-2 gap-4">
             <button
               onClick={() => {
+                trackStep('pickup_chosen');
                 setFulfillmentType('pickup');
                 if (deliveryName) setPickupName(deliveryName);
                 if (deliveryPhone) setPickupPhone(deliveryPhone);
@@ -1162,6 +1233,7 @@ export default function CheckoutPage() {
             <button
               onClick={() => {
                 if (pickupOnlyProduct || allDeliveryPaused) return;
+                trackStep('delivery_chosen');
                 setFulfillmentType('delivery');
                 if (pickupName) setDeliveryName(pickupName);
                 if (pickupPhone) setDeliveryPhone(pickupPhone);
@@ -1228,6 +1300,7 @@ export default function CheckoutPage() {
               invalid={showPickupDateError}
               describedBy={showPickupDateError ? 'pickup-date-error' : undefined}
               onChange={(date) => {
+                trackStep('pickup_date_chosen', String(daysBetween(pickupBounds.today, date)));
                 setPickupDate(date);
                 setPickupDateTouched(true);
                 setPickupNow(new Date());

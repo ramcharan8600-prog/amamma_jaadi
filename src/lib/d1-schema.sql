@@ -295,3 +295,13 @@ CREATE TABLE IF NOT EXISTS delivery_pauses (
   zone TEXT PRIMARY KEY CHECK (zone IN ('texas', 'nearby', 'far')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Anonymous checkout step counts (migration 025): no customer data.
+CREATE TABLE IF NOT EXISTS checkout_funnel (
+  visit_id TEXT NOT NULL,
+  step TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (visit_id, step)
+);
+CREATE INDEX IF NOT EXISTS idx_checkout_funnel_created ON checkout_funnel(created_at);

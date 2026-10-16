@@ -62,6 +62,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
   if (url === '/api/payments/create-payment') return paymentResult();
   if (url === '/api/payments/verify') return verifyResult();
   if (url === '/api/checkout-log') return Response.json({ success: true });
+  if (url === '/api/checkout-funnel') return new Response(null, { status: 204 });
   if (url === '/api/sold-out-dates') return Response.json({ dates: soldOutDates });
   if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones });
   if (url === '/api/payments/config') return squareConfig();
@@ -173,6 +174,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-09-10T17:00:00Z'));
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   localStorage.clear();
+  sessionStorage.clear();
   useCartStore.getState().clearCart();
   createdSessions = 0;
   couponResult = async () => Response.json({ code: 'BONUS', type: 'complimentary', bonusItem: 'Malpuri', bonusQty: 3 });
@@ -218,6 +220,47 @@ describe('sold-out pickup dates', () => {
     expect(open?.textContent).not.toContain('Sold out');
     await pickDate('2026-09-11');
     expect(button('Continue to payment').disabled).toBe(false);
+  });
+});
+
+describe('checkout step counts (pickup vs delivery)', () => {
+  /** Steps the page reported to /api/checkout-funnel, in order. */
+  function funnelReports() {
+    return calls('/api/checkout-funnel').map(([, init]) => JSON.parse(String(init?.body)) as { visitId: string; step: string; detail: string });
+  }
+
+  it('reports pickup, a sold-out soonest day, the chosen day and the payment step once each, with no customer details', async () => {
+    soldOutDates = ['2026-09-10', '2026-09-11'];
+    await pickupDetails();
+    await pickDate('2026-09-12');
+    await click('Continue to payment');
+    const reports = funnelReports();
+    expect(reports.map(({ step, detail }) => [step, detail])).toEqual([
+      ['method_viewed', ''],
+      ['pickup_chosen', ''],
+      ['pickup_soonest_sold_out', '2'],
+      ['pickup_date_chosen', '2'],
+      ['payment_reached', 'pickup'],
+    ]);
+    expect(new Set(reports.map(({ visitId }) => visitId)).size).toBe(1);
+    expect(JSON.stringify(reports)).not.toMatch(/Checkout Test|checkout@example|214555/);
+  });
+
+  it('reports delivery, a paused state as blocked, and the fee zone once a state can be delivered', async () => {
+    pausedZones = ['far'];
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
+    await render();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
+    await act(async () => choice!.click());
+    await input('#delivery-state', 'NY');
+    await input('#delivery-state', 'TX');
+    expect(funnelReports().map(({ step, detail }) => [step, detail])).toEqual([
+      ['method_viewed', ''],
+      ['delivery_chosen', ''],
+      ['delivery_blocked', 'paused'],
+      ['delivery_fee_shown', 'texas'],
+    ]);
   });
 });
 
