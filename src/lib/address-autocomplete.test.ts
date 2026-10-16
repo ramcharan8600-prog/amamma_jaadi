@@ -23,6 +23,14 @@ describe('suggestAddresses', () => {
     });
   });
 
+  it("ranks addresses near the shopper first when Cloudflare knows roughly where they are", async () => {
+    const fetchImpl = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => Response.json({ suggestions: [] }));
+    await suggestAddresses('123 Main', TOKEN, 'k', fetchImpl, { latitude: 33.02, longitude: -96.7 });
+    expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body)).locationBias).toEqual({
+      circle: { center: { latitude: 33.02, longitude: -96.7 }, radius: 50_000 },
+    });
+  });
+
   it('throws on a Google error so the route can answer with no suggestions', async () => {
     await expect(suggestAddresses('123 Main', TOKEN, 'k', async () => new Response('denied', { status: 403 }))).rejects.toThrow('HTTP 403');
   });

@@ -26,3 +26,16 @@ export function isSameOriginRequest(request: Request): boolean {
     return false;
   }
 }
+
+/** The shopper's approximate location from Cloudflare (city level), or null. */
+export function visitorLocation(): { latitude: number; longitude: number } | null {
+  try {
+    const cf = getCloudflareContext().cf as { latitude?: string; longitude?: string; country?: string } | undefined;
+    const latitude = Number(cf?.latitude);
+    const longitude = Number(cf?.longitude);
+    if (cf?.country !== 'US' || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
+  } catch {
+    return null;
+  }
+}

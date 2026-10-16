@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { cleanAddressInput, isSessionToken, suggestAddresses } from '@/lib/address-autocomplete';
-import { getPlacesApiKey, isSameOriginRequest } from '@/lib/places-key';
+import { getPlacesApiKey, isSameOriginRequest, visitorLocation } from '@/lib/places-key';
 
 /**
  * POST /api/address/suggest — { input, sessionToken } → { enabled, suggestions }.
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null) as { input?: unknown; sessionToken?: unknown } | null;
     const input = cleanAddressInput(body?.input);
     if (!input || !isSessionToken(body?.sessionToken)) return none;
-    const suggestions = await suggestAddresses(input, body.sessionToken, apiKey);
+    const suggestions = await suggestAddresses(input, body.sessionToken, apiKey, fetch, visitorLocation());
     return NextResponse.json({ enabled: true, suggestions });
   } catch (e) {
     console.error('Address suggest error:', e instanceof Error ? e.message : e);

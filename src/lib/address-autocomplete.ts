@@ -50,12 +50,16 @@ export function cleanAddressInput(value: unknown): string | null {
   return input.length >= MIN_ADDRESS_INPUT && input.length <= MAX_ADDRESS_INPUT ? input : null;
 }
 
+/** Approximate visitor location (Cloudflare, city level) used to rank nearby addresses first. */
+export interface NearPoint { latitude: number; longitude: number }
+
 /** Up to five US street-address suggestions for what the customer has typed. */
 export async function suggestAddresses(
   input: string,
   sessionToken: string,
   apiKey: string,
   fetchImpl: FetchLike = fetch,
+  near?: NearPoint | null,
 ): Promise<AddressSuggestion[]> {
   const res = await fetchImpl(AUTOCOMPLETE_URL, {
     method: 'POST',
@@ -70,6 +74,8 @@ export async function suggestAddresses(
       includedRegionCodes: ['us'],
       includedPrimaryTypes: ['street_address', 'premise', 'subpremise'],
       languageCode: 'en',
+      // A preference, not a limit: addresses anywhere in the US still appear.
+      ...(near ? { locationBias: { circle: { center: near, radius: 50_000 } } } : {}),
     }),
   });
   if (!res.ok) throw new Error(`Places autocomplete failed: HTTP ${res.status}`);
