@@ -265,7 +265,7 @@ export default function ShipPanel({ orderId, onClose, onChanged }: { orderId: st
                         : 'Try Get label ETA again in a minute.'}
                     </p>
                   )}
-                  {quote.rates.length === 0 && <p className="text-red-700">No UPS Ground or 2nd Day Air rates came back. {quote.messages.join(' ')}</p>}
+                  {quote.rates.length === 0 && <p className="text-red-700">UPS did not send prices this time. Tap Get label ETA again in a minute.{quote.messages.length > 0 && ` Shippo said: ${quote.messages.join(' · ')}`}</p>}
                   {quote.rates.map((rate) => (
                     <div key={rate.rateId} className={`rounded-xl border p-4 ${rate.recommended ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-cream-dark'}`}>
                       <div className="flex items-start justify-between gap-3">

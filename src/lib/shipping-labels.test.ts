@@ -16,7 +16,7 @@ vi.mock('@/lib/email-outbox', async (importOriginal) => ({
   publishPersistedEmail: vi.fn(async () => true),
 }));
 import {
-  addBusinessDays, defaultShipDate, loadShippingOrder, parseBox, purchaseLabel, quoteLabel, rateOptions,
+  addBusinessDays, defaultShipDate, loadShippingOrder, parseBox, purchaseLabel, quoteLabel, rateOptions, relevantShippoMessages,
   releaseStuckLabel, setShipRoute, voidOrderLabel,
 } from './shipping-labels';
 import { ShippoError } from './shippo';
@@ -98,6 +98,17 @@ describe('helpers', () => {
       { pickleOnly: false, shipDate: '2026-10-12', shippingPaid: null });
     expect(slow.find((o) => o.recommended)?.service).toBe('air');
     expect(slow.find((o) => o.service === 'air')?.overLimit).toBe(true);
+  });
+
+  it("keeps only Shippo notes that matter for a UPS label", () => {
+    expect(relevantShippoMessages([
+      "Carrier account shippo_dpd_de_account doesn't support one or more shipment options",
+      'Hard: Too Many Requests', 'Hard: Too Many Requests',
+      'Shipment origin is out of service area for UPS Master account from CA',
+      'RatedShipmentAlert: Your invoice may vary from the displayed reference rates',
+      'Your account is restricted from using this carrier.',
+      "Shippo's DHL Express master account doesn't support shipments to inside of the US",
+    ])).toEqual(['Too Many Requests', 'Your account is restricted from using this carrier.']);
   });
 
   it('warns when the box would spend a weekend with UPS', () => {

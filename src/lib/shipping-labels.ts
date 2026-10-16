@@ -261,6 +261,17 @@ export function rateOptions(rates: ShippoRate[], params: { pickleOnly: boolean; 
   return options;
 }
 
+/**
+ * Shippo lists a note for every carrier it tried (German, UK, Canadian…). Keep
+ * only what matters for a UPS label, once each: UPS notes, throttling, account
+ * or address problems.
+ */
+export function relevantShippoMessages(messages: string[]): string[] {
+  const keep = messages.filter((m) => /\bUPS\b|too many requests|restricted|address|zip/i.test(m)
+    && !/UPS Master account from CA|RatedShipmentAlert/i.test(m));
+  return [...new Set(keep.map((m) => m.replace(/^Hard:\s*/i, '').trim()))];
+}
+
 export async function quoteLabel(db: D1Database, apiKey: string, input: {
   orderId: string; box: string; weightLb: number; shipDate: string;
 }) {
@@ -285,7 +296,7 @@ export async function quoteLabel(db: D1Database, apiKey: string, input: {
     to: order.address, parcel: { ...parcel, weightLb: input.weightLb }, shipDate: input.shipDate, reference: order.orderNumber,
   });
   const rates = rateOptions(shipment.rates, { pickleOnly: order.pickleOnly, groundOnly: order.groundOnly, shipDate: input.shipDate, shippingPaid: order.shippingPaid });
-  return { shipmentId: shipment.shipmentId, shipDate: input.shipDate, rates, addressCheck, messages: shipment.messages };
+  return { shipmentId: shipment.shipmentId, shipDate: input.shipDate, rates, addressCheck, messages: relevantShippoMessages(shipment.messages) };
 }
 
 // ─── Buy / void / release ─────────────────────────────────────
