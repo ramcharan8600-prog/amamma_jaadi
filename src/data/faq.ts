@@ -64,4 +64,9 @@ export const FAQS: FaqItem[] = [
     question: 'Where can I pick up my order?',
     answer: `Pickup is free at our partner locations: ${PICKUP_WINDOWS}. Pickup is closed on Tuesdays. You choose the location and date at checkout, and your order confirmation shows the address and pickup window.`,
   },
+  {
+    question: 'Do you accept every order?',
+    answer:
+      'All orders are accepted and fulfilled in accordance with our business policies. Amamma Jaadi reserves the right, at its sole discretion, to accept, decline, cancel or limit any order. If we cancel an order after payment, we will issue a full refund to the original payment method.',
+  },
 ];
