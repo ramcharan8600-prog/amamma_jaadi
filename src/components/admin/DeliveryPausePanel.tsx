@@ -4,24 +4,25 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Truck } from 'lucide-react';
 import { NEARBY_STATE_CODES, type ShippingZone } from '@/lib/pricing';
 import { DELIVERY_ZONES } from '@/lib/delivery-pauses';
-import type { DeliveryWeekStatus } from '@/lib/delivery-limit';
+import type { DeliveryWeeksStatus } from '@/lib/delivery-limit';
 
-/** "Oct 19" from YYYY-MM-DD. */
-function shortDay(ymd: string): string {
-  return new Date(`${ymd}T00:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
-}
+const ZONE_LABELS: Record<ShippingZone, { title: string; detail: string }> = {
+  texas: { title: 'Texas', detail: 'Deliveries within Texas' },
+  nearby: { title: 'Nearby states', detail: NEARBY_STATE_CODES.join(', ') },
+  far: { title: 'Far-away states', detail: 'All other states and DC' },
+};
 
 /**
- * Weekly cap on delivery orders (Monday–Sunday, Dallas time). When this week's
- * paid delivery orders reach it, checkout greys out Delivery until Monday.
+ * Weekly limit on delivery orders per shipment week (Mon/Tue dispatch). Shoppers
+ * pick a week at checkout; a week shows "Full" once it reaches the limit.
  */
 function WeeklyLimit() {
-  const [status, setStatus] = useState<DeliveryWeekStatus | null>(null);
+  const [status, setStatus] = useState<DeliveryWeeksStatus | null>(null);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
-  const show = (next: DeliveryWeekStatus) => {
+  const show = (next: DeliveryWeeksStatus) => {
     setStatus(next);
     setDraft(next.limit == null ? '' : String(next.limit));
   };
@@ -58,9 +59,9 @@ function WeeklyLimit() {
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label htmlFor="weekly-delivery-limit" className="block font-body text-sm font-semibold text-brand-charcoal">
-            Weekly delivery limit
+            Delivery orders per shipment week
           </label>
-          <p className="font-body text-[11px] text-brand-charcoal/60">Monday–Sunday. Empty = no limit.</p>
+          <p className="font-body text-[11px] text-brand-charcoal/60">Shoppers pick a week at checkout. Empty = no limit.</p>
         </div>
         <input
           id="weekly-delivery-limit"
@@ -80,20 +81,24 @@ function WeeklyLimit() {
         {message && <span role={message.error ? 'alert' : 'status'} className={`font-body text-xs ${message.error ? 'text-red-600' : 'text-green-700'}`}>{message.text}</span>}
       </div>
       {status && (
-        <p className={`font-body text-sm mt-3 ${status.full ? 'text-red-700 font-semibold' : 'text-brand-charcoal/80'}`}>
-          This week ({shortDay(status.monday)} – {shortDay(status.sunday)}): <strong>{status.used}{status.limit != null ? ` of ${status.limit}` : ''}</strong> delivery orders
-          {status.full ? ` · FULL — Delivery is greyed out at checkout until ${shortDay(status.reopensOn)}.` : status.limit != null ? ` · ${status.limit - status.used} left.` : ' · no limit set.'}
-        </p>
+        <ul className="mt-3 space-y-1 font-body text-sm" aria-label="Shipment weeks">
+          {status.weeks.map((w, i) => (
+            <li key={w.week} className={`flex flex-wrap gap-x-2 ${w.full ? 'text-red-700' : 'text-brand-charcoal/80'}`}>
+              <span className="font-semibold min-w-[11rem]">Ships {w.days}{i === 0 ? ' (this week)' : ''}</span>
+              <span>
+                <strong>{w.used}{status.limit != null ? ` of ${status.limit}` : ''}</strong> orders
+                {w.full ? ' · FULL' : status.limit != null ? ` · ${status.limit - w.used} left` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {status?.allFull && (
+        <p role="status" className="font-body text-sm text-red-700 font-semibold mt-2">Every bookable week is full, so Delivery is greyed out at checkout.</p>
       )}
     </div>
   );
 }
-
-const ZONE_LABELS: Record<ShippingZone, { title: string; detail: string }> = {
-  texas: { title: 'Texas', detail: 'Deliveries within Texas' },
-  nearby: { title: 'Nearby states', detail: NEARBY_STATE_CODES.join(', ') },
-  far: { title: 'Far-away states', detail: 'All other states and DC' },
-};
 
 /**
  * Admin → Production: pause delivery to any mix of Texas, nearby states and

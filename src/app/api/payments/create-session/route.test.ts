@@ -21,7 +21,11 @@ const mocks = vi.hoisted(() => {
     rateLimit: vi.fn(() => true),
     isSoldOutDate: vi.fn<(db: unknown, date: unknown) => Promise<boolean>>(async () => false),
     isDeliveryPausedFor: vi.fn<(db: unknown, state: unknown) => Promise<boolean>>(async () => false),
-    isDeliveryWeekFull: vi.fn<(db: unknown) => Promise<boolean>>(async () => false),
+    deliveryWeeksStatus: vi.fn(async () => ({
+      limit: null as number | null,
+      weeks: [] as Array<{ week: string; days: string; used: number; full: boolean }>,
+      allFull: false,
+    })),
     isBlockedCustomer: vi.fn<(db: unknown, phone: unknown, email?: unknown) => Promise<boolean>>(async () => false),
   };
 });
@@ -49,10 +53,15 @@ vi.mock('@/lib/delivery-pauses', async (importOriginal) => ({
   isDeliveryPausedFor: mocks.isDeliveryPausedFor,
 }));
 
-vi.mock('@/lib/delivery-limit', async (importOriginal) => ({
-  ...await importOriginal<typeof import('@/lib/delivery-limit')>(),
-  isDeliveryWeekFull: mocks.isDeliveryWeekFull,
-}));
+vi.mock('@/lib/delivery-limit', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/delivery-limit')>();
+  return {
+    ...actual,
+    deliveryWeeksStatus: mocks.deliveryWeeksStatus,
+    // Real offered weeks, so firstOpenWeek works with the mocked status.
+    firstOpenWeek: (status: Parameters<typeof actual.firstOpenWeek>[0]) => status.weeks.find((w) => !w.full)?.week ?? null,
+  };
+});
 
 vi.mock('@/lib/blocked-customers', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/blocked-customers')>(),
@@ -91,6 +100,7 @@ beforeEach(() => {
   mocks.getStockMap.mockResolvedValue({});
   mocks.coupon.mockResolvedValue(null);
   mocks.rateLimit.mockReturnValue(true);
+  mocks.deliveryWeeksStatus.mockResolvedValue({ limit: null, weeks: [{ week: '2026-09-14', days: '', used: 0, full: false }], allFull: false });
 });
 afterEach(() => vi.useRealTimers());
 
@@ -805,15 +815,41 @@ describe('blocked customers', () => {
   });
 });
 
-describe('weekly delivery limit', () => {
-  it("refuses delivery once this week's delivery orders are full, before storing a session; pickup still works", async () => {
-    mocks.isDeliveryWeekFull.mockResolvedValue(true);
+describe('shipment weeks', () => {
+  const weeks = (full: Record<string, boolean>) => ({
+    limit: 30,
+    weeks: ['2026-10-19', '2026-10-26', '2026-11-02', '2026-11-09'].map((week) => ({ week, days: '', used: full[week] ? 30 : 0, full: !!full[week] })),
+    allFull: Object.keys(full).length === 4 && Object.values(full).every(Boolean),
+  });
+  const storedFulfillment = () => JSON.parse(String(mocks.inserts.find((values) => values.some((v) => typeof v === 'string' && v.includes('"type":"delivery"')))!
+    .find((v) => typeof v === 'string' && v.includes('"type":"delivery"'))));
+
+  it('stores the chosen open week with the delivery, and refuses a full or unknown week before storing anything', async () => {
+    mocks.deliveryWeeksStatus.mockResolvedValue(weeks({ '2026-10-19': true }));
+    expect((await post(checkout([sweet], { ...delivery('TX'), shipWeek: '2026-11-02' }))).status).toBe(201);
+    expect(storedFulfillment().shipWeek).toBe('2026-11-02');
+    mocks.inserts.length = 0;
+    for (const shipWeek of ['2026-10-19', '2026-12-28']) {
+      const response = await post(checkout([sweet], { ...delivery('TX'), shipWeek }));
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toBe('That shipment week is no longer available. Please choose another week.');
+    }
+    expect(mocks.inserts).toHaveLength(0);
+  });
+
+  it('gives an older checkout page that sends no week the earliest open one', async () => {
+    mocks.deliveryWeeksStatus.mockResolvedValue(weeks({ '2026-10-19': true }));
+    expect((await post(checkout([sweet], delivery('TX')))).status).toBe(201);
+    expect(storedFulfillment().shipWeek).toBe('2026-10-26');
+  });
+
+  it('refuses delivery when every week is full; pickup still works', async () => {
+    mocks.deliveryWeeksStatus.mockResolvedValue(weeks({ '2026-10-19': true, '2026-10-26': true, '2026-11-02': true, '2026-11-09': true }));
     const response = await post(checkout([sweet], delivery('TX')));
     expect(response.status).toBe(409);
-    expect((await response.json()).error).toBe("This week's delivery orders are full. Delivery opens again on Monday. Free pickup in Plano, Frisco and Irving is still available.");
+    expect((await response.json()).error).toBe('Delivery is fully booked for the next few weeks. Free pickup in Plano, Frisco and Irving is still available.');
     expect(mocks.inserts).toHaveLength(0);
     expect((await post(checkout([sweet], pickup))).status).toBe(201);
-    mocks.isDeliveryWeekFull.mockResolvedValue(false);
   });
 });
 

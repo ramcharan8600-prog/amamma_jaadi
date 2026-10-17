@@ -4,7 +4,7 @@ import { getDb, isDbConfigured } from '@/lib/db';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 import { ok, fail } from '@/lib/api';
 import { DELIVERY_ZONES, isDeliveryZone, listPausedZones, setPausedZones } from '@/lib/delivery-pauses';
-import { deliveryWeekStatus } from '@/lib/delivery-limit';
+import { deliveryWeeksStatus, offeredShipWeeks } from '@/lib/delivery-limit';
 
 async function isAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -13,19 +13,20 @@ async function isAuthenticated(): Promise<boolean> {
 }
 
 /**
- * GET /api/delivery-pauses — public: delivery areas paused right now, and
- * whether this week's delivery orders are full (no counts are shown to
- * shoppers). Fails open.
+ * GET /api/delivery-pauses — public: delivery areas paused right now and the
+ * shipment weeks checkout offers, each open or full (no counts are shown to
+ * shoppers). weekFull = every offered week is full. Fails open.
  */
 export async function GET() {
+  const open = () => offeredShipWeeks().map((week) => ({ week, full: false }));
   try {
-    if (!isDbConfigured()) return ok({ paused: [], weekFull: false });
+    if (!isDbConfigured()) return ok({ paused: [], weekFull: false, weeks: open() });
     const db = getDb();
-    const [paused, week] = await Promise.all([listPausedZones(db), deliveryWeekStatus(db)]);
-    return ok({ paused, weekFull: week.full, reopensOn: week.reopensOn });
+    const [paused, status] = await Promise.all([listPausedZones(db), deliveryWeeksStatus(db)]);
+    return ok({ paused, weekFull: status.allFull, weeks: status.weeks.map(({ week, full }) => ({ week, full })) });
   } catch (e) {
     console.error('Delivery pauses fetch error:', e);
-    return ok({ paused: [], weekFull: false });
+    return ok({ paused: [], weekFull: false, weeks: open() });
   }
 }
 

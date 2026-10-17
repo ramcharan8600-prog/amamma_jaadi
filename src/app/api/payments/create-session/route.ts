@@ -6,7 +6,7 @@ import { validateCart } from '@/lib/cart-validation';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { SOLD_OUT_DATE_ERROR, isSoldOutDate } from '@/lib/sold-out-dates';
 import { DELIVERY_ZONE_PAUSED_ERROR, isDeliveryPausedFor } from '@/lib/delivery-pauses';
-import { DELIVERY_WEEK_FULL_ERROR, isDeliveryWeekFull } from '@/lib/delivery-limit';
+import { DELIVERY_WEEK_FULL_ERROR, SHIP_WEEK_UNAVAILABLE_ERROR, deliveryWeeksStatus, firstOpenWeek } from '@/lib/delivery-limit';
 import { BLOCKED_CUSTOMER_MESSAGE, isBlockedCustomer } from '@/lib/blocked-customers';
 import {
   calculateOrderTotals,
@@ -137,7 +137,15 @@ export async function POST(request: NextRequest) {
         return fail('Please select a valid delivery state.', 400);
       }
       if (await isDeliveryPausedFor(getDb(), normalizedDeliveryState)) return fail(DELIVERY_ZONE_PAUSED_ERROR, 409);
-      if (await isDeliveryWeekFull(getDb())) return fail(DELIVERY_WEEK_FULL_ERROR, 409);
+      // Shipment week: the shopper's choice if it is offered and has room; an
+      // older checkout page that sends none gets the earliest open week.
+      const weeks = await deliveryWeeksStatus(getDb());
+      if (weeks.allFull) return fail(DELIVERY_WEEK_FULL_ERROR, 409);
+      const requestedWeek = typeof rawFulfillment?.shipWeek === 'string' ? rawFulfillment.shipWeek : null;
+      const chosenWeek = requestedWeek
+        ? weeks.weeks.find((w) => w.week === requestedWeek && !w.full)?.week ?? null
+        : firstOpenWeek(weeks);
+      if (!chosenWeek) return fail(SHIP_WEEK_UNAVAILABLE_ERROR, 409);
 
       // Pickle-only orders have no minimum. For sweets/mixed carts, check the
       // destination minimum before the gift-box minimum to give one requirement.
@@ -180,6 +188,7 @@ export async function POST(request: NextRequest) {
         state: normalizedDeliveryState,
         zip,
         country: 'USA',
+        shipWeek: chosenWeek,
       };
     }
 

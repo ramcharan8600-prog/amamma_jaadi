@@ -10,6 +10,7 @@ vi.mock('@/lib/session', () => ({ SESSION_COOKIE: 'session', verifySessionToken:
 vi.mock('@/lib/db', () => ({ getDb: () => mocks.db, isDbConfigured: () => true }));
 import { GET, PUT } from './route';
 import { GET as publicGET } from '../../delivery-pauses/route';
+import { offeredShipWeeks } from '@/lib/delivery-limit';
 
 let fixture: ReturnType<typeof createTestD1>;
 beforeEach(() => {
@@ -21,20 +22,26 @@ beforeEach(() => {
 afterEach(() => fixture.sqlite.close());
 
 const put = (limit: unknown) => PUT(new NextRequest('https://shop.test/api/admin/delivery-limit', { method: 'PUT', body: JSON.stringify({ limit }) }));
-const deliveryNow = () => fixture.sqlite.prepare(`INSERT INTO orders (id, order_number, customer_name, phone_number, order_type, total_price, payment_status, created_at)
-  VALUES (?, ?, 'C', '1', 'delivery', 50, 'paid', datetime('now'))`).run(crypto.randomUUID(), `AJ-${Math.random()}`);
+const booked = (week: string) => fixture.sqlite.prepare(`INSERT INTO orders (id, order_number, customer_name, phone_number, order_type, total_price, payment_status, ship_week)
+  VALUES (?, ?, 'C', '1', 'delivery', 50, 'paid', ?)`).run(crypto.randomUUID(), `AJ-${Math.random()}`, week);
 
-it('lets the owner set, change and remove the weekly limit, and checkout sees "full" without any counts', async () => {
-  deliveryNow();
-  expect(await (await GET()).json()).toMatchObject({ limit: null, used: 1, full: false });
-  expect(await (await put(1)).json()).toMatchObject({ limit: 1, used: 1, full: true });
+it('lets the owner set the per-week limit and see every week; checkout only sees which weeks are full', async () => {
+  const [first, second] = offeredShipWeeks();
+  booked(first);
+  const admin = await (await GET()).json();
+  expect(admin.limit).toBeNull();
+  expect(admin.weeks).toHaveLength(5); // the week being shipped now + 4 bookable weeks
+  expect(admin.weeks.find((w: { week: string }) => w.week === first)).toMatchObject({ used: 1, full: false });
+
+  const after = await (await put(1)).json();
+  expect(after.weeks.find((w: { week: string }) => w.week === first)).toMatchObject({ used: 1, full: true });
+  expect(after.allFull).toBe(false);
   const shopper = await (await publicGET()).json();
-  expect(shopper).toMatchObject({ paused: [], weekFull: true });
-  expect(shopper).not.toHaveProperty('used');
-  expect(shopper).not.toHaveProperty('limit');
-  expect(await (await put('30')).json()).toMatchObject({ limit: 30, full: false });
-  expect((await (await publicGET()).json()).weekFull).toBe(false);
-  expect(await (await put(null)).json()).toMatchObject({ limit: null, full: false });
+  expect(shopper.weekFull).toBe(false);
+  expect(shopper.weeks.slice(0, 2)).toEqual([{ week: first, full: true }, { week: second, full: false }]);
+  expect(JSON.stringify(shopper)).not.toMatch(/"used"|"limit"/);
+  expect(await (await put('30')).json()).toMatchObject({ limit: 30, allFull: false });
+  expect(await (await put(null)).json()).toMatchObject({ limit: null, allFull: false });
 });
 
 it('refuses anyone not signed in, and numbers outside 1–1000', async () => {

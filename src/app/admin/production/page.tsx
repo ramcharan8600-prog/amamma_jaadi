@@ -1,5 +1,6 @@
 'use client';
 
+import { shipWeekDays } from '@/lib/delivery-limit';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -107,7 +108,7 @@ function PlanCard({ title, subtitle, orders, note, icon }: {
                       <span className="text-brand-charcoal/60">
                         {' · '}{order.order_type === 'pickup'
                           ? getPickupLocationById(order.pickup_location ?? '')?.name ?? order.pickup_location ?? 'Pickup'
-                          : `Delivery · ordered ${dayLabel(d1TimestampToBusinessDate(order.created_at) ?? order.created_at.slice(0, 10))}`}
+                          : `Delivery · ordered ${dayLabel(d1TimestampToBusinessDate(order.created_at) ?? order.created_at.slice(0, 10))}${order.ship_week ? ` · ships ${shipWeekDays(order.ship_week)}` : ''}`}
                       </span>
                     </p>
                     <ul className="mt-1 font-body text-sm text-brand-charcoal/80 list-disc pl-5">

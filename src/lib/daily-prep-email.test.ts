@@ -38,6 +38,11 @@ describe('9 AM daily prep email', () => {
     expect(email.html).not.toContain('$');
   });
 
+  it('shows each waiting delivery order\'s shipment week', () => {
+    const withWeek: ProductionPlan = { ...plan, delivery: [{ ...plan.delivery[0], ship_week: '2026-10-26' }] };
+    expect(buildDailyPrepEmail({ to: 'k@example.com', date: '2026-10-15', plan: withWeek }).html).toContain('Mon Oct 26 / Tue Oct 27');
+  });
+
   it("shows the owner's note under that order's items, escaped", () => {
     const noted: ProductionPlan = { ...plan, days: [{ date: '2026-10-15', orders: [
       order({ id: 'p2', order_number: 'AJ-1197', admin_note: 'Free Kova 16 <gift>\nPickup Sunday', items: [{ product_name: 'Kova', quantity: 1, selected_tier: 16 }] }),

@@ -2,6 +2,7 @@
 import type { D1Database, D1PreparedStatement, Queue } from '@cloudflare/workers-types';
 import { generateOrderNumber, newId, parseJson } from '@/lib/db';
 import { buildOrderConfirmationEmail, buildOwnerOrderAlertEmail } from '@/lib/email-service';
+import { isShipWeek } from '@/lib/delivery-limit';
 import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage } from '@/lib/email-outbox';
 import { currentVariant, getPickupLocationById, getProductById, isStockTracked, pickupWindowLabel, stockUnits } from '@/data/products';
 import { prepareOrderTaxRecord } from '@/lib/tax-records';
@@ -36,6 +37,7 @@ interface FulfillmentData {
   state?: string;
   zip?: string;
   country?: string;
+  shipWeek?: string;
 }
 
 interface CartLine {
@@ -230,6 +232,7 @@ export async function createOrderFromSession(
     pickupHours: pickup ? pickupWindowLabel(pickup) : undefined,
     deliveryAddress: buildDeliveryAddress(fulfillment) ?? undefined,
     shippingMethod: fulfillment.type === 'delivery' ? fulfillment.shippingMethod ?? 'standard' : undefined,
+    shipWeek: fulfillment.type === 'delivery' && isShipWeek(fulfillment.shipWeek) ? fulfillment.shipWeek : undefined,
     // The same service wording checkout showed for this state and cart.
     shippingLabel: fulfillment.type === 'delivery'
       ? deliveryServiceLabel(
@@ -250,13 +253,14 @@ export async function createOrderFromSession(
       `INSERT INTO orders
         (id, order_number, customer_name, phone_number, email, order_type,
          pickup_date, pickup_location, delivery_address, shipping_method,
-         total_price, tax, square_payment_id, coupon_code, maintenance_fee, status, payment_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')
+         total_price, tax, square_payment_id, coupon_code, maintenance_fee, ship_week, status, payment_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'paid')
        ON CONFLICT(square_payment_id) DO NOTHING`
     ).bind(orderId, orderNumber, session.customer_name, session.phone_number, session.email,
       fulfillment.type, fulfillment.date ?? null, fulfillment.locationId ?? null,
       buildDeliveryAddress(fulfillment), fulfillment.type === 'delivery' ? fulfillment.shippingMethod ?? 'standard' : null,
-      session.total_amount, session.tax ?? 0, squarePaymentId, session.coupon_code, session.maintenance_fee ?? 0),
+      session.total_amount, session.tax ?? 0, squarePaymentId, session.coupon_code, session.maintenance_fee ?? 0,
+      fulfillment.type === 'delivery' && isShipWeek(fulfillment.shipWeek) ? fulfillment.shipWeek : null),
     db.prepare(
       `INSERT INTO order_finalizations (order_id, payment_session_id, attempt_id, legacy_repair)
        SELECT id, ?, ?, CASE WHEN id = ? AND ? = 0 THEN 0 ELSE 1 END

@@ -1,3 +1,4 @@
+import { shipWeekDays } from '@/lib/delivery-limit';
 import type { D1Database, Queue } from '@cloudflare/workers-types';
 import { getPickupLocationById } from '@/data/products';
 import { BUSINESS_TZ } from '@/lib/constants';
@@ -83,8 +84,8 @@ ${orders.map((o) => `<tr><td style="${td} white-space:nowrap; font-weight:bold;"
 
   const deliverySection = delivery.length === 0 ? '<p style="color:#666;">No delivery orders waiting. ✅</p>' : `
 <table style="width:100%; border-collapse:collapse;">
-<tr><th style="${th}">Order</th><th style="${th}">Customer</th><th style="${th}">Ship to</th><th style="${th}">Ordered</th><th style="${th}">Items</th></tr>
-${delivery.map((o) => `<tr><td style="${td} white-space:nowrap; font-weight:bold;">${escapeHtml(o.order_number)}</td><td style="${td}">${escapeHtml(o.customer_name)}</td><td style="${td}">${escapeHtml(shipToCity(o.delivery_address))}</td><td style="${td} white-space:nowrap;">${escapeHtml(dayLabel(d1TimestampToBusinessDate(o.created_at)))}</td><td style="${td}">${itemsHtml(o)}</td></tr>`).join('')}
+<tr><th style="${th}">Order</th><th style="${th}">Customer</th><th style="${th}">Ship to</th><th style="${th}">Ordered</th><th style="${th}">Ships</th><th style="${th}">Items</th></tr>
+${delivery.map((o) => `<tr><td style="${td} white-space:nowrap; font-weight:bold;">${escapeHtml(o.order_number)}</td><td style="${td}">${escapeHtml(o.customer_name)}</td><td style="${td}">${escapeHtml(shipToCity(o.delivery_address))}</td><td style="${td} white-space:nowrap;">${escapeHtml(dayLabel(d1TimestampToBusinessDate(o.created_at)))}</td><td style="${td} white-space:nowrap;">${o.ship_week ? escapeHtml(shipWeekDays(o.ship_week)) : '—'}</td><td style="${td}">${itemsHtml(o)}</td></tr>`).join('')}
 </table>`;
 
   const html = baseTemplate(`

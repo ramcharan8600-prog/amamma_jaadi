@@ -786,10 +786,10 @@ it.each([
 });
 
 describe('paused delivery areas before a first charge', () => {
-  function setDeliveryTo(state: string) {
+  function setDeliveryTo(state: string, shipWeek?: string) {
     fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=?,maintenance_fee=0,tax=0,total_amount=?')
       .run(JSON.stringify([{ productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 50, lineTotal: 125 }]),
-        JSON.stringify({ type: 'delivery', state }), 10.99, 135.99);
+        JSON.stringify({ type: 'delivery', state, ...(shipWeek ? { shipWeek } : {}) }), 10.99, 135.99);
   }
 
   it('closes a delivery checkout whose area was paused after it opened, without charging', async () => {
@@ -811,16 +811,27 @@ describe('paused delivery areas before a first charge', () => {
       .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
   });
 
-  it("closes a delivery checkout when this week's delivery orders filled up while the shopper was paying, without charging", async () => {
-    setDeliveryTo('NY');
+  it('closes a delivery checkout whose shipment week filled up while the shopper was paying, without charging', async () => {
+    setDeliveryTo('NY', '2026-11-02');
     fixture.sqlite.prepare("INSERT INTO shop_settings (key, value) VALUES ('weekly_delivery_limit', '1')").run();
-    fixture.sqlite.prepare(`INSERT INTO orders (id, order_number, customer_name, phone_number, order_type, total_price, payment_status, created_at)
-      VALUES ('earlier', 'AJ-9001', 'C', '1', 'delivery', 50, 'paid', datetime('now'))`).run();
+    fixture.sqlite.prepare(`INSERT INTO orders (id, order_number, customer_name, phone_number, order_type, total_price, payment_status, ship_week)
+      VALUES ('earlier', 'AJ-9001', 'C', '1', 'delivery', 50, 'paid', '2026-11-02')`).run();
     const execute = vi.fn();
     expect(await runPaymentAttempt(fixture.db,
       { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
       .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('still charges a delivery whose shipment week has room', async () => {
+    setDeliveryTo('NY', '2026-11-09');
+    fixture.sqlite.prepare("INSERT INTO shop_settings (key, value) VALUES ('weekly_delivery_limit', '1')").run();
+    fixture.sqlite.prepare(`INSERT INTO orders (id, order_number, customer_name, phone_number, order_type, total_price, payment_status, ship_week)
+      VALUES ('earlier', 'AJ-9001', 'C', '1', 'delivery', 50, 'paid', '2026-11-02')`).run();
+    const execute = vi.fn(async () => ({ paymentId: 'payment-open-week', status: 'COMPLETED' }));
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))
+      .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
   });
 });
 

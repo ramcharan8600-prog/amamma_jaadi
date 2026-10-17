@@ -36,8 +36,11 @@ CREATE TABLE IF NOT EXISTS orders (
   ship_weight_lb REAL,
   tracking_emailed_at TEXT,
   -- Owner's private note (migration 026): admin pages and the prep email only
-  admin_note TEXT
+  admin_note TEXT,
+  -- Delivery shipment week chosen at checkout, its Monday (migration 029)
+  ship_week TEXT
 );
+CREATE INDEX IF NOT EXISTS idx_orders_ship_week ON orders(ship_week);
 
 CREATE TABLE IF NOT EXISTS order_items (
   id TEXT PRIMARY KEY,

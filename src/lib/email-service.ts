@@ -9,6 +9,7 @@
  * Provider delivery happens asynchronously in the custom Worker Queue consumer.
  */
 
+import { shipWeekDays } from '@/lib/delivery-limit';
 import { BRAND_NAME, PHONE_NUMBER, SITE_URL, WHATSAPP_NUMBER } from '@/lib/constants';
 import { formatPickupDate } from '@/lib/date';
 import { SALES_TAX_LABEL, shippingMethodLabel } from '@/lib/pricing';
@@ -186,6 +187,8 @@ export interface OrderConfirmationParams {
   deliveryAddress?: string;
   /** When the order was placed (defaults to now). */
   placedAt?: Date;
+  /** Delivery shipment week chosen at checkout (its Monday, YYYY-MM-DD). */
+  shipWeek?: string;
 }
 
 /** Render before the order transaction so its durable email intent commits with it. */
@@ -240,7 +243,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
     </table>
     ${fulfillmentHtml}
     <p style="color: #666;">Questions? WhatsApp us at ${PHONE_NUMBER}.</p>
-    ${params.fulfillmentType === 'delivery' ? `<p style="color: #444; background: #FFF8F0; border-left: 3px solid #C6992E; padding: 12px; margin: 16px 0;">UPS doesn&apos;t ship over the weekend, so to ensure your sweets are fresh by the time they&apos;re delivered, we will dispatch your order on <strong>Monday/Tuesday</strong> and share the tracking details. Thanks for understanding.</p>` : ''}
+    ${params.fulfillmentType === 'delivery' ? `<p style="color: #444; background: #FFF8F0; border-left: 3px solid #C6992E; padding: 12px; margin: 16px 0;">UPS doesn&apos;t ship over the weekend, so to ensure your sweets are fresh by the time they&apos;re delivered, we will dispatch your order on <strong>${params.shipWeek ? escapeHtml(shipWeekDays(params.shipWeek)) : 'Monday/Tuesday'}</strong> and share the tracking details. Thanks for understanding.</p>` : ''}
     <p style="color: #666; margin-top: 16px;">Thanks,<br />Team ${BRAND_NAME}</p>
     <p style="color: #bbb; font-size: 11px; margin-top: 24px;">Payment reference: ${params.squarePaymentId}</p>
   `);

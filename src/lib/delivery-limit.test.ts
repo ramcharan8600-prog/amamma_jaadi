@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestD1 } from '@/lib/test-utils/d1';
 import {
-  countWeekDeliveryOrders, deliveryWeek, deliveryWeekStatus, getWeeklyDeliveryLimit, isDeliveryWeekFull,
-  parseWeeklyLimit, setWeeklyDeliveryLimit,
+  countShipWeekOrders, deliveryWeeksStatus, firstOpenWeek, getWeeklyDeliveryLimit, isShipWeek, isShipWeekOpen,
+  offeredShipWeeks, parseWeeklyLimit, setWeeklyDeliveryLimit, shipWeekDays,
 } from './delivery-limit';
 
 let fixture: ReturnType<typeof createTestD1>;
@@ -14,78 +14,105 @@ beforeEach(() => {
 afterEach(() => fixture.sqlite.close());
 
 let n = 0;
-function order(createdAtUtc: string, fields: Record<string, unknown> = {}) {
+function order(shipWeek: string | null, fields: Record<string, unknown> = {}) {
   const id = `o${++n}`;
   const row = { order_number: `AJ-${n}`, customer_name: 'C', phone_number: '1', order_type: 'delivery', total_price: 50,
-    payment_status: 'paid', status: 'confirmed', created_at: createdAtUtc, ...fields };
+    payment_status: 'paid', status: 'confirmed', ship_week: shipWeek, ...fields };
   fixture.sqlite.prepare(`INSERT INTO orders (id, ${Object.keys(row).join(', ')}) VALUES (?, ${Object.keys(row).map(() => '?').join(', ')})`)
     .run(id, ...Object.values(row));
   return id;
 }
 
-// Wed 2026-10-21, noon Dallas (CDT = UTC-5).
-const now = new Date('2026-10-21T17:00:00Z');
+// Sat 2026-10-17, noon Dallas (CDT = UTC-5).
+const now = new Date('2026-10-17T17:00:00Z');
 
-describe('delivery week (Monday–Sunday, Dallas time)', () => {
-  it('runs from Monday 12:00 AM to Sunday 11:59 PM Dallas time', () => {
-    expect(deliveryWeek(now)).toEqual({
-      monday: '2026-10-19', sunday: '2026-10-25', nextMonday: '2026-10-26',
-      start: '2026-10-19 05:00:00', end: '2026-10-26 05:00:00',
-    });
-    // Sunday 11:30 PM Dallas is still the same week; Monday 12:05 AM starts the next one.
-    expect(deliveryWeek(new Date('2026-10-26T04:30:00Z')).monday).toBe('2026-10-19');
-    expect(deliveryWeek(new Date('2026-10-26T05:05:00Z')).monday).toBe('2026-10-26');
+describe('shipment weeks offered at checkout', () => {
+  it('starts with the coming Monday and offers four weeks', () => {
+    expect(offeredShipWeeks(now)).toEqual(['2026-10-19', '2026-10-26', '2026-11-02', '2026-11-09']);
+    // Sunday 11:30 PM Dallas still makes the next morning's shipment…
+    expect(offeredShipWeeks(new Date('2026-10-19T04:30:00Z'))[0]).toBe('2026-10-19');
+    // …from Monday 12:05 AM that week has closed.
+    expect(offeredShipWeeks(new Date('2026-10-19T05:05:00Z'))[0]).toBe('2026-10-26');
     // After the November clock change (CST = UTC-6).
-    expect(deliveryWeek(new Date('2026-11-04T18:00:00Z'))).toMatchObject({ monday: '2026-11-02', start: '2026-11-02 06:00:00' });
+    expect(offeredShipWeeks(new Date('2026-11-04T18:00:00Z'))[0]).toBe('2026-11-09');
+  });
+
+  it('names a week by its Monday/Tuesday dispatch days', () => {
+    expect(shipWeekDays('2026-10-26')).toBe('Mon Oct 26 / Tue Oct 27');
+    expect(shipWeekDays('2026-11-30')).toBe('Mon Nov 30 / Tue Dec 1');
+    expect(isShipWeek('2026-10-26')).toBe(true);
+    expect(isShipWeek('2026-10-27')).toBe(false);
+    expect(isShipWeek('26-10-2026')).toBe(false);
   });
 });
 
-describe("counting this week's delivery orders", () => {
-  it('counts paid and partly refunded delivery orders of this week only', () => {
-    order('2026-10-19 05:00:00');                                   // Mon 12:00 AM Dallas: counts
-    order('2026-10-21 16:00:00', { payment_status: 'partially_refunded' }); // counts
-    order('2026-10-19 04:59:59');                                   // Sun night before: last week
-    order('2026-10-26 05:00:00');                                   // next Monday
-    order('2026-10-20 12:00:00', { order_type: 'pickup' });         // pickup
-    order('2026-10-20 12:00:00', { payment_status: 'refunded' });   // refunded gives the spot back
-    order('2026-10-20 12:00:00', { status: 'cancelled' });          // cancelled
-    const test = order('2026-10-20 12:00:00');                       // owner test order
+describe('counting a shipment week', () => {
+  it('counts paid and partly refunded delivery orders booked into that week only', async () => {
+    order('2026-10-26');
+    order('2026-10-26', { payment_status: 'partially_refunded' });
+    order('2026-11-02');
+    order('2026-10-26', { order_type: 'pickup' });
+    order('2026-10-26', { payment_status: 'refunded' });
+    order('2026-10-26', { status: 'cancelled' });
+    order('2026-10-26', { status: 'on_hold' });
+    order(null);
+    const test = order('2026-10-26');
     fixture.sqlite.prepare("INSERT INTO order_reporting_exclusions (order_id, reason, recorded_by) VALUES (?, 'test', 'owner')").run(test);
-    return expect(countWeekDeliveryOrders(fixture.db, now)).resolves.toBe(2);
+    expect(await countShipWeekOrders(fixture.db, ['2026-10-26', '2026-11-02', '2026-11-09'])).toEqual({
+      '2026-10-26': 2, '2026-11-02': 1, '2026-11-09': 0,
+    });
   });
 });
 
-describe('weekly limit', () => {
-  it('is off until set, fills at the limit, and can be raised or removed', async () => {
+describe('weekly limit per shipment week', () => {
+  it('marks each week full at the limit, offers the earliest open week, and greys out only when all are full', async () => {
     expect(await getWeeklyDeliveryLimit(fixture.db)).toBeNull();
-    order('2026-10-20 12:00:00');
-    order('2026-10-20 13:00:00');
-    expect(await isDeliveryWeekFull(fixture.db, now)).toBe(false);
+    order('2026-10-19');
+    order('2026-10-19');
+    order('2026-10-26');
+    let status = await deliveryWeeksStatus(fixture.db, now);
+    expect(status.allFull).toBe(false);
+    expect(firstOpenWeek(status, now)).toBe('2026-10-19');
 
     await setWeeklyDeliveryLimit(fixture.db, 2);
-    expect(await deliveryWeekStatus(fixture.db, now)).toEqual({
-      limit: 2, used: 2, full: true, monday: '2026-10-19', sunday: '2026-10-25', reopensOn: '2026-10-26',
-    });
-    await setWeeklyDeliveryLimit(fixture.db, 30);
-    expect(await deliveryWeekStatus(fixture.db, now)).toMatchObject({ limit: 30, used: 2, full: false });
-    // Next Monday the count starts again.
-    await setWeeklyDeliveryLimit(fixture.db, 2);
-    expect(await isDeliveryWeekFull(fixture.db, new Date('2026-10-26T15:00:00Z'))).toBe(false);
+    status = await deliveryWeeksStatus(fixture.db, now);
+    expect(status.weeks.map((w) => [w.week, w.used, w.full])).toEqual([
+      ['2026-10-19', 2, true], ['2026-10-26', 1, false], ['2026-11-02', 0, false], ['2026-11-09', 0, false],
+    ]);
+    expect(status.weeks[1].days).toBe('Mon Oct 26 / Tue Oct 27');
+    expect(firstOpenWeek(status, now)).toBe('2026-10-26');
+    expect(await isShipWeekOpen(fixture.db, '2026-10-19')).toBe(false);
+    expect(await isShipWeekOpen(fixture.db, '2026-10-26')).toBe(true);
+
+    await setWeeklyDeliveryLimit(fixture.db, 1);
+    status = await deliveryWeeksStatus(fixture.db, now);
+    expect(status.allFull).toBe(false);
+    for (const week of ['2026-11-02', '2026-11-09']) order(week);
+    status = await deliveryWeeksStatus(fixture.db, now);
+    expect(status.allFull).toBe(true);
+    expect(firstOpenWeek(status, now)).toBeNull();
+
     await setWeeklyDeliveryLimit(fixture.db, null);
-    expect(await getWeeklyDeliveryLimit(fixture.db)).toBeNull();
+    expect((await deliveryWeeksStatus(fixture.db, now)).allFull).toBe(false);
+  });
+
+  it('can include the week being shipped now for the admin view', async () => {
+    order('2026-10-12');
+    const status = await deliveryWeeksStatus(fixture.db, now, ['2026-10-12']);
+    expect(status.weeks[0]).toMatchObject({ week: '2026-10-12', used: 1 });
+    expect(status.weeks).toHaveLength(5);
   });
 
   it('fails open when the settings table is missing', async () => {
     fixture.sqlite.exec('DROP TABLE shop_settings');
-    const errors: unknown[] = [];
     const original = console.error;
-    console.error = (...args: unknown[]) => { errors.push(args); };
+    console.error = () => {};
     try {
-      expect(await isDeliveryWeekFull(fixture.db, now)).toBe(false);
+      expect((await deliveryWeeksStatus(fixture.db, now)).allFull).toBe(false);
+      expect(await isShipWeekOpen(fixture.db, '2026-10-19')).toBe(true);
     } finally {
       console.error = original;
     }
-    expect(errors).toHaveLength(1);
   });
 
   it('accepts whole numbers from 1 to 1000, or empty for no limit', () => {

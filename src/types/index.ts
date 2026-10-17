@@ -119,6 +119,8 @@ export interface DeliveryDetails {
   state: string;
   zip: string;
   country: string;
+  /** Shipment week chosen at checkout: its Monday, YYYY-MM-DD. */
+  shipWeek?: string;
 }
 
 export type FulfillmentDetails = PickupDetails | DeliveryDetails;
@@ -187,6 +189,8 @@ export interface OrderRecord {
   tracking_emailed_at?: string | null;
   /** Owner's private note; never shown to customers. */
   admin_note?: string | null;
+  /** Delivery shipment week (its Monday, YYYY-MM-DD). */
+  ship_week?: string | null;
   created_at: string;
   /** Present when the query joins order_items (e.g. analytics). */
   order_items?: OrderItemRecord[] | null;

@@ -16,6 +16,7 @@ import { d1TimestampToBusinessDate } from '@/lib/date';
 import { shippingMethodLabel } from '@/lib/pricing';
 import { PICKUP_LOCATIONS } from '@/data/products';
 import { productionSheet } from '@/lib/production';
+import { shipWeekDays } from '@/lib/delivery-limit';
 import { effectiveShipRoute, stateFromAddress } from '@/lib/ship-routing';
 import ShipPanel from '@/components/admin/ShipPanel';
 import AdminNoteCell from '@/components/admin/AdminNoteCell';
@@ -777,6 +778,9 @@ export default function AdminOrdersPage() {
                           <span>
                             {d1TimestampToBusinessDate(order.created_at) || '—'}
                           </span>
+                          {order.ship_week && (
+                            <span className="block font-semibold text-brand-maroon">Ships {shipWeekDays(order.ship_week)}</span>
+                          )}
                           <br />
                           <span className="whitespace-pre-line">
                             {order.delivery_address || '—'}

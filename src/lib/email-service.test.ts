@@ -301,6 +301,10 @@ describe('Monday/Tuesday dispatch note (every delivery order)', () => {
     }
     expect(buildOrderConfirmationEmail({ ...base, fulfillmentType: 'pickup', placedAt: new Date('2026-10-16T17:00:00Z') }).html).not.toContain(note);
   });
+  it('names the exact dispatch days when the shopper chose a shipment week', () => {
+    const html = buildOrderConfirmationEmail({ ...base, fulfillmentType: 'delivery', shipWeek: '2026-10-26' }).html;
+    expect(html).toContain('dispatch your order on <strong>Mon Oct 26 / Tue Oct 27</strong>');
+  });
 });
 
 describe('fresh preparation note (delivery orders)', () => {

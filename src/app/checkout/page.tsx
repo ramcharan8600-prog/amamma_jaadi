@@ -19,7 +19,7 @@ import {
 import { useCartStore } from '@/store/cart';
 import { DELIVERY_QUEUE_NOTICE } from '@/lib/constants';
 import { DELIVERY_PAUSED_ERROR, DELIVERY_ZONES, DELIVERY_ZONE_PAUSED_ERROR } from '@/lib/delivery-pauses';
-import { DELIVERY_WEEK_FULL_ERROR } from '@/lib/delivery-limit';
+import { DELIVERY_WEEK_FULL_ERROR, SHIP_WEEK_UNAVAILABLE_ERROR, shipWeekDays } from '@/lib/delivery-limit';
 import { cartLines, trackFunnel } from '@/lib/analytics';
 import {
   ACTIVE_PICKUP_LOCATIONS,
@@ -244,12 +244,16 @@ export default function CheckoutPage() {
   const [pausedZones, setPausedZones] = useState<ShippingZone[]>([]);
   // This week's delivery orders reached the owner's weekly limit (Admin → Production).
   const [deliveryWeekFull, setDeliveryWeekFull] = useState(false);
+  // Shipment weeks the shopper can choose (Mon/Tue dispatch), each open or full.
+  const [deliveryWeeks, setDeliveryWeeks] = useState<Array<{ week: string; full: boolean }>>([]);
+  const [shipWeek, setShipWeek] = useState('');
   const refreshPausedZones = useCallback(async () => {
     try {
       const res = await fetch('/api/delivery-pauses', { cache: 'no-store' });
       const data = res.ok ? await res.json() : null;
       if (Array.isArray(data?.paused)) setPausedZones(data.paused);
       if (typeof data?.weekFull === 'boolean') setDeliveryWeekFull(data.weekFull);
+      if (Array.isArray(data?.weeks)) setDeliveryWeeks(data.weeks);
     } catch {
       // The server still refuses a paused delivery at checkout.
     }
@@ -577,6 +581,11 @@ export default function CheckoutPage() {
     ?? (soldOutDates.includes(pickupDate) ? SOLD_OUT_DATE_ERROR : null);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
 
+  useEffect(() => {
+    const open = deliveryWeeks.filter((w) => !w.full).map((w) => w.week);
+    if (!open.includes(shipWeek)) setShipWeek(open[0] ?? '');
+  }, [deliveryWeeks, shipWeek]);
+
   // Checkout step counts — see trackStep().
   useEffect(() => {
     if (!mounted || items.length === 0) return;
@@ -810,7 +819,9 @@ export default function CheckoutPage() {
       setSubmitError(result.error);
       // Sold out since the calendar loaded: show it on the calendar too.
       if (result.error === SOLD_OUT_DATE_ERROR) refreshSoldOutDates();
-      if (result.error === DELIVERY_ZONE_PAUSED_ERROR || result.error === DELIVERY_WEEK_FULL_ERROR) refreshPausedZones();
+      if (result.error === DELIVERY_ZONE_PAUSED_ERROR || result.error === DELIVERY_WEEK_FULL_ERROR || result.error === SHIP_WEEK_UNAVAILABLE_ERROR) {
+        refreshPausedZones();
+      }
     } else {
       setStep('payment');
     }
@@ -849,6 +860,7 @@ export default function CheckoutPage() {
       state: deliveryState,
       zip: deliveryZip,
       country: 'USA',
+      ...(shipWeek ? { shipWeek } : {}),
     });
 
   // ── Payment submission (shared by card + Apple Pay) ─────────────────
@@ -1046,7 +1058,8 @@ export default function CheckoutPage() {
     isSupportedDeliveryState(deliveryState) &&
     /^\d{5}(?:-\d{4})?$/.test(deliveryZip.trim()) &&
     deliveryMinimumShortfall === 0 &&
-    !deliveryRestrictionMessage
+    !deliveryRestrictionMessage &&
+    (deliveryWeeks.length === 0 || Boolean(shipWeek))
   );
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === step);
 
@@ -1672,6 +1685,37 @@ export default function CheckoutPage() {
             Alaska and Hawaii require a manual shipping quote. Please contact us before ordering.
           </p>
 
+          {deliveryWeeks.length > 0 && (
+            <fieldset className="space-y-2">
+              <legend className="label-text">Choose your shipment week</legend>
+              <p className="font-body text-xs text-brand-charcoal/60 -mt-1 mb-1">
+                Your sweets are freshly made and shipped on the Monday/Tuesday of the week you choose.
+              </p>
+              {deliveryWeeks.map((w, i) => (
+                <label
+                  key={w.week}
+                  className={`flex items-center gap-3 rounded-xl border p-3 font-body text-sm ${w.full
+                    ? 'border-brand-cream-dark bg-brand-cream/40 text-brand-charcoal/40 cursor-not-allowed'
+                    : shipWeek === w.week ? 'border-brand-maroon bg-brand-cream cursor-pointer' : 'border-brand-cream-dark cursor-pointer hover:border-brand-maroon/50'}`}
+                >
+                  <input
+                    type="radio"
+                    name="ship-week"
+                    value={w.week}
+                    checked={shipWeek === w.week}
+                    disabled={w.full}
+                    onChange={() => { setShipWeek(w.week); trackStep('ship_week_chosen', String(i)); }}
+                    className="h-4 w-4 accent-brand-maroon"
+                  />
+                  <span className="flex-1">
+                    <span className="font-semibold">Ships {shipWeekDays(w.week)}</span>
+                  </span>
+                  {w.full && <span className="text-xs font-bold uppercase">Full</span>}
+                </label>
+              ))}
+            </fieldset>
+          )}
+
           {deliveryMinimumShortfall > 0 && (
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3.5">
               <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
@@ -1775,6 +1819,9 @@ export default function CheckoutPage() {
                 shipping={sessionInfo.shipping} quote={sessionInfo.shippingQuote} />
             )}
             {paymentService && !picklesOnly && expressSweetsNote}
+            {fulfillment?.type === 'delivery' && fulfillment.shipWeek && (
+              <p className="font-body text-sm text-brand-charcoal/80">Ships <strong>{shipWeekDays(fulfillment.shipWeek)}</strong></p>
+            )}
             <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
               <span>{SALES_TAX_LABEL}</span>
               <span>{formatCurrency(sessionInfo.tax)}</span>

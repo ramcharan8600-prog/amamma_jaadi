@@ -32,6 +32,7 @@ let bobbatluStock = 0;
 let soldOutDates: string[] = [];
 let pausedZones: string[] = [];
 let weekFull = false;
+let shipWeeks: Array<{ week: string; full: boolean }> = [];
 let kovaBobbatluStock = 0;
 const tokenize = vi.fn();
 const squareConfigOk = () => Response.json({
@@ -73,7 +74,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
     line1: '123 Main St', line2: '', city: 'Plano', state: 'TX', zip: '75093',
   } });
   if (url === '/api/sold-out-dates') return Response.json({ dates: soldOutDates });
-  if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones, weekFull, reopensOn: '2026-09-14' });
+  if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones, weekFull, weeks: shipWeeks });
   if (url === '/api/payments/config') return squareConfig();
   throw new Error(`Unexpected test request: ${url}`);
 });
@@ -180,6 +181,7 @@ beforeEach(() => {
   soldOutDates = [];
   pausedZones = [];
   weekFull = false;
+  shipWeeks = [];
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-09-10T17:00:00Z'));
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -402,28 +404,44 @@ describe('delivery queue notice', () => {
   });
 });
 
-describe('weekly delivery limit', () => {
-  it("greys out Delivery when this week's delivery orders are full; pickup stays open and the visit is counted", async () => {
+describe('shipment weeks', () => {
+  async function toDeliveryDetails() {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
+    await render();
+    await click('Continue');
+    const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
+    await act(async () => choice.click());
+  }
+
+  it('lets the shopper pick a shipment week; full weeks are disabled and the earliest open week is pre-selected', async () => {
+    shipWeeks = [{ week: '2026-09-14', full: true }, { week: '2026-09-21', full: false }, { week: '2026-09-28', full: false }];
+    await toDeliveryDetails();
+    const radios = [...host.querySelectorAll<HTMLInputElement>('input[name="ship-week"]')];
+    expect(radios.map((r) => [r.value, r.disabled, r.checked])).toEqual([
+      ['2026-09-14', true, false], ['2026-09-21', false, true], ['2026-09-28', false, false],
+    ]);
+    const labels = [...host.querySelectorAll('fieldset label')].map((l) => l.textContent);
+    expect(labels[0]).toContain('Ships Mon Sep 14 / Tue Sep 15');
+    expect(labels[0]).toContain('Full');
+    await act(async () => { radios[2].click(); });
+    expect(radios[2].checked).toBe(true);
+    const steps = calls('/api/checkout-funnel').map(([, init]) => JSON.parse(String(init?.body)));
+    expect(steps).toContainEqual(expect.objectContaining({ step: 'ship_week_chosen', detail: '2' }));
+  });
+
+  it("greys out Delivery when every offered week is full; pickup stays open and the visit is counted", async () => {
     weekFull = true;
+    shipWeeks = [{ week: '2026-09-14', full: true }];
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await render();
     await click('Continue');
     const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
     expect(delivery.disabled).toBe(true);
-    expect(delivery.textContent).toContain("This week's delivery orders are full. Delivery opens again on Monday.");
-    expect(delivery.textContent).not.toContain('Monday/Tuesday');
+    expect(delivery.textContent).toContain('Delivery is fully booked for the next few weeks.');
     const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup')!;
     expect(pickup.disabled).toBe(false);
     const steps = calls('/api/checkout-funnel').map(([, init]) => JSON.parse(String(init?.body)).step);
     expect(steps).toContain('delivery_week_full');
-  });
-
-  it('keeps Delivery open while the week has room', async () => {
-    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
-    await render();
-    await click('Continue');
-    const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
-    expect(delivery.disabled).toBe(false);
   });
 });
 

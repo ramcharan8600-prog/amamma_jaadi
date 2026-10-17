@@ -1,20 +1,29 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import { businessDateUtcRange, toBusinessDateString } from '@/lib/date';
+import { toBusinessDateString } from '@/lib/date';
 
 /**
- * Weekly cap on delivery orders (owner, 2026-10-17: "accept 30 delivery orders
- * per week, Monday to Sunday, then grey out delivery"). The week runs Monday
- * 12:00 AM to Sunday 11:59 PM Dallas time. Paid and partly refunded delivery
- * orders count; fully refunded, cancelled and test orders give their spot back.
- * No limit saved = no cap. Every lookup fails open: a database hiccup must not
- * block delivery for everyone.
+ * Delivery shipment weeks (owner, 2026-10-17). Delivery orders ship in weekly
+ * batches on Monday/Tuesday. At checkout the shopper picks a shipment week from
+ * the next few; each week takes up to the owner's weekly limit of orders, then
+ * shows "Full" while later weeks stay open. Orders placed up to Sunday 11:59 PM
+ * Dallas time can join the coming Monday's shipment.
+ *
+ * A week is named by its Monday (YYYY-MM-DD), stored in orders.ship_week.
+ * Paid and partly refunded delivery orders hold a spot; refunded, cancelled,
+ * on-hold and test orders don't. No limit saved = every week open. Lookups
+ * fail open: a database hiccup must not block delivery for everyone.
  */
 const SETTING_KEY = 'weekly_delivery_limit';
 export const MAX_WEEKLY_DELIVERY_LIMIT = 1000;
+/** How many shipment weeks checkout offers. */
+export const SHIP_WEEKS_OFFERED = 4;
 
-/** Shown on the greyed-out Delivery option and returned by the server when the week is full. */
+/** When every offered shipment week is full (Delivery greys out). */
 export const DELIVERY_WEEK_FULL_ERROR =
-  "This week's delivery orders are full. Delivery opens again on Monday. Free pickup in Plano, Frisco and Irving is still available.";
+  'Delivery is fully booked for the next few weeks. Free pickup in Plano, Frisco and Irving is still available.';
+/** When the chosen week filled up or is no longer offered. */
+export const SHIP_WEEK_UNAVAILABLE_ERROR =
+  'That shipment week is no longer available. Please choose another week.';
 
 function addDays(ymd: string, days: number): string {
   const d = new Date(`${ymd}T00:00:00Z`);
@@ -22,22 +31,32 @@ function addDays(ymd: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** This delivery week in Dallas time: Monday, Sunday, next Monday (YYYY-MM-DD) and its D1 UTC bounds. */
-export function deliveryWeek(now = new Date()) {
+/** Monday of the Dallas-time week containing `now`. */
+function thisMonday(now: Date): string {
   const today = toBusinessDateString(now);
-  const sinceMonday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
-  const monday = addDays(today, -sinceMonday);
-  const nextMonday = addDays(monday, 7);
-  return {
-    monday,
-    sunday: addDays(monday, 6),
-    nextMonday,
-    start: businessDateUtcRange(monday)!.start,
-    end: businessDateUtcRange(nextMonday)!.start,
-  };
+  return addDays(today, -((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7));
 }
 
-/** A whole number from 1 to 1000, or null to remove the cap. Anything else is invalid (undefined). */
+/** The shipment weeks a shopper can choose now: the coming Monday onward. */
+export function offeredShipWeeks(now = new Date(), count = SHIP_WEEKS_OFFERED): string[] {
+  const first = addDays(thisMonday(now), 7);
+  return Array.from({ length: count }, (_, i) => addDays(first, i * 7));
+}
+
+export function isShipWeek(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && new Date(`${value}T00:00:00Z`).getUTCDay() === 1;
+}
+
+/** "Mon Oct 26 / Tue Oct 27" — the dispatch days of a shipment week. */
+export function shipWeekDays(week: string): string {
+  const day = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString('en-US', {
+    timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric',
+  }).replace(',', '');
+  return `${day(week)} / ${day(addDays(week, 1))}`;
+}
+
+/** A whole number from 1 to 1000, or null to remove the limit. Anything else is invalid (undefined). */
 export function parseWeeklyLimit(value: unknown): number | null | undefined {
   if (value === null || value === '') return null;
   const n = typeof value === 'string' ? Number(value.trim()) : value;
@@ -60,43 +79,70 @@ export async function setWeeklyDeliveryLimit(db: D1Database, limit: number | nul
   ).bind(SETTING_KEY, String(limit)).run();
 }
 
-/** Delivery orders that hold a spot in this week. */
-export async function countWeekDeliveryOrders(db: D1Database, now = new Date()): Promise<number> {
-  const week = deliveryWeek(now);
-  const row = await db.prepare(
-    `SELECT COUNT(*) AS n FROM orders o
-     WHERE o.order_type = 'delivery' AND o.payment_status IN ('paid', 'partially_refunded') AND o.status != 'cancelled'
-       AND o.created_at >= ? AND o.created_at < ?
-       AND NOT EXISTS (SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = o.id)`,
-  ).bind(week.start, week.end).first<{ n: number }>();
-  return Number(row?.n ?? 0);
+/** Delivery orders holding a spot in each of the given shipment weeks. */
+export async function countShipWeekOrders(db: D1Database, weeks: string[]): Promise<Record<string, number>> {
+  const counts: Record<string, number> = Object.fromEntries(weeks.map((w) => [w, 0]));
+  if (weeks.length === 0) return counts;
+  const rows = await db.prepare(
+    `SELECT o.ship_week AS week, COUNT(*) AS n FROM orders o
+     WHERE o.order_type = 'delivery' AND o.payment_status IN ('paid', 'partially_refunded')
+       AND o.status NOT IN ('cancelled', 'on_hold')
+       AND o.ship_week IN (${weeks.map(() => '?').join(', ')})
+       AND NOT EXISTS (SELECT 1 FROM order_reporting_exclusions x WHERE x.order_id = o.id)
+     GROUP BY o.ship_week`,
+  ).bind(...weeks).all<{ week: string; n: number }>();
+  for (const row of rows.results ?? []) counts[row.week] = Number(row.n);
+  return counts;
 }
 
-export interface DeliveryWeekStatus {
-  limit: number | null;
+export interface ShipWeekStatus {
+  week: string;
+  /** "Mon Oct 26 / Tue Oct 27" */
+  days: string;
   used: number;
   full: boolean;
-  monday: string;
-  sunday: string;
-  /** The Monday delivery opens again (the next week's start). */
-  reopensOn: string;
 }
 
-/** Limit, orders this week and whether delivery is full. Fails open (not full) on any error. */
-export async function deliveryWeekStatus(db: D1Database, now = new Date()): Promise<DeliveryWeekStatus> {
-  const week = deliveryWeek(now);
-  const base = { monday: week.monday, sunday: week.sunday, reopensOn: week.nextMonday };
+export interface DeliveryWeeksStatus {
+  limit: number | null;
+  weeks: ShipWeekStatus[];
+  /** Every offered week is full: Delivery greys out at checkout. */
+  allFull: boolean;
+}
+
+/** The offered shipment weeks with their counts. Fails open (all open) on any error. */
+export async function deliveryWeeksStatus(db: D1Database, now = new Date(), extraWeeks: string[] = []): Promise<DeliveryWeeksStatus> {
+  const offered = offeredShipWeeks(now);
+  const weeks = [...new Set([...extraWeeks.filter(isShipWeek), ...offered])].sort();
   try {
     const limit = await getWeeklyDeliveryLimit(db);
-    const used = await countWeekDeliveryOrders(db, now);
-    return { ...base, limit, used, full: limit !== null && used >= limit };
+    const counts = await countShipWeekOrders(db, weeks);
+    const status = weeks.map((week) => ({
+      week, days: shipWeekDays(week), used: counts[week] ?? 0, full: limit !== null && (counts[week] ?? 0) >= limit,
+    }));
+    const offeredStatus = status.filter((w) => offered.includes(w.week));
+    return { limit, weeks: status, allFull: offeredStatus.every((w) => w.full) };
   } catch (error) {
     console.error(JSON.stringify({ event: 'delivery_limit_lookup_failed', error: error instanceof Error ? error.message : String(error) }));
-    return { ...base, limit: null, used: 0, full: false };
+    return { limit: null, weeks: weeks.map((week) => ({ week, days: shipWeekDays(week), used: 0, full: false })), allFull: false };
   }
 }
 
-/** True when this week's delivery orders have reached the cap. */
-export async function isDeliveryWeekFull(db: D1Database, now = new Date()): Promise<boolean> {
-  return (await deliveryWeekStatus(db, now)).full;
+/** The earliest offered week with room, or null when every offered week is full. */
+export function firstOpenWeek(status: DeliveryWeeksStatus, now = new Date()): string | null {
+  const offered = offeredShipWeeks(now);
+  return status.weeks.find((w) => offered.includes(w.week) && !w.full)?.week ?? null;
+}
+
+/** True when this shipment week still has room (any week; used again right before charging). */
+export async function isShipWeekOpen(db: D1Database, week: string): Promise<boolean> {
+  try {
+    const limit = await getWeeklyDeliveryLimit(db);
+    if (limit === null) return true;
+    const counts = await countShipWeekOrders(db, [week]);
+    return (counts[week] ?? 0) < limit;
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'delivery_limit_lookup_failed', error: error instanceof Error ? error.message : String(error) }));
+    return true;
+  }
 }
