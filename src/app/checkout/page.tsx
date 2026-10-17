@@ -19,7 +19,7 @@ import {
 import { useCartStore } from '@/store/cart';
 import { DELIVERY_QUEUE_NOTICE } from '@/lib/constants';
 import { DELIVERY_PAUSED_ERROR, DELIVERY_ZONES, DELIVERY_ZONE_PAUSED_ERROR } from '@/lib/delivery-pauses';
-import { DELIVERY_WEEK_FULL_ERROR, SHIP_WEEK_UNAVAILABLE_ERROR, shipWeekDays } from '@/lib/delivery-limit';
+import { DELIVERY_WEEK_FULL_ERROR, FESTIVAL_SHIP_WEEKS, SHIP_WEEK_UNAVAILABLE_ERROR, shipWeekDays } from '@/lib/delivery-limit';
 import { cartLines, trackFunnel } from '@/lib/analytics';
 import {
   ACTIVE_PICKUP_LOCATIONS,
@@ -1709,6 +1709,11 @@ export default function CheckoutPage() {
                   />
                   <span className="flex-1">
                     <span className="font-semibold">Ships {shipWeekDays(w.week)}</span>
+                    {FESTIVAL_SHIP_WEEKS[w.week] && (
+                      <span className="block sm:inline sm:ml-2 text-brand-maroon">
+                        <span aria-hidden="true">🪔</span> <strong className="font-bold">{FESTIVAL_SHIP_WEEKS[w.week]}</strong> · Taking pre-orders
+                      </span>
+                    )}
                   </span>
                   {w.full && <span className="text-xs font-bold uppercase">Full</span>}
                 </label>

@@ -18,6 +18,15 @@ export const MAX_WEEKLY_DELIVERY_LIMIT = 1000;
 /** How many shipment weeks checkout offers. */
 export const SHIP_WEEKS_OFFERED = 4;
 
+/**
+ * Festival shipment weeks, highlighted in the checkout week picker
+ * (owner, 2026-10-17: Diwali is Sun Nov 8, 2026 — the week of Nov 2 ships
+ * Diwali pre-orders).
+ */
+export const FESTIVAL_SHIP_WEEKS: Record<string, string> = {
+  '2026-11-02': 'DIWALI',
+};
+
 /** When every offered shipment week is full (Delivery greys out). */
 export const DELIVERY_WEEK_FULL_ERROR =
   'Delivery is fully booked for the next few weeks. Free pickup in Plano, Frisco and Irving is still available.';

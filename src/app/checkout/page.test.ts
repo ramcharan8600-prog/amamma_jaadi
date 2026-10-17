@@ -414,15 +414,19 @@ describe('shipment weeks', () => {
   }
 
   it('lets the shopper pick a shipment week; full weeks are disabled and the earliest open week is pre-selected', async () => {
-    shipWeeks = [{ week: '2026-09-14', full: true }, { week: '2026-09-21', full: false }, { week: '2026-09-28', full: false }];
+    shipWeeks = [{ week: '2026-09-14', full: true }, { week: '2026-09-21', full: false }, { week: '2026-09-28', full: false }, { week: '2026-11-02', full: false }];
     await toDeliveryDetails();
     const radios = [...host.querySelectorAll<HTMLInputElement>('input[name="ship-week"]')];
     expect(radios.map((r) => [r.value, r.disabled, r.checked])).toEqual([
-      ['2026-09-14', true, false], ['2026-09-21', false, true], ['2026-09-28', false, false],
+      ['2026-09-14', true, false], ['2026-09-21', false, true], ['2026-09-28', false, false], ['2026-11-02', false, false],
     ]);
     const labels = [...host.querySelectorAll('fieldset label')].map((l) => l.textContent);
     expect(labels[0]).toContain('Ships Mon Sep 14 / Tue Sep 15');
     expect(labels[0]).toContain('Full');
+    // The Diwali week is highlighted; others are not.
+    expect(labels[3]).toContain('🪔 DIWALI · Taking pre-orders');
+    expect(host.querySelectorAll('fieldset label')[3].querySelector('strong')?.textContent).toBe('DIWALI');
+    expect(labels[1]).not.toContain('DIWALI');
     await act(async () => { radios[2].click(); });
     expect(radios[2].checked).toBe(true);
     const steps = calls('/api/checkout-funnel').map(([, init]) => JSON.parse(String(init?.body)));
