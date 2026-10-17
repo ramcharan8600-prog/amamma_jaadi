@@ -1715,7 +1715,7 @@ export default function CheckoutPage() {
                   />
                   <span className="flex-1">
                     <span className="font-semibold">Ships {shipWeekDays(w.week)}</span>
-                    {w.full && <strong className="ml-1 font-bold text-brand-maroon">(SOLD OUT)</strong>}
+                    {w.full && <strong className="ml-1 font-bold text-brand-maroon whitespace-nowrap">(SOLD OUT)</strong>}
                     {!w.full && FESTIVAL_SHIP_WEEKS[w.week] && (
                       <span className="block sm:inline sm:ml-2 text-brand-maroon">
                         <span aria-hidden="true">🪔</span> <strong className="font-bold">{FESTIVAL_SHIP_WEEKS[w.week]}</strong> · Taking pre-orders
