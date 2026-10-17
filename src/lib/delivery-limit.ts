@@ -3,10 +3,11 @@ import { toBusinessDateString } from '@/lib/date';
 
 /**
  * Delivery shipment weeks (owner, 2026-10-17). Delivery orders ship in weekly
- * batches on Monday/Tuesday. At checkout the shopper picks a shipment week from
- * the next few; each week takes up to the owner's weekly limit of orders, then
- * shows "Full" while later weeks stay open. Orders placed up to Sunday 11:59 PM
- * Dallas time can join the coming Monday's shipment.
+ * batches on Monday/Tuesday. Checkout shows "this week" as SOLD OUT, then the
+ * next 3 weeks to choose from; each takes up to the owner's weekly limit of
+ * orders, then shows SOLD OUT too. "This week" rolls over on Saturday (Dallas
+ * time): from Saturday the coming Monday's shipment is this week's, so orders
+ * placed Monday–Friday can still book the following Monday.
  *
  * A week is named by its Monday (YYYY-MM-DD), stored in orders.ship_week.
  * Paid and partly refunded delivery orders hold a spot; refunded, cancelled,
@@ -49,15 +50,20 @@ function thisMonday(now: Date): string {
   return addDays(today, -((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7));
 }
 
-/** This week's shipment (its Monday): shown at checkout as SOLD OUT, never bookable. */
+/**
+ * This week's shipment (its Monday): shown at checkout as SOLD OUT, never
+ * bookable. Monday–Friday it is this calendar week's Monday; on Saturday and
+ * Sunday it is the coming Monday (the batch the kitchen is preparing).
+ */
 export function currentShipWeek(now = new Date()): string {
-  return thisMonday(now);
+  const day = new Date(`${toBusinessDateString(now)}T00:00:00Z`).getUTCDay();
+  return addDays(thisMonday(now), day === 6 || day === 0 ? 7 : 0);
 }
 
-/** The shipment weeks a shopper can choose now: the coming Monday onward. */
+/** The shipment weeks a shopper can choose now: the 3 weeks after this week's. */
 export function offeredShipWeeks(now = new Date(), count = SHIP_WEEKS_OFFERED): string[] {
-  const first = addDays(thisMonday(now), 7);
-  return Array.from({ length: count }, (_, i) => addDays(first, i * 7));
+  const current = currentShipWeek(now);
+  return Array.from({ length: count }, (_, i) => addDays(current, (i + 1) * 7));
 }
 
 /** Weeks the admin can move an order to: 2 weeks back through 8 weeks ahead of this week. */

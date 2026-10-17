@@ -27,15 +27,20 @@ function order(shipWeek: string | null, fields: Record<string, unknown> = {}) {
 const now = new Date('2026-10-17T17:00:00Z');
 
 describe('shipment weeks offered at checkout', () => {
-  it("shows this week's shipment as sold out, then offers the next three weeks from the coming Monday", () => {
-    expect(currentShipWeek(now)).toBe('2026-10-12');
-    expect(offeredShipWeeks(now)).toEqual(['2026-10-19', '2026-10-26', '2026-11-02']);
-    // Sunday 11:30 PM Dallas still makes the next morning's shipment…
-    expect(offeredShipWeeks(new Date('2026-10-19T04:30:00Z'))[0]).toBe('2026-10-19');
-    // …from Monday 12:05 AM that week has closed.
-    expect(offeredShipWeeks(new Date('2026-10-19T05:05:00Z'))[0]).toBe('2026-10-26');
+  it("shows this week's shipment as sold out, then offers the 3 weeks after it; the week rolls over on Saturday", () => {
+    // Saturday Oct 17: "this week" is the coming Monday's shipment.
+    expect(currentShipWeek(now)).toBe('2026-10-19');
+    expect(offeredShipWeeks(now)).toEqual(['2026-10-26', '2026-11-02', '2026-11-09']);
+    // Monday Oct 19 through Friday Oct 23: still the week of Oct 19; Oct 26 bookable.
+    for (const instant of ['2026-10-19T05:05:00Z', '2026-10-24T04:59:00Z']) {
+      expect(currentShipWeek(new Date(instant))).toBe('2026-10-19');
+      expect(offeredShipWeeks(new Date(instant))[0]).toBe('2026-10-26');
+    }
+    // Saturday Oct 24, 12:01 AM Dallas: Oct 26 becomes this week.
+    expect(currentShipWeek(new Date('2026-10-24T05:01:00Z'))).toBe('2026-10-26');
+    expect(offeredShipWeeks(new Date('2026-10-24T05:01:00Z'))).toEqual(['2026-11-02', '2026-11-09', '2026-11-16']);
     // After the November clock change (CST = UTC-6).
-    expect(offeredShipWeeks(new Date('2026-11-04T18:00:00Z'))[0]).toBe('2026-11-09');
+    expect(currentShipWeek(new Date('2026-11-04T18:00:00Z'))).toBe('2026-11-02');
   });
 
   it('names a week by its Monday/Tuesday dispatch days', () => {
@@ -68,27 +73,27 @@ describe('counting a shipment week', () => {
 describe('weekly limit per shipment week', () => {
   it('marks each week full at the limit, offers the earliest open week, and greys out only when all are full', async () => {
     expect(await getWeeklyDeliveryLimit(fixture.db)).toBeNull();
-    order('2026-10-19');
-    order('2026-10-19');
     order('2026-10-26');
+    order('2026-10-26');
+    order('2026-11-02');
     let status = await deliveryWeeksStatus(fixture.db, now);
     expect(status.allFull).toBe(false);
-    expect(firstOpenWeek(status, now)).toBe('2026-10-19');
+    expect(firstOpenWeek(status, now)).toBe('2026-10-26');
 
     await setWeeklyDeliveryLimit(fixture.db, 2);
     status = await deliveryWeeksStatus(fixture.db, now);
     expect(status.weeks.map((w) => [w.week, w.used, w.full])).toEqual([
-      ['2026-10-19', 2, true], ['2026-10-26', 1, false], ['2026-11-02', 0, false],
+      ['2026-10-26', 2, true], ['2026-11-02', 1, false], ['2026-11-09', 0, false],
     ]);
-    expect(status.weeks[1].days).toBe('Mon Oct 26 / Tue Oct 27');
-    expect(firstOpenWeek(status, now)).toBe('2026-10-26');
-    expect(await isShipWeekOpen(fixture.db, '2026-10-19')).toBe(false);
-    expect(await isShipWeekOpen(fixture.db, '2026-10-26')).toBe(true);
+    expect(status.weeks[1].days).toBe('Mon Nov 2 / Tue Nov 3');
+    expect(firstOpenWeek(status, now)).toBe('2026-11-02');
+    expect(await isShipWeekOpen(fixture.db, '2026-10-26')).toBe(false);
+    expect(await isShipWeekOpen(fixture.db, '2026-11-02')).toBe(true);
 
     await setWeeklyDeliveryLimit(fixture.db, 1);
     status = await deliveryWeeksStatus(fixture.db, now);
     expect(status.allFull).toBe(false);
-    order('2026-11-02');
+    order('2026-11-09');
     status = await deliveryWeeksStatus(fixture.db, now);
     expect(status.allFull).toBe(true);
     expect(firstOpenWeek(status, now)).toBeNull();
@@ -98,9 +103,9 @@ describe('weekly limit per shipment week', () => {
   });
 
   it('can include the week being shipped now for the admin view', async () => {
-    order('2026-10-12');
-    const status = await deliveryWeeksStatus(fixture.db, now, ['2026-10-12']);
-    expect(status.weeks[0]).toMatchObject({ week: '2026-10-12', used: 1 });
+    order('2026-10-19');
+    const status = await deliveryWeeksStatus(fixture.db, now, [currentShipWeek(now)]);
+    expect(status.weeks[0]).toMatchObject({ week: '2026-10-19', used: 1 });
     expect(status.weeks).toHaveLength(4);
   });
 

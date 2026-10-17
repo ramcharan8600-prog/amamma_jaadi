@@ -3,12 +3,11 @@ import { cookies } from 'next/headers';
 import { getDb, isDbConfigured } from '@/lib/db';
 import { verifySessionToken, SESSION_COOKIE } from '@/lib/session';
 import { ok, fail } from '@/lib/api';
-import { deliveryWeeksStatus, offeredShipWeeks, parseWeeklyLimit, setWeeklyDeliveryLimit } from '@/lib/delivery-limit';
+import { currentShipWeek, deliveryWeeksStatus, parseWeeklyLimit, setWeeklyDeliveryLimit } from '@/lib/delivery-limit';
 
 /** The week being shipped now plus the weeks customers can book. */
 function adminStatus(db: Parameters<typeof deliveryWeeksStatus>[0]) {
-  const current = offeredShipWeeks(new Date(Date.now() - 7 * 86_400_000), 1);
-  return deliveryWeeksStatus(db, new Date(), current);
+  return deliveryWeeksStatus(db, new Date(), [currentShipWeek()]);
 }
 
 async function isAuthenticated(): Promise<boolean> {
