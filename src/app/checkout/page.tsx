@@ -19,6 +19,7 @@ import {
 import { useCartStore } from '@/store/cart';
 import { DELIVERY_QUEUE_NOTICE } from '@/lib/constants';
 import { DELIVERY_PAUSED_ERROR, DELIVERY_ZONES, DELIVERY_ZONE_PAUSED_ERROR } from '@/lib/delivery-pauses';
+import { DELIVERY_WEEK_FULL_ERROR } from '@/lib/delivery-limit';
 import { cartLines, trackFunnel } from '@/lib/analytics';
 import {
   ACTIVE_PICKUP_LOCATIONS,
@@ -241,11 +242,14 @@ export default function CheckoutPage() {
   // details open; the calendar greys them out with "Sold out".
   // Delivery areas paused in Admin → Production (the server enforces them too).
   const [pausedZones, setPausedZones] = useState<ShippingZone[]>([]);
+  // This week's delivery orders reached the owner's weekly limit (Admin → Production).
+  const [deliveryWeekFull, setDeliveryWeekFull] = useState(false);
   const refreshPausedZones = useCallback(async () => {
     try {
       const res = await fetch('/api/delivery-pauses', { cache: 'no-store' });
       const data = res.ok ? await res.json() : null;
       if (Array.isArray(data?.paused)) setPausedZones(data.paused);
+      if (typeof data?.weekFull === 'boolean') setDeliveryWeekFull(data.weekFull);
     } catch {
       // The server still refuses a paused delivery at checkout.
     }
@@ -254,6 +258,10 @@ export default function CheckoutPage() {
     if (step === 'method' || (step === 'details' && fulfillmentType === 'delivery')) refreshPausedZones();
   }, [step, fulfillmentType, refreshPausedZones]);
   const allDeliveryPaused = DELIVERY_ZONES.every((zone) => pausedZones.includes(zone));
+  const deliveryClosed = allDeliveryPaused || deliveryWeekFull;
+  useEffect(() => {
+    if (step === 'method' && deliveryWeekFull && !allDeliveryPaused) trackStep('delivery_week_full');
+  }, [step, deliveryWeekFull, allDeliveryPaused, trackStep]);
   const [soldOutDates, setSoldOutDates] = useState<string[]>([]);
   const refreshSoldOutDates = useCallback(async () => {
     try {
@@ -802,7 +810,7 @@ export default function CheckoutPage() {
       setSubmitError(result.error);
       // Sold out since the calendar loaded: show it on the calendar too.
       if (result.error === SOLD_OUT_DATE_ERROR) refreshSoldOutDates();
-      if (result.error === DELIVERY_ZONE_PAUSED_ERROR) refreshPausedZones();
+      if (result.error === DELIVERY_ZONE_PAUSED_ERROR || result.error === DELIVERY_WEEK_FULL_ERROR) refreshPausedZones();
     } else {
       setStep('payment');
     }
@@ -1246,7 +1254,7 @@ export default function CheckoutPage() {
             </button>
             <button
               onClick={() => {
-                if (pickupOnlyProduct || allDeliveryPaused) return;
+                if (pickupOnlyProduct || deliveryClosed) return;
                 trackStep('delivery_chosen');
                 setFulfillmentType('delivery');
                 if (pickupName) setDeliveryName(pickupName);
@@ -1254,7 +1262,7 @@ export default function CheckoutPage() {
                 if (pickupEmail) setDeliveryEmail(pickupEmail);
                 setStep('details');
               }}
-              disabled={!!pickupOnlyProduct || allDeliveryPaused}
+              disabled={!!pickupOnlyProduct || deliveryClosed}
               className="card p-6 text-left hover:border-brand-maroon transition-colors group disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-brand-cream-dark"
             >
               <Truck size={28} className="text-brand-maroon mb-3 group-hover:scale-110 transition-transform" />
@@ -1266,6 +1274,8 @@ export default function CheckoutPage() {
                 </p>
               ) : allDeliveryPaused ? (
                 <p className="font-body text-sm text-brand-maroon mt-1">{DELIVERY_PAUSED_ERROR}</p>
+              ) : deliveryWeekFull ? (
+                <p className="font-body text-sm text-brand-maroon mt-1">{DELIVERY_WEEK_FULL_ERROR}</p>
               ) : (
                 <>
                   <p className="font-body text-sm text-brand-charcoal/60 mt-1">

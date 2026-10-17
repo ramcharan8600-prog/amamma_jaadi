@@ -184,17 +184,8 @@ export interface OrderConfirmationParams {
   pickupHours?: string;
   /** Delivery address — shown for delivery orders. */
   deliveryAddress?: string;
-  /** When the order was placed (defaults to now); drives the weekend dispatch note. */
+  /** When the order was placed (defaults to now). */
   placedAt?: Date;
-}
-
-/**
- * UPS doesn't move boxes over the weekend, so delivery orders placed
- * Thursday–Sunday (Dallas time) are dispatched on Monday/Tuesday instead.
- */
-export function isWeekendDispatchOrder(placedAt: Date = new Date()): boolean {
-  const day = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'America/Chicago' }).format(placedAt);
-  return ['Thu', 'Fri', 'Sat', 'Sun'].includes(day);
 }
 
 /** Render before the order transaction so its durable email intent commits with it. */
@@ -218,7 +209,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
       <p style="margin: 0 0 6px; font-weight: bold; color: #7B1F1F;">Delivery</p>
       ${params.deliveryAddress ? `<p style="margin: 0 0 6px; color: #444; white-space: pre-line;">${escapeHtml(params.deliveryAddress)}</p>` : ''}
       <p style="margin: 0 0 6px; color: #444;"><strong>Method:</strong> ${escapeHtml(params.shippingLabel ?? shippingMethodLabel(params.shippingMethod, picklesOnly))}</p>
-      ${picklesOnly ? '' : `<p style="margin: 0 0 6px; color: #444;">Our sweets are <strong>freshly made</strong> after your order is confirmed. Please allow <strong>3–4 days</strong> for preparation.</p>`}
+      ${picklesOnly ? '' : `<p style="margin: 0 0 6px; color: #444;">Our sweets are <strong>freshly made</strong> after your order is confirmed.</p>`}
       <p style="margin: 0; color: #666;">We&apos;ll share tracking details for your delivery shortly.</p>
     </div>`;
 
@@ -249,7 +240,7 @@ export function buildOrderConfirmationEmail(params: OrderConfirmationParams): Em
     </table>
     ${fulfillmentHtml}
     <p style="color: #666;">Questions? WhatsApp us at ${PHONE_NUMBER}.</p>
-    ${params.fulfillmentType === 'delivery' && isWeekendDispatchOrder(params.placedAt) ? `<p style="color: #444; background: #FFF8F0; border-left: 3px solid #C6992E; padding: 12px; margin: 16px 0;">UPS doesn&apos;t ship over the weekend, so to ensure your sweets are fresh by the time they&apos;re delivered, we will dispatch your order on <strong>Monday/Tuesday</strong> and share the tracking details. Thanks for understanding.</p>` : ''}
+    ${params.fulfillmentType === 'delivery' ? `<p style="color: #444; background: #FFF8F0; border-left: 3px solid #C6992E; padding: 12px; margin: 16px 0;">UPS doesn&apos;t ship over the weekend, so to ensure your sweets are fresh by the time they&apos;re delivered, we will dispatch your order on <strong>Monday/Tuesday</strong> and share the tracking details. Thanks for understanding.</p>` : ''}
     <p style="color: #666; margin-top: 16px;">Thanks,<br />Team ${BRAND_NAME}</p>
     <p style="color: #bbb; font-size: 11px; margin-top: 24px;">Payment reference: ${params.squarePaymentId}</p>
   `);

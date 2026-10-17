@@ -347,6 +347,13 @@ CREATE TABLE IF NOT EXISTS delivery_pauses (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Owner-editable shop settings (migration 027), e.g. weekly_delivery_limit.
+CREATE TABLE IF NOT EXISTS shop_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Anonymous checkout step counts (migration 025): no customer data.
 CREATE TABLE IF NOT EXISTS checkout_funnel (
   visit_id TEXT NOT NULL,

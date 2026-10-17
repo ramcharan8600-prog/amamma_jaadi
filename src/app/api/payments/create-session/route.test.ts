@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => {
     rateLimit: vi.fn(() => true),
     isSoldOutDate: vi.fn<(db: unknown, date: unknown) => Promise<boolean>>(async () => false),
     isDeliveryPausedFor: vi.fn<(db: unknown, state: unknown) => Promise<boolean>>(async () => false),
+    isDeliveryWeekFull: vi.fn<(db: unknown) => Promise<boolean>>(async () => false),
   };
 });
 
@@ -45,6 +46,11 @@ vi.mock('@/lib/sold-out-dates', async (importOriginal) => ({
 vi.mock('@/lib/delivery-pauses', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/delivery-pauses')>(),
   isDeliveryPausedFor: mocks.isDeliveryPausedFor,
+}));
+
+vi.mock('@/lib/delivery-limit', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/delivery-limit')>(),
+  isDeliveryWeekFull: mocks.isDeliveryWeekFull,
 }));
 
 import { POST } from './route';
@@ -775,6 +781,18 @@ describe('paused delivery areas', () => {
     expect(mocks.inserts).toHaveLength(0);
     expect((await post(checkout([sweet], pickup))).status).toBe(201);
     mocks.isDeliveryPausedFor.mockResolvedValue(false);
+  });
+});
+
+describe('weekly delivery limit', () => {
+  it("refuses delivery once this week's delivery orders are full, before storing a session; pickup still works", async () => {
+    mocks.isDeliveryWeekFull.mockResolvedValue(true);
+    const response = await post(checkout([sweet], delivery('TX')));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe("This week's delivery orders are full. Delivery opens again on Monday. Free pickup in Plano, Frisco and Irving is still available.");
+    expect(mocks.inserts).toHaveLength(0);
+    expect((await post(checkout([sweet], pickup))).status).toBe(201);
+    mocks.isDeliveryWeekFull.mockResolvedValue(false);
   });
 });
 

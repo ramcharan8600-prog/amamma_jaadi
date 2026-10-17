@@ -78,11 +78,12 @@ export const SHIPPING_BOBBATLU_BOX_FAR = 9.99;
 export const SHIPPING_MINI_COMBO_TX = 3.99;
 
 /**
- * Temporary notice under Delivery at checkout while the kitchen works through
- * a backlog (owner, 2026-10-14). Set to null to remove it.
+ * Notice under Delivery at checkout. Since 2026-10-17 delivery runs as a
+ * weekly batch (capped in Admin → Production, shipped every Monday/Tuesday).
+ * Set to null to remove it.
  */
 export const DELIVERY_QUEUE_NOTICE: string | null =
-  'We are currently sold out for this week with delivery orders, and all new delivery orders will be prepared next week. As sweets are best enjoyed fresh, we dispatch sweets that are prepared on the same day. Thanks for all the love.';
+  'Delivery orders are freshly prepared and shipped every Monday/Tuesday, so your sweets never sit in a UPS truck over the weekend.';
 
 /** Smallest event (bulk) order, in pieces. The Events form and /api/events both use it. */
 export const EVENT_MIN_PIECES = 75;

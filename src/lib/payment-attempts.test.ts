@@ -810,6 +810,18 @@ describe('paused delivery areas before a first charge', () => {
       { sessionId: 'test-session', sourceId: 'valid-token' }, { execute, finalize }))
       .toMatchObject({ success: true, code: 'PAYMENT_COMPLETED' });
   });
+
+  it("closes a delivery checkout when this week's delivery orders filled up while the shopper was paying, without charging", async () => {
+    setDeliveryTo('NY');
+    fixture.sqlite.prepare("INSERT INTO shop_settings (key, value) VALUES ('weekly_delivery_limit', '1')").run();
+    fixture.sqlite.prepare(`INSERT INTO orders (id, order_number, customer_name, phone_number, order_type, total_price, payment_status, created_at)
+      VALUES ('earlier', 'AJ-9001', 'C', '1', 'delivery', 50, 'paid', datetime('now'))`).run();
+    const execute = vi.fn();
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+    expect(execute).not.toHaveBeenCalled();
+  });
 });
 
 describe('sold-out pickup dates before a first charge', () => {

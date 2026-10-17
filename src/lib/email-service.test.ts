@@ -12,7 +12,6 @@ vi.mock('@/lib/email-outbox', () => ({
 import {
   buildTrackingEmail,
   buildOrderConfirmationEmail,
-  isWeekendDispatchOrder,
   buildOwnerOrderAlertEmail,
   sendOrderConfirmation,
   type OrderConfirmationParams,
@@ -286,27 +285,20 @@ describe('customer tracking email (owner template, 2026-09-02)', () => {
   });
 });
 
-describe('weekend dispatch note (Thu–Sun delivery orders)', () => {
+describe('Monday/Tuesday dispatch note (every delivery order)', () => {
   const base = {
     email: 'c@example.com', orderNumber: 'AJ-2000', squarePaymentId: 'p1', customerName: 'Test', phone: '1',
     total: 10, items: [{ name: 'Kova Bobbatlu', quantity: 1, price: 10 }],
   };
   const note = 'UPS doesn&apos;t ship over the weekend';
 
-  it('uses Dallas time for the day of week', () => {
-    expect(isWeekendDispatchOrder(new Date('2026-10-14T17:00:00Z'))).toBe(false); // Wed
-    expect(isWeekendDispatchOrder(new Date('2026-10-15T17:00:00Z'))).toBe(true); // Thu
-    expect(isWeekendDispatchOrder(new Date('2026-10-18T17:00:00Z'))).toBe(true); // Sun
-    expect(isWeekendDispatchOrder(new Date('2026-10-19T03:00:00Z'))).toBe(true); // Sun 10 PM Dallas
-    expect(isWeekendDispatchOrder(new Date('2026-10-19T17:00:00Z'))).toBe(false); // Mon
-  });
-
-  it('shows the note before the sign-off only on Thu–Sun delivery orders', () => {
-    const thu = buildOrderConfirmationEmail({ ...base, fulfillmentType: 'delivery', placedAt: new Date('2026-10-15T17:00:00Z') }).html;
-    expect(thu).toContain(note);
-    expect(thu).toContain('dispatch your order on <strong>Monday/Tuesday</strong> and share the tracking details. Thanks for understanding.');
-    expect(thu.indexOf(note)).toBeLessThan(thu.indexOf('Team Amamma Jaadi'));
-    expect(buildOrderConfirmationEmail({ ...base, fulfillmentType: 'delivery', placedAt: new Date('2026-10-13T17:00:00Z') }).html).not.toContain(note);
+  it('shows the note before the sign-off on every delivery order, whatever the weekday, and never on pickup', () => {
+    for (const placedAt of ['2026-10-13T17:00:00Z', '2026-10-15T17:00:00Z', '2026-10-19T17:00:00Z']) {
+      const html = buildOrderConfirmationEmail({ ...base, fulfillmentType: 'delivery', placedAt: new Date(placedAt) }).html;
+      expect(html).toContain(note);
+      expect(html).toContain('dispatch your order on <strong>Monday/Tuesday</strong>');
+      expect(html.indexOf(note)).toBeLessThan(html.indexOf('Team Amamma Jaadi'));
+    }
     expect(buildOrderConfirmationEmail({ ...base, fulfillmentType: 'pickup', placedAt: new Date('2026-10-16T17:00:00Z') }).html).not.toContain(note);
   });
 });
@@ -315,7 +307,7 @@ describe('fresh preparation note (delivery orders)', () => {
   const base = {
     email: 'c@example.com', orderNumber: 'AJ-2001', squarePaymentId: 'p1', customerName: 'Test', phone: '1', total: 10,
   };
-  const note = 'Our sweets are <strong>freshly made</strong> after your order is confirmed. Please allow <strong>3–4 days</strong> for preparation.';
+  const note = 'Our sweets are <strong>freshly made</strong> after your order is confirmed.';
 
   it('appears on sweet delivery orders only', () => {
     const sweets = [{ name: 'Kova Bobbatlu', quantity: 1, price: 10 }];

@@ -31,6 +31,7 @@ let couponResult: () => Promise<Response>;
 let bobbatluStock = 0;
 let soldOutDates: string[] = [];
 let pausedZones: string[] = [];
+let weekFull = false;
 let kovaBobbatluStock = 0;
 const tokenize = vi.fn();
 const squareConfigOk = () => Response.json({
@@ -72,7 +73,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
     line1: '123 Main St', line2: '', city: 'Plano', state: 'TX', zip: '75093',
   } });
   if (url === '/api/sold-out-dates') return Response.json({ dates: soldOutDates });
-  if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones });
+  if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones, weekFull, reopensOn: '2026-09-14' });
   if (url === '/api/payments/config') return squareConfig();
   throw new Error(`Unexpected test request: ${url}`);
 });
@@ -178,6 +179,7 @@ beforeEach(() => {
   kovaBobbatluStock = 0;
   soldOutDates = [];
   pausedZones = [];
+  weekFull = false;
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-09-10T17:00:00Z'));
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -389,16 +391,39 @@ describe('paused delivery areas (Admin → Production)', () => {
 });
 
 describe('delivery queue notice', () => {
-  it('shows the preparation-time notice under Delivery while the kitchen has a queue', async () => {
+  it('says under Delivery that delivery orders ship every Monday/Tuesday', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await render();
     await click('Continue');
     const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
-    expect(delivery?.textContent).toContain('We are currently sold out for this week with delivery orders, and all new delivery orders will be prepared next week.');
-    expect(delivery?.textContent).toContain('As sweets are best enjoyed fresh, we dispatch sweets that are prepared on the same day. Thanks for all the love.');
-    expect(delivery?.querySelector('strong')?.textContent).toBe('sold out');
+    expect(delivery?.textContent).toContain('Delivery orders are freshly prepared and shipped every Monday/Tuesday');
     const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
-    expect(pickup?.textContent).not.toContain('sold out for this week');
+    expect(pickup?.textContent).not.toContain('Monday/Tuesday');
+  });
+});
+
+describe('weekly delivery limit', () => {
+  it("greys out Delivery when this week's delivery orders are full; pickup stays open and the visit is counted", async () => {
+    weekFull = true;
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
+    await render();
+    await click('Continue');
+    const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
+    expect(delivery.disabled).toBe(true);
+    expect(delivery.textContent).toContain("This week's delivery orders are full. Delivery opens again on Monday.");
+    expect(delivery.textContent).not.toContain('Monday/Tuesday');
+    const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup')!;
+    expect(pickup.disabled).toBe(false);
+    const steps = calls('/api/checkout-funnel').map(([, init]) => JSON.parse(String(init?.body)).step);
+    expect(steps).toContain('delivery_week_full');
+  });
+
+  it('keeps Delivery open while the week has room', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
+    await render();
+    await click('Continue');
+    const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery')!;
+    expect(delivery.disabled).toBe(false);
   });
 });
 

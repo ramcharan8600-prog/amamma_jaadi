@@ -7,6 +7,7 @@ import { getTotalPieces, isActivePickupLocation } from '@/data/products';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { isSoldOutDate } from '@/lib/sold-out-dates';
 import { isDeliveryPausedFor } from '@/lib/delivery-pauses';
+import { isDeliveryWeekFull } from '@/lib/delivery-limit';
 import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, containsAssortedBox } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
@@ -87,12 +88,13 @@ function reviewReply(): PaymentReply {
 
 /**
  * True when a pickup session's date has since been marked sold out, or a
- * delivery session's area has since been paused, in admin.
+ * delivery session's area has since been paused in admin, or this week's
+ * delivery orders filled up while the shopper was paying.
  */
 async function isSoldOutPickup(db: D1Database, session: Record<string, unknown>): Promise<boolean> {
   try {
     const fulfillment = typeof session.fulfillment_data === 'string' ? JSON.parse(session.fulfillment_data) : session.fulfillment_data;
-    if (fulfillment?.type === 'delivery') return await isDeliveryPausedFor(db, fulfillment.state);
+    if (fulfillment?.type === 'delivery') return await isDeliveryPausedFor(db, fulfillment.state) || await isDeliveryWeekFull(db);
     return fulfillment?.type === 'pickup' && await isSoldOutDate(db, fulfillment.date);
   } catch {
     return false;

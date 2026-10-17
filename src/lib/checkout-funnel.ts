@@ -13,6 +13,7 @@ export const CHECKOUT_FUNNEL_STEPS = [
   'method_viewed', // reached "How would you like to receive your order?"
   'pickup_chosen',
   'delivery_chosen',
+  'delivery_week_full', // Delivery was greyed out: this week's delivery orders are full
   'pickup_soonest_sold_out', // detail: days until the first open pickup day
   'pickup_date_chosen', // detail: days ahead of today
   'delivery_fee_shown', // detail: texas | nearby | far
