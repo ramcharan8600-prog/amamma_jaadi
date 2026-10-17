@@ -824,6 +824,18 @@ describe('paused delivery areas before a first charge', () => {
   });
 });
 
+describe('blocked customers before a first charge', () => {
+  it('closes the checkout of a customer blocked after it opened, without charging', async () => {
+    const session = fixture.sqlite.prepare("SELECT phone_number FROM payment_sessions WHERE id = 'test-session'").get() as { phone_number: string };
+    fixture.sqlite.prepare('INSERT INTO blocked_customers (phone) VALUES (?)').run(session.phone_number);
+    const execute = vi.fn();
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
+
 describe('sold-out pickup dates before a first charge', () => {
   it('closes a pickup checkout whose date was marked sold out after it opened, without charging', async () => {
     const date = openPickupDate(1);

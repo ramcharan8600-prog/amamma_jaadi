@@ -8,6 +8,7 @@ import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { isSoldOutDate } from '@/lib/sold-out-dates';
 import { isDeliveryPausedFor } from '@/lib/delivery-pauses';
 import { isDeliveryWeekFull } from '@/lib/delivery-limit';
+import { isBlockedCustomer } from '@/lib/blocked-customers';
 import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, containsAssortedBox } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
@@ -259,7 +260,7 @@ export async function runPaymentAttempt(
     if (!input.sourceId) return { ...pendingPaymentReply('MISSING_PAYMENT_DETAILS'), httpStatus: 400 };
     // A pickup date sold out, or a delivery area paused, after this checkout opened must not charge either.
     const canonicalItems = validateUnattemptedSession(session);
-    if (!canonicalItems || await isSoldOutPickup(db, session)) {
+    if (!canonicalItems || await isSoldOutPickup(db, session) || await isBlockedCustomer(db, session.phone_number, session.email)) {
       await db.prepare(
         `UPDATE payment_sessions SET payment_status = 'expired'
          WHERE id = ? AND payment_status = 'pending' AND order_id IS NULL

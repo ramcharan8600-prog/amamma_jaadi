@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
     isSoldOutDate: vi.fn<(db: unknown, date: unknown) => Promise<boolean>>(async () => false),
     isDeliveryPausedFor: vi.fn<(db: unknown, state: unknown) => Promise<boolean>>(async () => false),
     isDeliveryWeekFull: vi.fn<(db: unknown) => Promise<boolean>>(async () => false),
+    isBlockedCustomer: vi.fn<(db: unknown, phone: unknown, email?: unknown) => Promise<boolean>>(async () => false),
   };
 });
 
@@ -51,6 +52,11 @@ vi.mock('@/lib/delivery-pauses', async (importOriginal) => ({
 vi.mock('@/lib/delivery-limit', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/delivery-limit')>(),
   isDeliveryWeekFull: mocks.isDeliveryWeekFull,
+}));
+
+vi.mock('@/lib/blocked-customers', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/blocked-customers')>(),
+  isBlockedCustomer: mocks.isBlockedCustomer,
 }));
 
 import { POST } from './route';
@@ -781,6 +787,21 @@ describe('paused delivery areas', () => {
     expect(mocks.inserts).toHaveLength(0);
     expect((await post(checkout([sweet], pickup))).status).toBe(201);
     mocks.isDeliveryPausedFor.mockResolvedValue(false);
+  });
+});
+
+describe('blocked customers', () => {
+  it('refuses a blocked phone number with the owner\'s message before storing a session, for pickup and delivery', async () => {
+    mocks.isBlockedCustomer.mockImplementation(async (_db: unknown, phone: unknown) => phone === '2145550100');
+    for (const fulfillment of [pickup, delivery('TX')]) {
+      const response = await post(checkout([sweet], fulfillment));
+      expect(response.status).toBe(403);
+      expect((await response.json()).error).toBe('You have been added to the blocked list due to your unprofessional behaviour with our team.');
+    }
+    expect(mocks.inserts).toHaveLength(0);
+    expect(mocks.isBlockedCustomer).toHaveBeenCalledWith(expect.anything(), '2145550100', 'checkout@example.com');
+    mocks.isBlockedCustomer.mockResolvedValue(false);
+    expect((await post(checkout([sweet], pickup))).status).toBe(201);
   });
 });
 

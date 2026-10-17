@@ -7,6 +7,7 @@ import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { SOLD_OUT_DATE_ERROR, isSoldOutDate } from '@/lib/sold-out-dates';
 import { DELIVERY_ZONE_PAUSED_ERROR, isDeliveryPausedFor } from '@/lib/delivery-pauses';
 import { DELIVERY_WEEK_FULL_ERROR, isDeliveryWeekFull } from '@/lib/delivery-limit';
+import { BLOCKED_CUSTOMER_MESSAGE, isBlockedCustomer } from '@/lib/blocked-customers';
 import {
   calculateOrderTotals,
   calculateShippingQuote,
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
     if (contactError) return fail(contactError, 400);
     // Stored as plain 10 digits (autofilled +1 dropped) for orders, email and labels.
     const phone = normalizeUsPhone(rawPhone)!;
+    if (await isBlockedCustomer(getDb(), phone, email)) return fail(BLOCKED_CUSTOMER_MESSAGE, 403);
 
     // Stock for tracked products (pickles). Products with no row are untracked
     // and always available. Quantities are summed across cart lines so the same

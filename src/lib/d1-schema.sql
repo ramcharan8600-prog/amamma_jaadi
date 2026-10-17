@@ -347,6 +347,17 @@ CREATE TABLE IF NOT EXISTS delivery_pauses (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Customers the owner no longer accepts orders from (migration 028).
+CREATE TABLE IF NOT EXISTS blocked_customers (
+  phone TEXT PRIMARY KEY,
+  email TEXT,
+  name TEXT,
+  order_number TEXT,
+  reason TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_blocked_customers_email ON blocked_customers(email);
+
 -- Owner-editable shop settings (migration 027), e.g. weekly_delivery_limit.
 CREATE TABLE IF NOT EXISTS shop_settings (
   key TEXT PRIMARY KEY,

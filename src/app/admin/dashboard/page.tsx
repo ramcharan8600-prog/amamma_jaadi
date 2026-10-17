@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { LogOut, BarChart3, Ticket, ClipboardList, ChefHat } from 'lucide-react';
 import InventoryPanel from '@/components/admin/InventoryPanel';
 import SoldOutDatesPanel from '@/components/admin/SoldOutDatesPanel';
+import BlockedCustomersPanel from '@/components/admin/BlockedCustomersPanel';
 
 /** Admin home: the toolbar (All Orders, Production, Taxes, Coupons, Analytics), sold-out dates and stock. */
 export default function AdminDashboardPage() {
@@ -79,6 +80,8 @@ export default function AdminDashboardPage() {
 
       {/* Inventory */}
       <InventoryPanel />
+
+      <BlockedCustomersPanel />
     </div>
   );
 }
