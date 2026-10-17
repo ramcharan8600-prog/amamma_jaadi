@@ -15,8 +15,11 @@ import { toBusinessDateString } from '@/lib/date';
  */
 const SETTING_KEY = 'weekly_delivery_limit';
 export const MAX_WEEKLY_DELIVERY_LIMIT = 1000;
-/** How many shipment weeks checkout offers. */
-export const SHIP_WEEKS_OFFERED = 4;
+/**
+ * How many shipment weeks checkout offers (owner, 2026-10-17: show this week as
+ * SOLD OUT, then 3 future weeks to choose from).
+ */
+export const SHIP_WEEKS_OFFERED = 3;
 
 /**
  * Festival shipment weeks, highlighted in the checkout week picker
@@ -44,6 +47,11 @@ function addDays(ymd: string, days: number): string {
 function thisMonday(now: Date): string {
   const today = toBusinessDateString(now);
   return addDays(today, -((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7));
+}
+
+/** This week's shipment (its Monday): shown at checkout as SOLD OUT, never bookable. */
+export function currentShipWeek(now = new Date()): string {
+  return thisMonday(now);
 }
 
 /** The shipment weeks a shopper can choose now: the coming Monday onward. */

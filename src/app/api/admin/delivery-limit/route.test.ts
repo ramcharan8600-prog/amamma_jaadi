@@ -30,7 +30,7 @@ it('lets the owner set the per-week limit and see every week; checkout only sees
   booked(first);
   const admin = await (await GET()).json();
   expect(admin.limit).toBeNull();
-  expect(admin.weeks).toHaveLength(5); // the week being shipped now + 4 bookable weeks
+  expect(admin.weeks).toHaveLength(4); // the week being shipped now + 3 bookable weeks
   expect(admin.weeks.find((w: { week: string }) => w.week === first)).toMatchObject({ used: 1, full: false });
 
   const after = await (await put(1)).json();
@@ -39,6 +39,8 @@ it('lets the owner set the per-week limit and see every week; checkout only sees
   const shopper = await (await publicGET()).json();
   expect(shopper.weekFull).toBe(false);
   expect(shopper.weeks.slice(0, 2)).toEqual([{ week: first, full: true }, { week: second, full: false }]);
+  expect(shopper.weeks).toHaveLength(3);
+  expect(shopper.currentWeek).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   expect(JSON.stringify(shopper)).not.toMatch(/"used"|"limit"/);
   expect(await (await put('30')).json()).toMatchObject({ limit: 30, allFull: false });
   expect(await (await put(null)).json()).toMatchObject({ limit: null, allFull: false });

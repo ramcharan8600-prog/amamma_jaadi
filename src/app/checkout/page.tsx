@@ -246,6 +246,8 @@ export default function CheckoutPage() {
   const [deliveryWeekFull, setDeliveryWeekFull] = useState(false);
   // Shipment weeks the shopper can choose (Mon/Tue dispatch), each open or full.
   const [deliveryWeeks, setDeliveryWeeks] = useState<Array<{ week: string; full: boolean }>>([]);
+  // This week's shipment, shown first as SOLD OUT (never bookable).
+  const [currentShipWeek, setCurrentShipWeek] = useState('');
   const [shipWeek, setShipWeek] = useState('');
   const refreshPausedZones = useCallback(async () => {
     try {
@@ -254,6 +256,7 @@ export default function CheckoutPage() {
       if (Array.isArray(data?.paused)) setPausedZones(data.paused);
       if (typeof data?.weekFull === 'boolean') setDeliveryWeekFull(data.weekFull);
       if (Array.isArray(data?.weeks)) setDeliveryWeeks(data.weeks);
+      if (typeof data?.currentWeek === 'string') setCurrentShipWeek(data.currentWeek);
     } catch {
       // The server still refuses a paused delivery at checkout.
     }
@@ -1691,31 +1694,34 @@ export default function CheckoutPage() {
               <p className="font-body text-xs text-brand-charcoal/60 -mt-1 mb-1">
                 Your sweets are freshly made and shipped on the Monday/Tuesday of the week you choose.
               </p>
-              {deliveryWeeks.map((w, i) => (
+              {[
+                ...(currentShipWeek ? [{ week: currentShipWeek, full: true, current: true }] : []),
+                ...deliveryWeeks.map((w) => ({ ...w, current: false })),
+              ].map((w) => (
                 <label
                   key={w.week}
                   className={`flex items-center gap-3 rounded-xl border p-3 font-body text-sm ${w.full
-                    ? 'border-brand-cream-dark bg-brand-cream/40 text-brand-charcoal/40 cursor-not-allowed'
+                    ? 'border-brand-cream-dark bg-brand-cream/40 text-brand-charcoal/50 cursor-not-allowed'
                     : shipWeek === w.week ? 'border-brand-maroon bg-brand-cream cursor-pointer' : 'border-brand-cream-dark cursor-pointer hover:border-brand-maroon/50'}`}
                 >
                   <input
                     type="radio"
                     name="ship-week"
                     value={w.week}
-                    checked={shipWeek === w.week}
+                    checked={!w.full && shipWeek === w.week}
                     disabled={w.full}
-                    onChange={() => { setShipWeek(w.week); trackStep('ship_week_chosen', String(i)); }}
+                    onChange={() => { setShipWeek(w.week); trackStep('ship_week_chosen', String(deliveryWeeks.findIndex((d) => d.week === w.week))); }}
                     className="h-4 w-4 accent-brand-maroon"
                   />
                   <span className="flex-1">
                     <span className="font-semibold">Ships {shipWeekDays(w.week)}</span>
-                    {FESTIVAL_SHIP_WEEKS[w.week] && (
+                    {w.full && <strong className="ml-1 font-bold text-brand-maroon">(SOLD OUT)</strong>}
+                    {!w.full && FESTIVAL_SHIP_WEEKS[w.week] && (
                       <span className="block sm:inline sm:ml-2 text-brand-maroon">
                         <span aria-hidden="true">🪔</span> <strong className="font-bold">{FESTIVAL_SHIP_WEEKS[w.week]}</strong> · Taking pre-orders
                       </span>
                     )}
                   </span>
-                  {w.full && <span className="text-xs font-bold uppercase">Full</span>}
                 </label>
               ))}
             </fieldset>

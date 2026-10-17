@@ -33,6 +33,7 @@ let soldOutDates: string[] = [];
 let pausedZones: string[] = [];
 let weekFull = false;
 let shipWeeks: Array<{ week: string; full: boolean }> = [];
+let currentWeek = '';
 let kovaBobbatluStock = 0;
 const tokenize = vi.fn();
 const squareConfigOk = () => Response.json({
@@ -74,7 +75,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
     line1: '123 Main St', line2: '', city: 'Plano', state: 'TX', zip: '75093',
   } });
   if (url === '/api/sold-out-dates') return Response.json({ dates: soldOutDates });
-  if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones, weekFull, weeks: shipWeeks });
+  if (url === '/api/delivery-pauses') return Response.json({ paused: pausedZones, weekFull, weeks: shipWeeks, ...(currentWeek ? { currentWeek } : {}) });
   if (url === '/api/payments/config') return squareConfig();
   throw new Error(`Unexpected test request: ${url}`);
 });
@@ -182,6 +183,7 @@ beforeEach(() => {
   pausedZones = [];
   weekFull = false;
   shipWeeks = [];
+  currentWeek = '';
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-09-10T17:00:00Z'));
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -413,22 +415,24 @@ describe('shipment weeks', () => {
     await act(async () => choice.click());
   }
 
-  it('lets the shopper pick a shipment week; full weeks are disabled and the earliest open week is pre-selected', async () => {
-    shipWeeks = [{ week: '2026-09-14', full: true }, { week: '2026-09-21', full: false }, { week: '2026-09-28', full: false }, { week: '2026-11-02', full: false }];
+  it("shows this week as SOLD OUT first, then the future weeks; full weeks are disabled and the earliest open one is pre-selected", async () => {
+    currentWeek = '2026-09-07';
+    shipWeeks = [{ week: '2026-09-14', full: true }, { week: '2026-09-21', full: false }, { week: '2026-11-02', full: false }];
     await toDeliveryDetails();
     const radios = [...host.querySelectorAll<HTMLInputElement>('input[name="ship-week"]')];
     expect(radios.map((r) => [r.value, r.disabled, r.checked])).toEqual([
-      ['2026-09-14', true, false], ['2026-09-21', false, true], ['2026-09-28', false, false], ['2026-11-02', false, false],
+      ['2026-09-07', true, false], ['2026-09-14', true, false], ['2026-09-21', false, true], ['2026-11-02', false, false],
     ]);
-    const labels = [...host.querySelectorAll('fieldset label')].map((l) => l.textContent);
-    expect(labels[0]).toContain('Ships Mon Sep 14 / Tue Sep 15');
-    expect(labels[0]).toContain('Full');
+    const labels = [...host.querySelectorAll('fieldset label')];
+    expect(labels[0].textContent).toContain('Ships Mon Sep 7 / Tue Sep 8(SOLD OUT)');
+    expect(labels[0].querySelector('strong')?.textContent).toBe('(SOLD OUT)');
+    expect(labels[1].textContent).toContain('(SOLD OUT)');
+    expect(labels[2].textContent).not.toContain('SOLD OUT');
     // The Diwali week is highlighted; others are not.
-    expect(labels[3]).toContain('🪔 DIWALI · Taking pre-orders');
-    expect(host.querySelectorAll('fieldset label')[3].querySelector('strong')?.textContent).toBe('DIWALI');
-    expect(labels[1]).not.toContain('DIWALI');
-    await act(async () => { radios[2].click(); });
-    expect(radios[2].checked).toBe(true);
+    expect(labels[3].textContent).toContain('🪔 DIWALI · Taking pre-orders');
+    expect(labels[2].textContent).not.toContain('DIWALI');
+    await act(async () => { radios[3].click(); });
+    expect(radios[3].checked).toBe(true);
     const steps = calls('/api/checkout-funnel').map(([, init]) => JSON.parse(String(init?.body)));
     expect(steps).toContainEqual(expect.objectContaining({ step: 'ship_week_chosen', detail: '2' }));
   });

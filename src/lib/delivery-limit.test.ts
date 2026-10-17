@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestD1 } from '@/lib/test-utils/d1';
 import {
-  countShipWeekOrders, deliveryWeeksStatus, firstOpenWeek, getWeeklyDeliveryLimit, isShipWeek, isShipWeekOpen,
+  countShipWeekOrders, currentShipWeek, deliveryWeeksStatus, firstOpenWeek, getWeeklyDeliveryLimit, isShipWeek, isShipWeekOpen,
   offeredShipWeeks, parseWeeklyLimit, setWeeklyDeliveryLimit, shipWeekDays,
 } from './delivery-limit';
 
@@ -27,8 +27,9 @@ function order(shipWeek: string | null, fields: Record<string, unknown> = {}) {
 const now = new Date('2026-10-17T17:00:00Z');
 
 describe('shipment weeks offered at checkout', () => {
-  it('starts with the coming Monday and offers four weeks', () => {
-    expect(offeredShipWeeks(now)).toEqual(['2026-10-19', '2026-10-26', '2026-11-02', '2026-11-09']);
+  it("shows this week's shipment as sold out, then offers the next three weeks from the coming Monday", () => {
+    expect(currentShipWeek(now)).toBe('2026-10-12');
+    expect(offeredShipWeeks(now)).toEqual(['2026-10-19', '2026-10-26', '2026-11-02']);
     // Sunday 11:30 PM Dallas still makes the next morning's shipment…
     expect(offeredShipWeeks(new Date('2026-10-19T04:30:00Z'))[0]).toBe('2026-10-19');
     // …from Monday 12:05 AM that week has closed.
@@ -77,7 +78,7 @@ describe('weekly limit per shipment week', () => {
     await setWeeklyDeliveryLimit(fixture.db, 2);
     status = await deliveryWeeksStatus(fixture.db, now);
     expect(status.weeks.map((w) => [w.week, w.used, w.full])).toEqual([
-      ['2026-10-19', 2, true], ['2026-10-26', 1, false], ['2026-11-02', 0, false], ['2026-11-09', 0, false],
+      ['2026-10-19', 2, true], ['2026-10-26', 1, false], ['2026-11-02', 0, false],
     ]);
     expect(status.weeks[1].days).toBe('Mon Oct 26 / Tue Oct 27');
     expect(firstOpenWeek(status, now)).toBe('2026-10-26');
@@ -87,7 +88,7 @@ describe('weekly limit per shipment week', () => {
     await setWeeklyDeliveryLimit(fixture.db, 1);
     status = await deliveryWeeksStatus(fixture.db, now);
     expect(status.allFull).toBe(false);
-    for (const week of ['2026-11-02', '2026-11-09']) order(week);
+    order('2026-11-02');
     status = await deliveryWeeksStatus(fixture.db, now);
     expect(status.allFull).toBe(true);
     expect(firstOpenWeek(status, now)).toBeNull();
@@ -100,7 +101,7 @@ describe('weekly limit per shipment week', () => {
     order('2026-10-12');
     const status = await deliveryWeeksStatus(fixture.db, now, ['2026-10-12']);
     expect(status.weeks[0]).toMatchObject({ week: '2026-10-12', used: 1 });
-    expect(status.weeks).toHaveLength(5);
+    expect(status.weeks).toHaveLength(4);
   });
 
   it('fails open when the settings table is missing', async () => {
