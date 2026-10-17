@@ -26,8 +26,10 @@
     "FROM_EMAIL": "orders@amammajaadi.com",
     // Other email types retain Resend. Order confirmations always use EMAIL.
     "EMAIL_PROVIDER": "resend",
-    // Project Shippo customer tracking emails stay off until the owner approves the email.
-    "CUSTOMER_TRACKING_EMAILS": "off"
+    // Customer tracking emails are sent by the website (owner, 2026-10-17): once per
+    // order when a tracking number is saved — Shippo labels after UPS scans the box,
+    // hand-typed numbers in the evening run (6:30 PM–midnight Dallas).
+    "CUSTOMER_TRACKING_EMAILS": "on"
   },
   "send_email": [
     {
