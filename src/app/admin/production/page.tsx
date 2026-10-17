@@ -108,7 +108,7 @@ function PlanCard({ title, subtitle, orders, note, icon }: {
                       <span className="text-brand-charcoal/60">
                         {' · '}{order.order_type === 'pickup'
                           ? getPickupLocationById(order.pickup_location ?? '')?.name ?? order.pickup_location ?? 'Pickup'
-                          : `Delivery · ordered ${dayLabel(d1TimestampToBusinessDate(order.created_at) ?? order.created_at.slice(0, 10))}${order.ship_week ? ` · ships ${shipWeekDays(order.ship_week)}` : ''}`}
+                          : `Delivery · ordered ${dayLabel(d1TimestampToBusinessDate(order.created_at) ?? order.created_at.slice(0, 10))}`}
                       </span>
                     </p>
                     <ul className="mt-1 font-body text-sm text-brand-charcoal/80 list-disc pl-5">
@@ -272,12 +272,21 @@ export default function ProductionPlanningPage() {
             ))}
           </div>
 
-          <PlanCard
-            title="Delivery orders waiting to ship"
-            subtitle="Any order date, not shipped yet"
-            orders={plan.delivery}
-            icon={<Truck size={20} className="text-brand-gold shrink-0 mt-0.5" />}
-          />
+          <h2 className="font-display text-lg font-semibold text-brand-charcoal mt-8 mb-3">Delivery orders by shipment week</h2>
+          <div className="grid lg:grid-cols-2 gap-4">
+            {[...new Set(plan.delivery.map((order) => order.ship_week ?? ''))]
+              .sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)))
+              .map((week) => (
+                <PlanCard
+                  key={week || 'none'}
+                  title={week ? `Ships ${shipWeekDays(week)}` : 'No ship week set'}
+                  subtitle={week ? 'Delivery · not shipped yet' : 'Delivery · set a week in All Orders'}
+                  orders={plan.delivery.filter((order) => (order.ship_week ?? '') === week)}
+                  icon={<Truck size={20} className="text-brand-gold shrink-0 mt-0.5" />}
+                />
+              ))}
+            {plan.delivery.length === 0 && <p className="font-body text-sm text-brand-charcoal/50">No delivery orders waiting to ship.</p>}
+          </div>
         </>
       )}
     </div>

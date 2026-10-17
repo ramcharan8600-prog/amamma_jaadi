@@ -52,6 +52,12 @@ export function offeredShipWeeks(now = new Date(), count = SHIP_WEEKS_OFFERED): 
   return Array.from({ length: count }, (_, i) => addDays(first, i * 7));
 }
 
+/** Weeks the admin can move an order to: 2 weeks back through 8 weeks ahead of this week. */
+export function adminShipWeekChoices(now = new Date()): string[] {
+  const monday = thisMonday(now);
+  return Array.from({ length: 11 }, (_, i) => addDays(monday, (i - 2) * 7));
+}
+
 export function isShipWeek(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
     && new Date(`${value}T00:00:00Z`).getUTCDay() === 1;

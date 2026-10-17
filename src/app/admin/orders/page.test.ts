@@ -32,6 +32,7 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   const path = String(input);
   if (path === '/api/auth') return Response.json({ authenticated: true });
   if (path === '/api/orders/note') return Response.json({ success: true, note: 'On hold until he asks' });
+  if (path === '/api/orders/ship-week') return Response.json({ success: true });
   if (path.startsWith('/api/admin/shipping?orderId=')) {
     return Response.json({ order: { id: 'd1', orderNumber: 'AJ-2001', customerName: 'Far Buyer', items: [], labels: [], activeLabel: null,
       route: 'pirate_ship', autoRoute: 'pirate_ship', routeReason: 'Far state with Malpuri', routeOverride: null, shipmentStatus: 'yet_to_ship',
@@ -194,5 +195,26 @@ it('has a Note column the owner can type into, saved when the box is left', asyn
   await act(async () => {});
   const call = fetchMock.mock.calls.find(([input]) => String(input) === '/api/orders/note')!;
   expect(JSON.parse(String(((call as unknown[])[1] as RequestInit).body))).toEqual({ orderId: 'n1', note: 'On hold until he asks' });
+  expect(host.textContent).toContain('Saved');
+});
+
+it('has a Ship week column for delivery orders that saves a new week right away', async () => {
+  orders.splice(0, orders.length, ...[
+    { ...orders[0], id: 'w1', order_number: 'AJ-4001', order_type: 'delivery', pickup_date: null, pickup_location: null,
+      delivery_address: '1 Main St\nDallas, TX 75201\nUSA', ship_week: '2026-10-19' },
+    { ...orders[0], id: 'w2', order_number: 'AJ-4002', order_type: 'pickup', pickup_date: '2026-10-20', pickup_location: 'plano-biryanify' },
+  ] as unknown as typeof orders);
+  await render();
+  expect([...host.querySelectorAll('thead th')].map((th) => th.textContent)).toContain('Ship week');
+  const select = host.querySelector<HTMLSelectElement>('select[aria-label="Ship week for AJ-4001"]')!;
+  expect(select.value).toBe('2026-10-19');
+  expect(host.querySelector('select[aria-label="Ship week for AJ-4002"]')).toBeNull(); // pickup
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, '2026-10-26');
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await act(async () => {});
+  const call = fetchMock.mock.calls.find(([input]) => String(input) === '/api/orders/ship-week')!;
+  expect(JSON.parse(String(((call as unknown[])[1] as RequestInit).body))).toEqual({ orderId: 'w1', shipWeek: '2026-10-26' });
   expect(host.textContent).toContain('Saved');
 });

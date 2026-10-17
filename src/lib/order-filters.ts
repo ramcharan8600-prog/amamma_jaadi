@@ -1,3 +1,4 @@
+import { isShipWeek } from '@/lib/delivery-limit';
 import { businessDateOffset, businessDateUtcRange } from '@/lib/date';
 import { sanitize } from '@/lib/sanitize';
 import { PICKUP_LOCATIONS } from '@/data/products';
@@ -25,6 +26,7 @@ export function buildOrderFilters(searchParams: URLSearchParams): OrderFilters |
   );
   const shipmentStatusFilter = sanitize(searchParams.get('shipmentStatus'), 30);
   const pickupLocation = sanitize(searchParams.get('pickupLocation'), 100);
+  const shipWeek = sanitize(searchParams.get('shipWeek'), 10);
   // Paid and refunded orders remain visible so the dashboard reflects Square.
   const where = ["payment_status IN ('paid', 'partially_refunded', 'refunded')"];
   const binds: unknown[] = [];
@@ -91,6 +93,16 @@ export function buildOrderFilters(searchParams: URLSearchParams): OrderFilters |
     where.push("order_type = 'pickup'");
     where.push('pickup_location = ?');
     binds.push(pickupLocation);
+  }
+
+  if (shipWeek === 'none') {
+    where.push("order_type = 'delivery'");
+    where.push('ship_week IS NULL');
+  } else if (shipWeek) {
+    if (!isShipWeek(shipWeek)) return { error: 'Invalid ship week filter' };
+    where.push("order_type = 'delivery'");
+    where.push('ship_week = ?');
+    binds.push(shipWeek);
   }
 
   return { where, binds, orderBy };

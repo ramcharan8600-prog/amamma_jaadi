@@ -16,7 +16,7 @@ import { d1TimestampToBusinessDate } from '@/lib/date';
 import { shippingMethodLabel } from '@/lib/pricing';
 import { PICKUP_LOCATIONS } from '@/data/products';
 import { productionSheet } from '@/lib/production';
-import { shipWeekDays } from '@/lib/delivery-limit';
+import { adminShipWeekChoices, shipWeekDays } from '@/lib/delivery-limit';
 import { effectiveShipRoute, stateFromAddress } from '@/lib/ship-routing';
 import ShipPanel from '@/components/admin/ShipPanel';
 import AdminNoteCell from '@/components/admin/AdminNoteCell';
@@ -82,6 +82,10 @@ export default function AdminOrdersPage() {
   const [dateFilter, setDateFilter] = useState('');
   const [shipmentFilter, setShipmentFilter] = useState<ShipmentColumnFilter>('all');
   const [pickupLocationFilter, setPickupLocationFilter] = useState('');
+  // Delivery shipment week filter: a Monday, 'none' (not set) or '' (all).
+  const [shipWeekFilter, setShipWeekFilter] = useState('');
+  // Ship-week saves per order: 'saving' | 'saved' | 'error'.
+  const [shipWeekSave, setShipWeekSave] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
   const [loading, setLoading] = useState(true);
   const [authed, setAuthed] = useState(false);
   const [shipmentDrafts, setShipmentDrafts] = useState<
@@ -125,16 +129,20 @@ export default function AdminOrdersPage() {
       if (pickupLocationFilter === DELIVERY_ORDERS) {
         if (order.order_type !== 'delivery') return false;
       } else if (pickupLocationFilter && order.pickup_location !== pickupLocationFilter) return false;
+      if (shipWeekFilter) {
+        if (order.order_type !== 'delivery') return false;
+        if ((order.ship_week ?? 'none') !== shipWeekFilter) return false;
+      }
       return true;
     }),
-    [orders, dateFilter, shipmentFilter, pickupLocationFilter]
+    [orders, dateFilter, shipmentFilter, pickupLocationFilter, shipWeekFilter]
   );
 
-  const activeColumnFilterCount = [dateFilter, shipmentFilter !== 'all', pickupLocationFilter]
+  const activeColumnFilterCount = [dateFilter, shipmentFilter !== 'all', pickupLocationFilter, shipWeekFilter]
     .filter(Boolean).length;
 
   // The server sends one page at a time; any filter change starts again at page 1.
-  const filterKey = [filter, dateFilter, shipmentFilter, pickupLocationFilter].join('|');
+  const filterKey = [filter, dateFilter, shipmentFilter, pickupLocationFilter, shipWeekFilter].join('|');
   const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
   const pageCount = Math.max(1, Math.ceil(totalOrders / ORDERS_PER_PAGE));
   const currentPage = pageState.key === filterKey ? pageState.page : 1;
@@ -170,8 +178,9 @@ export default function AdminOrdersPage() {
     if (dateFilter) params.set('date', dateFilter);
     if (shipmentFilter !== 'all') params.set('shipmentStatus', shipmentFilter);
     if (pickupLocationFilter) params.set('pickupLocation', pickupLocationFilter);
+    if (shipWeekFilter) params.set('shipWeek', shipWeekFilter);
     return params.toString();
-  }, [filter, dateFilter, shipmentFilter, pickupLocationFilter]);
+  }, [filter, dateFilter, shipmentFilter, pickupLocationFilter, shipWeekFilter]);
 
   const fetchOrders = useCallback(async () => {
     const requestId = latestOrderRequest.current + 1;
@@ -374,6 +383,24 @@ export default function AdminOrdersPage() {
     setDateFilter('');
     setShipmentFilter('all');
     setPickupLocationFilter('');
+    setShipWeekFilter('');
+  };
+
+  /** Move a delivery order to another shipment week (saved right away). */
+  const saveShipWeek = async (orderId: string, shipWeek: string) => {
+    setShipWeekSave((current) => ({ ...current, [orderId]: 'saving' }));
+    try {
+      const res = await fetch('/api/orders/ship-week', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, shipWeek: shipWeek || null }),
+      });
+      if (!res.ok) throw new Error();
+      setOrders((current) => current.map((o) => (o.id === orderId ? { ...o, ship_week: shipWeek || null } : o)));
+      setShipWeekSave((current) => ({ ...current, [orderId]: 'saved' }));
+    } catch {
+      setShipWeekSave((current) => ({ ...current, [orderId]: 'error' }));
+    }
   };
 
   const canChangeView = (): boolean => (
@@ -586,7 +613,7 @@ export default function AdminOrdersPage() {
       {(filtersOpen || activeColumnFilterCount > 0) && (
         <div
           id="order-column-filters"
-          className="card p-4 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.4fr_auto] gap-3 items-end"
+          className="card p-4 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.4fr_1.2fr_auto] gap-3 items-end"
         >
           <label className="block">
             <span className="block font-body text-xs font-semibold text-brand-charcoal/60 mb-1.5">
@@ -634,6 +661,23 @@ export default function AdminOrdersPage() {
               <option value={DELIVERY_ORDERS}>Delivery orders</option>
             </select>
           </label>
+          <label className="block">
+            <span className="block font-body text-xs font-semibold text-brand-charcoal/60 mb-1.5">
+              Ship week
+            </span>
+            <select
+              value={shipWeekFilter}
+              onChange={(event) => { if (canChangeView()) setShipWeekFilter(event.target.value); }}
+              className="input-field py-2 text-sm"
+              aria-label="Ship week"
+            >
+              <option value="">All weeks</option>
+              {adminShipWeekChoices().map((week) => (
+                <option key={week} value={week}>Ships {shipWeekDays(week)}</option>
+              ))}
+              <option value="none">Not set</option>
+            </select>
+          </label>
           <button
             type="button"
             onClick={clearColumnFiltersSafely}
@@ -669,6 +713,7 @@ export default function AdminOrdersPage() {
                   'Qty',
                   'Type',
                   'Date/Location',
+                  'Ship week',
                   'Total',
                   'Sales tax',
                   'Payment',
@@ -778,14 +823,36 @@ export default function AdminOrdersPage() {
                           <span>
                             {d1TimestampToBusinessDate(order.created_at) || '—'}
                           </span>
-                          {order.ship_week && (
-                            <span className="block font-semibold text-brand-maroon">Ships {shipWeekDays(order.ship_week)}</span>
-                          )}
                           <br />
                           <span className="whitespace-pre-line">
                             {order.delivery_address || '—'}
                           </span>
                         </>
+                      )}
+                    </td>
+                    <td className="py-3 px-2 font-body text-xs min-w-[150px]">
+                      {order.order_type === 'delivery' ? (
+                        <>
+                          <select
+                            value={order.ship_week ?? ''}
+                            onChange={(e) => saveShipWeek(order.id, e.target.value)}
+                            disabled={shipWeekSave[order.id] === 'saving'}
+                            className="input-field py-1.5 text-xs"
+                            aria-label={`Ship week for ${order.order_number}`}
+                          >
+                            <option value="">Not set</option>
+                            {[...new Set([...(order.ship_week ? [order.ship_week] : []), ...adminShipWeekChoices()])].sort().map((week) => (
+                              <option key={week} value={week}>{shipWeekDays(week)}</option>
+                            ))}
+                          </select>
+                          {shipWeekSave[order.id] && (
+                            <span className={`block mt-1 text-[11px] ${shipWeekSave[order.id] === 'error' ? 'text-red-600' : 'text-brand-charcoal/60'}`}>
+                              {shipWeekSave[order.id] === 'saving' ? 'Saving…' : shipWeekSave[order.id] === 'saved' ? 'Saved' : 'Not saved'}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-brand-charcoal/40">—</span>
                       )}
                     </td>
                     <td className="py-3 px-2 font-body text-xs font-medium">

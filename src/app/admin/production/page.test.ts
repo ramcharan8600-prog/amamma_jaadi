@@ -23,7 +23,7 @@ const plan = {
     { date: '2026-10-11', orders: [order('1003', [['Bobbatlu', 1, 10]], { pickup_date: '2026-10-11', pickup_location: 'frisco-ravibabu' })] },
     { date: '2026-10-13', orders: [] },
   ],
-  delivery: [order('1004', [['Nellore Malai Khaja', 1, 25]], { order_type: 'delivery', pickup_date: null, pickup_location: null })],
+  delivery: [order('1004', [['Nellore Malai Khaja', 1, 25]], { order_type: 'delivery', pickup_date: null, pickup_location: null, ship_week: '2026-10-19' })],
 };
 
 let host: HTMLDivElement;
@@ -69,8 +69,10 @@ it('shows the 3-day total and what to make today, tomorrow and the day after', a
   const dayAfter = card('Day after tomorrow');
   expect(dayAfter.textContent).toContain('Pickup is closed on Tuesdays.');
   expect(dayAfter.textContent).toContain('No orders yet.');
-  const delivery = card('Delivery orders waiting to ship');
+  // Delivery orders are grouped by shipment week, earliest first; orders without a week last.
+  const delivery = card('Ships Mon Oct 19 / Tue Oct 20');
   expect(delivery.textContent).toContain('25pcsMalai Khaja');
+  expect(delivery.textContent).toContain('1 order');
   await act(async () => [...delivery.querySelectorAll('button')].find((b) => b.textContent?.includes('Show orders'))!.click());
   expect(delivery.textContent).toContain('AJ-1004 · Customer 1004 · Delivery · ordered Fri, Oct 9');
 });
@@ -121,4 +123,23 @@ it('limits the 3-day total to a chosen AJ order range, and resets to all orders'
   await act(async () => [...totalCard.querySelectorAll('button')].find((b) => b.textContent === 'All orders')!.click());
   expect(totalCard.textContent).toContain('4 of 4 orders');
   expect(totalCard.textContent).toContain('38pcsMalpuri');
+});
+
+it('groups delivery orders by shipment week, earliest first, with unset weeks last', async () => {
+  const extra = [
+    order('1005', [['Guntur Malpuri', 1, 15]], { order_type: 'delivery', pickup_date: null, pickup_location: null, ship_week: '2026-10-26' }),
+    order('1006', [['Guntur Malpuri', 1, 25]], { order_type: 'delivery', pickup_date: null, pickup_location: null }),
+  ];
+  plan.delivery.push(...extra);
+  try {
+    await render();
+    const titles = [...host.querySelectorAll('h2')].map((h) => h.textContent);
+    expect(titles.filter((t) => t?.startsWith('Ships') || t === 'No ship week set')).toEqual([
+      'Ships Mon Oct 19 / Tue Oct 20', 'Ships Mon Oct 26 / Tue Oct 27', 'No ship week set',
+    ]);
+    expect(card('Ships Mon Oct 26 / Tue Oct 27').textContent).toContain('15pcsMalpuri');
+    expect(card('No ship week set').textContent).toContain('25pcsMalpuri');
+  } finally {
+    plan.delivery.splice(1);
+  }
 });
