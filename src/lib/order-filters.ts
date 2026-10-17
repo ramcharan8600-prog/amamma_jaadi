@@ -17,7 +17,9 @@ export interface OrderFilters {
  * always cover the same orders.
  */
 export function buildOrderFilters(searchParams: URLSearchParams): OrderFilters | { error: string } {
-  const filter = searchParams.get('filter') || 'all';
+  // A search looks through every order, whichever quick view is selected.
+  const search = sanitize(searchParams.get('q'), 100);
+  const filter = search ? 'all' : searchParams.get('filter') || 'all';
   // `pickupDate` remains accepted for compatibility with an open dashboard
   // tab from the previous release; `date` covers both order types.
   const dateFilter = sanitize(
@@ -105,5 +107,41 @@ export function buildOrderFilters(searchParams: URLSearchParams): OrderFilters |
     binds.push(shipWeek);
   }
 
+  if (search) {
+    const clause = searchClause(search);
+    where.push(clause.sql);
+    binds.push(...clause.binds);
+  }
+
   return { where, binds, orderBy };
+}
+
+/** Phone numbers are stored as typed, so compare digits only. */
+const DIGITS_ONLY_PHONE = "replace(replace(replace(replace(replace(replace(phone_number, '-', ''), ' ', ''), '(', ''), ')', ''), '+', ''), '.', '')";
+
+/**
+ * Search box: a name, phone number (any format), order number (AJ-1210 or 1210),
+ * tracking number or email. Each word must match somewhere, so "ravi 214" finds
+ * Ravi with a 214 number.
+ */
+function searchClause(search: string): { sql: string; binds: unknown[] } {
+  const binds: unknown[] = [];
+  const perWord = search.split(/\s+/).filter(Boolean).slice(0, 5).map((word) => {
+    const like = `%${word.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const parts = [
+      "customer_name LIKE ? ESCAPE '\\'",
+      "order_number LIKE ? ESCAPE '\\'",
+      "tracking_id LIKE ? ESCAPE '\\'",
+      "email LIKE ? ESCAPE '\\'",
+    ];
+    binds.push(like, like, like, like);
+    const digits = word.replace(/\D/g, '');
+    // Phone only when the word is mostly digits, so "AJ-1210" is not read as a phone number.
+    if (digits.length >= 3 && digits.length >= word.length - 2 && !/[a-z]/i.test(word)) {
+      parts.push(`${DIGITS_ONLY_PHONE} LIKE ?`);
+      binds.push(`%${digits}%`);
+    }
+    return `(${parts.join(' OR ')})`;
+  });
+  return { sql: perWord.join(' AND '), binds };
 }

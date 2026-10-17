@@ -10,6 +10,8 @@ import {
   ChefHat,
   RefreshCw,
   Save,
+  Search,
+  X,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { d1TimestampToBusinessDate } from '@/lib/date';
@@ -20,6 +22,7 @@ import { adminShipWeekChoices, shipWeekDays } from '@/lib/delivery-limit';
 import { effectiveShipRoute, stateFromAddress } from '@/lib/ship-routing';
 import ShipPanel from '@/components/admin/ShipPanel';
 import AdminNoteCell from '@/components/admin/AdminNoteCell';
+import OrderPanel from '@/components/admin/OrderPanel';
 import type { OrderItemRecord, OrderRecord, ShipmentStatus } from '@/types';
 
 interface ProductionItem {
@@ -73,6 +76,11 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   // Delivery order whose Ship panel is open (Project Shippo).
   const [shipOrderId, setShipOrderId] = useState<string | null>(null);
+  // Order open in the side panel; the list's copy wins so saves show in both places.
+  const [panelOrder, setPanelOrder] = useState<OrderRecord | null>(null);
+  // Search box (name, phone, AJ number, tracking, email): what's typed, and what's searched after a pause.
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   // Orders matching the filters across all pages, and what they need.
   const [totalOrders, setTotalOrders] = useState(0);
   const [production, setProduction] = useState<ProductionItem[]>([]);
@@ -142,7 +150,7 @@ export default function AdminOrdersPage() {
     .filter(Boolean).length;
 
   // The server sends one page at a time; any filter change starts again at page 1.
-  const filterKey = [filter, dateFilter, shipmentFilter, pickupLocationFilter, shipWeekFilter].join('|');
+  const filterKey = [filter, dateFilter, shipmentFilter, pickupLocationFilter, shipWeekFilter, search].join('|');
   const [pageState, setPageState] = useState({ key: filterKey, page: 1 });
   const pageCount = Math.max(1, Math.ceil(totalOrders / ORDERS_PER_PAGE));
   const currentPage = pageState.key === filterKey ? pageState.page : 1;
@@ -179,8 +187,23 @@ export default function AdminOrdersPage() {
     if (shipmentFilter !== 'all') params.set('shipmentStatus', shipmentFilter);
     if (pickupLocationFilter) params.set('pickupLocation', pickupLocationFilter);
     if (shipWeekFilter) params.set('shipWeek', shipWeekFilter);
+    if (search) params.set('q', search);
     return params.toString();
-  }, [filter, dateFilter, shipmentFilter, pickupLocationFilter, shipWeekFilter]);
+  }, [filter, dateFilter, shipmentFilter, pickupLocationFilter, shipWeekFilter, search]);
+
+  // Search a moment after typing stops, not on every key.
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === search) return;
+    const timer = setTimeout(() => {
+      if (dirtyOrders.length > 0 && !window.confirm('Search and discard your unsaved shipment changes?')) {
+        setSearchInput(search);
+        return;
+      }
+      setSearch(next);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, search, dirtyOrders.length]);
 
   const fetchOrders = useCallback(async () => {
     const requestId = latestOrderRequest.current + 1;
@@ -376,6 +399,8 @@ export default function AdminOrdersPage() {
       !window.confirm('Change the view and discard your unsaved shipment changes?')
     ) return;
     clearColumnFilters();
+    setSearchInput('');
+    setSearch('');
     setFilter(nextFilter);
   };
 
@@ -490,7 +515,7 @@ export default function AdminOrdersPage() {
           <div className="flex items-center gap-2 mb-4">
             <ChefHat size={20} className="text-brand-gold" />
             <h2 className="font-display text-lg font-semibold text-brand-charcoal">
-              Production Required ({filter === 'today' ? 'Today' : filter})
+              Production Required ({search ? 'search results' : filter === 'today' ? 'Today' : filter})
             </h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -548,6 +573,35 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-charcoal/40" aria-hidden="true" />
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Search name, phone, AJ number, tracking or email"
+          aria-label="Search orders"
+          className="input-field py-2.5 pl-9 pr-9 text-sm"
+          maxLength={100}
+        />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={() => setSearchInput('')}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-brand-cream"
+          >
+            <X size={16} className="text-brand-charcoal/50" />
+          </button>
+        )}
+      </div>
+      {search && (
+        <p className="font-body text-xs text-brand-charcoal/60 -mt-2 mb-4">
+          Searching all orders for “{search}”. Tap a tab below to go back.
+        </p>
+      )}
+
       {/* Filters */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <button
@@ -574,7 +628,7 @@ export default function AdminOrdersPage() {
             key={key}
             onClick={() => selectQuickFilter(key)}
             className={`px-3 py-1.5 rounded-full font-body text-xs font-medium transition-colors ${
-              filter === key
+              filter === key && !search
                 ? 'bg-brand-maroon text-white'
                 : 'bg-brand-cream text-brand-charcoal/60 hover:bg-brand-cream-dark'
             }`}
@@ -698,7 +752,7 @@ export default function AdminOrdersPage() {
         <div className="text-center py-12">
           <Package size={36} className="mx-auto text-brand-charcoal/20 mb-3" />
           <p className="font-body text-brand-charcoal/40">
-            No orders found for these filters.
+            {search ? `No orders match “${search}”.` : 'No orders found for these filters.'}
           </p>
         </div>
       ) : (
@@ -738,7 +792,14 @@ export default function AdminOrdersPage() {
                     className="border-b border-brand-cream-dark/50 hover:bg-brand-cream/50 transition-colors"
                   >
                     <td className="py-3 px-2 font-body text-xs font-medium text-brand-maroon">
-                      {order.order_number}
+                      <button
+                        type="button"
+                        onClick={() => setPanelOrder(order)}
+                        className="font-semibold underline decoration-brand-maroon/30 underline-offset-2 hover:decoration-brand-maroon"
+                        aria-label={`Open ${order.order_number}`}
+                      >
+                        {order.order_number}
+                      </button>
                       {!!order.is_test_order && <span className="block mt-1 text-brand-charcoal/60">Test order · excluded from reports</span>}
                       {order.order_type === 'delivery' && (() => {
                         const route = effectiveShipRoute(order.ship_route, stateFromAddress(order.delivery_address), order.order_items ?? []).route;
@@ -764,7 +825,9 @@ export default function AdminOrdersPage() {
                       })()}
                     </td>
                     <td className="py-3 px-2 font-body text-xs">
-                      {order.customer_name || '—'}
+                      <button type="button" onClick={() => setPanelOrder(order)} className="text-left hover:text-brand-maroon">
+                        {order.customer_name || '—'}
+                      </button>
                       <br />
                       <span className="text-brand-charcoal/40">{order.phone_number || ''}</span>
                     </td>
@@ -988,6 +1051,26 @@ export default function AdminOrdersPage() {
           </nav>
         </div>
       )}
+      {panelOrder && !shipOrderId && (() => {
+        // Shown again after the Ship panel closes; the list's copy has the latest saves.
+        const current = orders.find((o) => o.id === panelOrder.id) ?? panelOrder;
+        return (
+          <OrderPanel
+            order={current}
+            draft={shipmentDrafts[current.id]}
+            savingShipment={savingAll || savingOrderId === current.id}
+            shipmentSaved={savedOrderId === current.id}
+            shipWeekState={shipWeekSave[current.id]}
+            trackingNote={trackingEmailNote(current)}
+            onDraft={(patch) => updateShipmentDraft(current.id, patch)}
+            onSaveShipment={() => saveShipment(current.id)}
+            onShipWeek={(week) => saveShipWeek(current.id, week)}
+            onNoteSaved={(note) => setOrders((list) => list.map((o) => (o.id === current.id ? { ...o, admin_note: note } : o)))}
+            onOpenShip={() => setShipOrderId(current.id)}
+            onClose={() => setPanelOrder(null)}
+          />
+        );
+      })()}
       {shipOrderId && (
         <ShipPanel
           orderId={shipOrderId}

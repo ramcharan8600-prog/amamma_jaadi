@@ -68,3 +68,25 @@ it('totals production over every matching order, not one page, and skips fully r
   const bad = await PRODUCTION(new NextRequest('https://shop.test/api/orders/production?pickupLocation=nowhere'));
   expect(bad.status).toBe(400);
 });
+
+it('searches every order by name, phone (any format), order number, tracking or email', async () => {
+  fixture.sqlite.prepare(`INSERT INTO orders
+    (id,order_number,customer_name,phone_number,email,order_type,delivery_address,total_price,tax,payment_status,tracking_id,created_at)
+    VALUES ('s1','AJ-9001','Ravi Kumar','(214) 555-0199','ravi@example.com','delivery','1 Main St',50,0,'paid','1Z999AA10123456784','2026-09-02 10:00:00')`).run();
+  const numbers = async (q: string, extra = 'filter=today') =>
+    (await list(`${extra}&q=${encodeURIComponent(q)}&pageSize=25`)).orders.map((o: { order_number: string }) => o.order_number);
+
+  // The quick view ("today") is ignored while searching.
+  expect(await numbers('ravi')).toEqual(['AJ-9001']);
+  expect(await numbers('214-555-0199')).toEqual(['AJ-9001']);
+  expect(await numbers('2145550199')).toEqual(['AJ-9001']);
+  expect(await numbers('AJ-9001')).toEqual(['AJ-9001']);
+  expect(await numbers('9001')).toEqual(['AJ-9001']);
+  expect(await numbers('1z999aa')).toEqual(['AJ-9001']);
+  expect(await numbers('ravi@example')).toEqual(['AJ-9001']);
+  expect(await numbers('ravi 0199')).toEqual(['AJ-9001']);
+  expect(await numbers('ravi 7777')).toEqual([]);
+  // Wildcards are taken literally.
+  expect(await numbers('%')).toEqual([]);
+  expect((await list('filter=all&q=AJ-12&pageSize=100')).total).toBe(51); // AJ-1200…AJ-1250
+});

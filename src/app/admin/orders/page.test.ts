@@ -33,6 +33,7 @@ const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   if (path === '/api/auth') return Response.json({ authenticated: true });
   if (path === '/api/orders/note') return Response.json({ success: true, note: 'On hold until he asks' });
   if (path === '/api/orders/ship-week') return Response.json({ success: true });
+  if (path === '/api/orders') return Response.json({ success: true });
   if (path.startsWith('/api/admin/shipping?orderId=')) {
     return Response.json({ order: { id: 'd1', orderNumber: 'AJ-2001', customerName: 'Far Buyer', items: [], labels: [], activeLabel: null,
       route: 'pirate_ship', autoRoute: 'pirate_ship', routeReason: 'Far state with Malpuri', routeOverride: null, shipmentStatus: 'yet_to_ship',
@@ -174,7 +175,7 @@ it('gives each delivery order a Ship button with its route or label, opening the
   // Pickup orders have no Ship button.
   expect(host.querySelectorAll('button[aria-label^="Ship AJ-"]')).toHaveLength(3);
 
-  await act(async () => cell('AJ-2001').querySelector('button')!.click());
+  await act(async () => cell('AJ-2001').querySelector<HTMLButtonElement>('button[aria-label="Ship AJ-2001"]')!.click());
   await act(async () => {});
   const panel = host.querySelector('[role="dialog"]')!;
   expect(panel.getAttribute('aria-label')).toBe('Ship AJ-2001');
@@ -217,4 +218,77 @@ it('has a Ship week column for delivery orders that saves a new week right away'
   const call = fetchMock.mock.calls.find(([input]) => String(input) === '/api/orders/ship-week')!;
   expect(JSON.parse(String(((call as unknown[])[1] as RequestInit).body))).toEqual({ orderId: 'w1', shipWeek: '2026-10-26' });
   expect(host.textContent).toContain('Saved');
+});
+
+it('searches all orders after typing stops, and a tab clears the search', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    await render();
+    const box = host.querySelector<HTMLInputElement>('input[aria-label="Search orders"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(box, ' ravi 214 ');
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('q='))).toBe(false);
+    await act(async () => { vi.advanceTimersByTime(350); });
+    await act(async () => {});
+    const searched = fetchMock.mock.calls.map(([input]) => String(input)).filter((path) => path.startsWith('/api/orders?') && path.includes('q='));
+    expect(new URL(searched.at(-1)!, 'https://shop.test').searchParams.get('q')).toBe('ravi 214');
+    expect(host.textContent).toContain('Searching all orders for “ravi 214”');
+
+    const today = [...host.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Today')!;
+    await act(async () => today.click());
+    await act(async () => {});
+    expect(box.value).toBe('');
+    expect(host.textContent).not.toContain('Searching all orders');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('opens one order in a side panel with items, address, ship week, tracking, label and note', async () => {
+  orders.splice(0, orders.length, {
+    ...orders[0], id: 'p1', order_number: 'AJ-5001', customer_name: 'Lakshmi', phone_number: '214-555-0123', email: 'l@example.com',
+    order_type: 'delivery', pickup_date: null, pickup_location: null, delivery_address: '1 Main St\nDallas, TX 75201\nUSA',
+    shipping_method: 'ground', ship_week: '2026-10-19', shipment_status: 'yet_to_ship', tracking_id: null, admin_note: 'Gift wrap',
+    refunded_amount: 5, payment_status: 'partially_refunded',
+    order_items: [{ product_name: 'Guntur Malpuri', quantity: 2, selected_tier: 16 }],
+  } as unknown as typeof orders[number]);
+  await render();
+  await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Open AJ-5001"]')!.click());
+  const panel = () => host.querySelector('[role="dialog"][aria-label="Order AJ-5001"]')!;
+  const text = panel().textContent!;
+  expect(text).toContain('Lakshmi');
+  expect(panel().querySelector('a[href="tel:214-555-0123"]')).not.toBeNull();
+  expect(text).toContain('Guntur Malpuri (16 pcs)× 2');
+  expect(text).toContain('Dallas, TX 75201');
+  expect(text).toContain('Refunded$5.00');
+  expect(text).toContain('Refunds are made in Square');
+  expect(panel().querySelector<HTMLSelectElement>('#panel-ship-week')!.value).toBe('2026-10-19');
+  expect(panel().querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Gift wrap');
+
+  // Tracking typed in the panel saves through the same API as the table, and shows in the table too.
+  const tracking = panel().querySelector<HTMLInputElement>('input[aria-label="Tracking number"]')!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(tracking, ' 1Z123 ');
+    tracking.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="Tracking number for AJ-5001"]')!.value).toBe(' 1Z123 ');
+  const save = [...panel().querySelectorAll('button')].find((b) => b.textContent?.includes('Save shipment'))!;
+  await act(async () => save.click());
+  await act(async () => {});
+  const call = fetchMock.mock.calls.find((c) => String(c[0]) === '/api/orders' && ((c as unknown[])[1] as RequestInit)?.method === 'PATCH')!;
+  expect(JSON.parse(String(((call as unknown[])[1] as RequestInit).body))).toEqual({ orderId: 'p1', shipmentStatus: 'yet_to_ship', trackingId: '1Z123' });
+  expect(panel().textContent).toContain('Saved');
+
+  // Ship opens the Ship panel in its place; closing it brings the order back.
+  const ship = [...panel().querySelectorAll('button')].find((b) => b.textContent?.includes('Open Ship panel'))!;
+  await act(async () => ship.click());
+  await act(async () => {});
+  expect(host.querySelector('[aria-label="Order AJ-5001"]')).toBeNull();
+  expect(host.querySelector('[role="dialog"]')!.getAttribute('aria-label')).toBe('Ship AJ-2001');
+  await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+  expect(panel()).not.toBeNull();
+  await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+  expect(host.querySelector('[role="dialog"]')).toBeNull();
 });
