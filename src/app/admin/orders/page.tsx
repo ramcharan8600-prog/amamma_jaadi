@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { d1TimestampToBusinessDate } from '@/lib/date';
-import { shippingMethodLabel } from '@/lib/pricing';
+import { orderShippingLabel } from '@/lib/order-shipping-label';
 import { PICKUP_LOCATIONS } from '@/data/products';
 import { productionSheet } from '@/lib/production';
 import { adminShipWeekChoices, shipWeekDays } from '@/lib/delivery-limit';
@@ -872,9 +872,9 @@ export default function AdminOrdersPage() {
                       >
                         {order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}
                       </span>
-                      {order.order_type === 'delivery' && order.shipping_method && (
+                      {order.order_type === 'delivery' && (
                         <span className="block font-body text-[11px] text-brand-charcoal/50 mt-1">
-                          {shippingMethodLabel(order.shipping_method)}
+                          {orderShippingLabel(order)}
                         </span>
                       )}
                     </td>

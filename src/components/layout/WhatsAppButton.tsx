@@ -1,9 +1,13 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import WhatsAppIcon from '@/components/icons/WhatsAppIcon';
 import { WHATSAPP_NUMBER } from '@/lib/utils';
 
+/** Floating WhatsApp chat button. Hidden at checkout, where it covered the form and the Continue button on phones (the footer still links to WhatsApp). */
 export default function WhatsAppButton() {
+  const pathname = usePathname();
+  if (pathname === '/checkout' || pathname?.startsWith('/checkout/')) return null;
   return (
     <a
       href={`https://wa.me/${WHATSAPP_NUMBER}`}

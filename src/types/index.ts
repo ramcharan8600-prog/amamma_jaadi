@@ -55,7 +55,7 @@ export interface Product {
   /**
    * How to present `prepNotice`.
    * 'lead-time' (default) = amber caution, the customer must plan ahead.
-   * 'fresh' = green reassurance, e.g. baked daily.
+   * 'fresh' = green reassurance, e.g. made fresh daily.
    */
   prepNoticeTone?: 'lead-time' | 'fresh';
   /** For pickles: fixed jar quantity (always 1) */

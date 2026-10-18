@@ -4,7 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { Package, Phone, Mail, Save, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { d1TimestampToBusinessDate } from '@/lib/date';
-import { shippingMethodLabel } from '@/lib/pricing';
+import { orderShippingLabel } from '@/lib/order-shipping-label';
 import { PICKUP_LOCATIONS } from '@/data/products';
 import { adminShipWeekChoices, shipWeekDays } from '@/lib/delivery-limit';
 import AdminNoteCell from '@/components/admin/AdminNoteCell';
@@ -124,9 +124,7 @@ export default function OrderPanel({
               <section aria-label="Delivery address">
                 <Heading>Ship to</Heading>
                 <p className="text-brand-charcoal/80 whitespace-pre-line">{order.delivery_address || 'No address'}</p>
-                {order.shipping_method && (
-                  <p className="text-brand-charcoal/60 mt-1">{shippingMethodLabel(order.shipping_method)}</p>
-                )}
+                <p className="text-brand-charcoal/60 mt-1">{orderShippingLabel(order)}</p>
               </section>
 
               <section>

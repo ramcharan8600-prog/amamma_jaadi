@@ -136,7 +136,7 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
 
         {prepNotice &&
           (freshNotice ? (
-            // Reassurance (baked daily) — reads as good news, not a caution.
+            // Reassurance (made fresh daily) — reads as good news, not a caution.
             <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
               <Sparkles size={14} className="text-green-600 shrink-0 mt-0.5" />
               <p className="font-body text-xs text-green-800">{prepNotice}</p>

@@ -51,7 +51,7 @@ import {
   getDeliveryMinimumShortfall,
   groundShippingKind,
   isSupportedDeliveryState,
-  SALES_TAX_LABEL,
+  salesTaxLineLabel,
   deliveryRestriction,
   deliveryService,
   deliveryServiceLabel,
@@ -1175,7 +1175,7 @@ export default function CheckoutPage() {
               )}
               {fulfillmentType === 'delivery' && showExpressNote && expressSweetsNote}
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                <span>{SALES_TAX_LABEL}</span>
+                <span>{salesTaxLineLabel(totals.tax)}</span>
                 <span>{formatCurrency(totals.tax)}</span>
               </div>
               <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
@@ -1411,7 +1411,7 @@ export default function CheckoutPage() {
                     <span>FREE</span>
                   </div>
                   <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                    <span>{SALES_TAX_LABEL}</span>
+                    <span>{salesTaxLineLabel(totals.tax)}</span>
                     <span>{formatCurrency(totals.tax)}</span>
                   </div>
                   <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
@@ -1769,7 +1769,7 @@ export default function CheckoutPage() {
                 </div>
               )}
               <div className="flex justify-between font-body text-sm text-brand-charcoal/70">
-                <span>{SALES_TAX_LABEL}</span>
+                <span>{salesTaxLineLabel(totals.tax)}</span>
                 <span>{formatCurrency(totals.tax)}</span>
               </div>
               <div className="flex justify-between font-display text-base font-bold pt-1.5 border-t border-brand-cream-dark">
@@ -1834,7 +1834,7 @@ export default function CheckoutPage() {
               <p className="font-body text-sm text-brand-charcoal/80">Ships <strong>{shipWeekDays(fulfillment.shipWeek)}</strong></p>
             )}
             <div className="flex justify-between font-body text-sm text-brand-charcoal/60">
-              <span>{SALES_TAX_LABEL}</span>
+              <span>{salesTaxLineLabel(sessionInfo.tax)}</span>
               <span>{formatCurrency(sessionInfo.tax)}</span>
             </div>
             <div className="flex justify-between items-center pt-1.5 border-t border-brand-cream-dark">

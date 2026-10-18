@@ -82,7 +82,7 @@ it('lists both assorted boxes under Box stock, counted in whole boxes', async ()
     expect(section.querySelector('h3')?.textContent).toBe('Box stock');
     const rows = Array.from(section.querySelectorAll('div.flex')).map((row) => row.textContent);
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toContain('Count whole boxes (11 Malpuri + 11 Malai Khaja each).');
+    expect(rows[0]).toContain('Count whole boxes (10 Malpuri + 10 Malai Khaja each).');
     expect(rows[0]).toContain('4 boxes in stock');
     expect(rows[1]).toContain('Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu');
     expect(rows[1]).toContain('Count whole boxes (8 Bobbatlu + 8 Kova Bobbatlu each).');

@@ -49,6 +49,14 @@ export const SALES_TAX_RATE = 0.0825;
 /** Human label for the tax line, e.g. "Sales Tax (8.25%)". */
 export const SALES_TAX_LABEL = `Sales Tax (${(SALES_TAX_RATE * 100).toFixed(2).replace(/\.?0+$/, '')}%)`;
 
+/**
+ * The checkout's tax line label. Only pickles (and Texas delivery on them) are taxed,
+ * so a $0 line means sweets only — say so instead of showing "8.25%" next to $0.00.
+ */
+export function salesTaxLineLabel(tax: number): string {
+  return tax > 0 ? SALES_TAX_LABEL : 'Sales tax (sweets are tax-free)';
+}
+
 /** Round to whole cents — money must never carry float dust. */
 export function roundMoney(amount: number): number {
   return Math.round((Number(amount) + Number.EPSILON) * 100) / 100;

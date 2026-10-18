@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     template: '%s | Amamma Jaadi',
   },
   description:
-    'Premium South Indian sweets, pickles & gift boxes in Dallas, Texas. Freshly baked daily with pure ghee, A2 milk & organic ingredients. Order Bobbatlu, Malai Khaja, Kova & more.',
+    'Premium South Indian sweets, pickles & gift boxes in Dallas, Texas. Made fresh daily with pure ghee, A2 milk & organic ingredients. Order Bobbatlu, Malai Khaja, Kova & more.',
   keywords: [
     'South Indian sweets Dallas',
     'Authentic Indian sweets Texas',
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: 'Amamma Jaadi — Authentic South Indian Sweets',
-    description: 'Freshly baked traditional sweets & pickles delivered in Dallas, TX.',
+    description: 'Freshly made traditional sweets & pickles: free pickup in Dallas, delivery across the USA.',
     images: [SHARE_IMAGE.url],
   },
   robots: { index: true, follow: true },

@@ -20,6 +20,7 @@ import {
   containsAssortedBox,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
+  salesTaxLineLabel,
 } from './pricing';
 import { getProductById } from '@/data/products';
 
@@ -27,6 +28,8 @@ describe('pricing — Texas sales tax on the taxable portion only', () => {
   it('uses the 8.25% Texas rate', () => {
     expect(SALES_TAX_RATE).toBe(0.0825);
     expect(SALES_TAX_LABEL).toBe('Sales Tax (8.25%)');
+    expect(salesTaxLineLabel(1.49)).toBe('Sales Tax (8.25%)');
+    expect(salesTaxLineLabel(0)).toBe('Sales tax (sweets are tax-free)');
   });
 
   it('charges NO tax on an all-exempt order (bakery items)', () => {

@@ -72,7 +72,7 @@ export default function InventoryPanel() {
   const tracked = PRODUCTS.filter((p) => isStockTracked(p) && !isBoxStockProduct(p.id));
   const boxes = PRODUCTS.filter((p) => isBoxStockProduct(p.id));
   const boxContents: Record<string, string> = {
-    [ASSORTED_BOX_PRODUCT_ID]: '11 Malpuri + 11 Malai Khaja',
+    [ASSORTED_BOX_PRODUCT_ID]: '10 Malpuri + 10 Malai Khaja',
     [ASSORTED_BOBBATLU_BOX_PRODUCT_ID]: '8 Bobbatlu + 8 Kova Bobbatlu',
   };
 

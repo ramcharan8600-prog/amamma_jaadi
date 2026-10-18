@@ -37,7 +37,7 @@ function piecesIn(text: string): Array<[ProductionSweet, number]> {
 }
 
 /** An order line's catalog product, and the contents chosen for a box ("Box (8 Malpuri + …)"). */
-function lineProduct(name: string): { product?: Product; contents?: string } {
+export function lineProduct(name: string): { product?: Product; contents?: string } {
   const exact = PRODUCTS.find((p) => p.name === name);
   if (exact) return { product: exact };
   const boxed = PRODUCTS
