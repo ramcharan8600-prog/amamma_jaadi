@@ -235,12 +235,15 @@ it('searches all orders after typing stops, and a tab clears the search', async 
     const searched = fetchMock.mock.calls.map(([input]) => String(input)).filter((path) => path.startsWith('/api/orders?') && path.includes('q='));
     expect(new URL(searched.at(-1)!, 'https://shop.test').searchParams.get('q')).toBe('ravi 214');
     expect(host.textContent).toContain('Searching all orders for “ravi 214”');
+    // What-to-make summary steps aside so results sit right under the search box.
+    expect(host.textContent).not.toContain('Production Required');
 
     const today = [...host.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Today')!;
     await act(async () => today.click());
     await act(async () => {});
     expect(box.value).toBe('');
     expect(host.textContent).not.toContain('Searching all orders');
+    expect(host.textContent).toContain('Production Required');
   } finally {
     vi.useRealTimers();
   }

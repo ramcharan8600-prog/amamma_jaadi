@@ -130,9 +130,10 @@ export default function OrderPanel({
               </section>
 
               <section>
-                <label htmlFor="panel-ship-week"><Heading>Ship week</Heading></label>
+                <Heading>Ship week</Heading>
                 <select
                   id="panel-ship-week"
+                  aria-label="Ship week"
                   value={order.ship_week ?? ''}
                   onChange={(e) => onShipWeek(e.target.value)}
                   disabled={shipWeekState === 'saving'}

@@ -509,13 +509,42 @@ export default function AdminOrdersPage() {
         </Link>
       </div>
 
-      {/* Production Requirements */}
-      {production.length > 0 && (
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-charcoal/40" aria-hidden="true" />
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder="Search name, phone, AJ number, tracking or email"
+          aria-label="Search orders"
+          className="input-field py-2.5 pl-9 pr-9 text-sm [&::-webkit-search-cancel-button]:appearance-none"
+          maxLength={100}
+        />
+        {searchInput && (
+          <button
+            type="button"
+            onClick={() => setSearchInput('')}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-brand-cream"
+          >
+            <X size={16} className="text-brand-charcoal/50" />
+          </button>
+        )}
+      </div>
+      {search && (
+        <p className="font-body text-xs text-brand-charcoal/60 -mt-4 mb-6">
+          Searching all orders for “{search}”. Tap a tab below to go back.
+        </p>
+      )}
+
+      {/* Production Requirements (hidden while searching, so results sit under the search box) */}
+      {production.length > 0 && !search && (
         <div className="card p-6 mb-8">
           <div className="flex items-center gap-2 mb-4">
             <ChefHat size={20} className="text-brand-gold" />
             <h2 className="font-display text-lg font-semibold text-brand-charcoal">
-              Production Required ({search ? 'search results' : filter === 'today' ? 'Today' : filter})
+              Production Required ({filter === 'today' ? 'Today' : filter})
             </h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -571,35 +600,6 @@ export default function AdminOrdersPage() {
             </section>
           )}
         </div>
-      )}
-
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-charcoal/40" aria-hidden="true" />
-        <input
-          type="search"
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Search name, phone, AJ number, tracking or email"
-          aria-label="Search orders"
-          className="input-field py-2.5 pl-9 pr-9 text-sm"
-          maxLength={100}
-        />
-        {searchInput && (
-          <button
-            type="button"
-            onClick={() => setSearchInput('')}
-            aria-label="Clear search"
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-brand-cream"
-          >
-            <X size={16} className="text-brand-charcoal/50" />
-          </button>
-        )}
-      </div>
-      {search && (
-        <p className="font-body text-xs text-brand-charcoal/60 -mt-2 mb-4">
-          Searching all orders for “{search}”. Tap a tab below to go back.
-        </p>
       )}
 
       {/* Filters */}
