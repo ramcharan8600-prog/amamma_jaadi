@@ -8,6 +8,11 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  // Copies the ready-built shop pages into the assets above before every deploy
+  // (see scripts/populate-page-cache.mjs and open-next.config.ts).
+  "build": {
+    "command": "node scripts/populate-page-cache.mjs"
+  },
   // Non-secret runtime config. Lives here (not the dashboard) because
   // `wrangler deploy` deletes dashboard-added plaintext vars on every deploy
   // — only values in this file and dashboard Secrets survive. Secrets
