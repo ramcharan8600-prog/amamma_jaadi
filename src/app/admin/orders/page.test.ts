@@ -135,11 +135,20 @@ it('pages through more than 200 orders from the server, with compact page button
   expect(rows().at(-1)).toBe('AJ-5001');
 });
 
-it('is its own page with a way back to the dashboard and to Production Planning', async () => {
+it('opens the view a Today link asks for: a search, or a ship week', async () => {
+  window.history.replaceState(null, '', '/admin/orders?q=AJ-1059');
   await render();
   expect(host.querySelector('h1')?.textContent).toContain('All Orders');
-  expect(host.querySelector('a[href="/admin/dashboard"]')?.textContent).toContain('Back to dashboard');
-  expect(host.querySelector('a[href="/admin/production"]')?.textContent).toContain('Production Planning');
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="Search orders"]')!.value).toBe('AJ-1059');
+  expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith('/api/orders?') && String(input).includes('q=AJ-1059'))).toBe(true);
+  await act(async () => root.unmount());
+
+  root = createRoot(host);
+  window.history.replaceState(null, '', '/admin/orders?shipWeek=none');
+  await render();
+  const last = fetchMock.mock.calls.map(([input]) => String(input)).filter((path) => path.startsWith('/api/orders?')).at(-1)!;
+  expect(new URL(last, 'https://shop.test').searchParams.get('shipWeek')).toBe('none');
+  window.history.replaceState(null, '', '/');
 });
 
 it('shows sweets to make (boxes included) and what to pack for every matching order', async () => {

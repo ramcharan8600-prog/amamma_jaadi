@@ -34,6 +34,7 @@ beforeEach(() => {
     const path = String(input);
     if (path === '/api/auth') return Response.json({ authenticated: true });
     if (path === '/api/admin/production-plan') return Response.json(plan);
+    if (path === '/api/inventory') return Response.json({ stock: {} });
     throw new Error(`Unexpected request: ${path}`);
   }));
   host = document.createElement('div');
@@ -54,7 +55,8 @@ const card = (title: string) => [...host.querySelectorAll('section')].find((s) =
 
 it('shows the 3-day total and what to make today, tomorrow and the day after', async () => {
   await render();
-  expect(host.querySelector('h1')?.textContent).toBe('Production Planning');
+  expect(host.querySelector('h1')?.textContent).toBe('Kitchen');
+  expect(host.querySelector('#stock')).not.toBeNull(); // website stock lives in the Kitchen now
   const total = card('Total for the next 3 days').textContent;
   expect(total).toContain('38pcsMalpuri');      // 32 loose + 6 in the box
   expect(total).toContain('31pcsMalai Khaja');  // 6 in the box + 25 delivery

@@ -3,13 +3,12 @@
 import { shipWeekDays } from '@/lib/delivery-limit';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft, ChefHat, ChevronDown, RefreshCw, Truck } from 'lucide-react';
+import { ChefHat, ChevronDown, RefreshCw, Truck } from 'lucide-react';
 import { getPickupLocationById } from '@/data/products';
 import { isPickupClosedDate } from '@/lib/pickup-date';
 import { d1TimestampToBusinessDate } from '@/lib/date';
 import { productionSheet } from '@/lib/production';
-import DeliveryPausePanel from '@/components/admin/DeliveryPausePanel';
+import InventoryPanel from '@/components/admin/InventoryPanel';
 import type { PlanOrder, ProductionPlan } from '@/lib/production-plan';
 
 const DAY_NAMES = ['Today', 'Tomorrow', 'Day after tomorrow'];
@@ -181,23 +180,18 @@ export default function ProductionPlanningPage() {
   const ranged = Boolean(rangeFrom || rangeTo);
 
   return (
-    <div className="section-padding py-8 sm:py-12">
-      <Link href="/admin/dashboard" className="inline-flex items-center gap-2 text-sm text-brand-maroon mb-6">
-        <ArrowLeft size={16} /> Dashboard
-      </Link>
+    <div className="section-padding py-6 sm:py-10">
       <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-charcoal">Production Planning</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-charcoal">Kitchen</h1>
           <p className="font-body text-sm text-brand-charcoal/50">
-            Sweets to make from paid orders: pickups by date, and delivery orders waiting to ship.
+            Production planning: sweets to make for pickups by date and deliveries waiting to ship. Website stock is at the bottom.
           </p>
         </div>
         <button type="button" onClick={load} disabled={loading} className="btn-secondary text-xs gap-1.5">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
         </button>
       </div>
-
-      <DeliveryPausePanel />
 
       {error && <p role="alert" className="font-body text-sm text-red-600 mb-4">{error}</p>}
 
@@ -289,6 +283,10 @@ export default function ProductionPlanningPage() {
           </div>
         </>
       )}
+
+      <div id="stock" className="mt-10 scroll-mt-20">
+        <InventoryPanel />
+      </div>
     </div>
   );
 }

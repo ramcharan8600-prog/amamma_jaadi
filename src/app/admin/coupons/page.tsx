@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  ArrowLeft,
   Plus,
   Users,
   TrendingUp,
@@ -161,12 +159,6 @@ export default function CouponsPage() {
     <div className="section-padding py-8 sm:py-12">
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
-        <Link
-          href="/admin/dashboard"
-          className="p-2 rounded-lg hover:bg-brand-cream transition-colors"
-        >
-          <ArrowLeft size={18} />
-        </Link>
         <div className="flex-1">
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-charcoal">
             Coupons

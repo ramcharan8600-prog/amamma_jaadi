@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  ArrowLeft,
   Package,
   Filter,
   ChefHat,
@@ -162,6 +160,19 @@ export default function AdminOrdersPage() {
     setPageState({ key: filterKey, page });
     tableTop.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
+
+  // Links from Today open a view: ?q= (search), ?filter=, ?shipWeek=, ?shipmentStatus=.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q')?.trim().slice(0, 100);
+    const view = params.get('filter') as FilterType | null;
+    const week = params.get('shipWeek');
+    const status = params.get('shipmentStatus') as ShipmentColumnFilter | null;
+    if (q) { setSearchInput(q); setSearch(q); }
+    if (view && ['today', 'tomorrow', 'future', 'completed', 'all'].includes(view)) setFilter(view);
+    if (week && (week === 'none' || /^\d{4}-\d{2}-\d{2}$/.test(week))) { setShipWeekFilter(week); setFilter('all'); }
+    if (status && ['yet_to_ship', 'shipped', 'delivered', 'pickup'].includes(status)) { setShipmentFilter(status); setFilter('all'); }
+  }, []);
 
   // Check auth (middleware handles redirect, this is for UI state)
   useEffect(() => {
@@ -489,13 +500,9 @@ export default function AdminOrdersPage() {
   ];
 
   return (
-    <div className="section-padding py-8 sm:py-12">
-      <Link href="/admin/dashboard" className="inline-flex items-center gap-2 text-sm text-brand-maroon mb-6">
-        <ArrowLeft size={16} /> Back to dashboard
-      </Link>
-
+    <div className="section-padding py-6 sm:py-10">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap mb-8">
+      <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-charcoal">
             All Orders
@@ -504,9 +511,6 @@ export default function AdminOrdersPage() {
             Every order with filters, shipment tracking and what to make
           </p>
         </div>
-        <Link href="/admin/production" className="btn-primary text-xs gap-1.5">
-          <ChefHat size={14} /> Production Planning
-        </Link>
       </div>
 
       {/* Search */}

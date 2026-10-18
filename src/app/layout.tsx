@@ -3,6 +3,7 @@ import { Playfair_Display, Inter } from 'next/font/google';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import WhatsAppButton from '@/components/layout/WhatsAppButton';
+import ShopOnly from '@/components/layout/ShopOnly';
 import '@/styles/globals.css';
 
 // Self-hosted at build time (no third-party request at runtime). Exposed as CSS
@@ -74,10 +75,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="flex flex-col min-h-screen">
-        <Header />
+        <ShopOnly><Header /></ShopOnly>
         <main className="flex-1">{children}</main>
-        <Footer />
-        <WhatsAppButton />
+        <ShopOnly>
+          <Footer />
+          <WhatsAppButton />
+        </ShopOnly>
       </body>
     </html>
   );

@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   TrendingUp,
   TrendingDown,
   DollarSign,
@@ -328,10 +327,10 @@ export default function AnalyticsPage() {
               Unlock Analytics
             </button>
             <Link
-              href="/admin/dashboard"
+              href="/admin/reports"
               className="block font-body text-xs text-brand-charcoal/40 hover:text-brand-maroon transition-colors"
             >
-              ← Back to Dashboard
+              ← Back to Reports
             </Link>
           </div>
         </div>
@@ -344,7 +343,7 @@ export default function AnalyticsPage() {
       <div className="section-padding py-16 text-center space-y-4">
         <p role="alert" className="font-body text-red-700">{dataError}</p>
         <button className="btn-primary" onClick={() => setLoadAttempt(attempt => attempt + 1)}>Try again</button>
-        <Link href="/admin/dashboard" className="block text-sm underline">Back to dashboard</Link>
+        <Link href="/admin/reports" className="block text-sm underline">Back to Reports</Link>
       </div>
     );
   }
@@ -352,12 +351,6 @@ export default function AnalyticsPage() {
   return (
     <div className="section-padding py-8 sm:py-12">
       <div className="flex items-center gap-3 mb-8">
-        <Link
-          href="/admin/dashboard"
-          className="p-2 rounded-lg hover:bg-brand-cream transition-colors"
-        >
-          <ArrowLeft size={18} />
-        </Link>
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-brand-charcoal">
             Sales Analytics

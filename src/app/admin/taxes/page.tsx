@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { d1TimestampToBusinessDate, toBusinessDateString } from '@/lib/date';
 import type { TaxReport, TaxReportRow } from '@/lib/tax-report';
@@ -66,7 +65,6 @@ export default function TaxRecordsPage() {
   const download = (view: string) => `/api/admin/tax-report?year=${year}&quarter=${quarter}&format=csv&view=${view}`;
   const s = report?.summary;
   return <div className="section-padding py-8 sm:py-12">
-    <Link href="/admin/dashboard" className="inline-flex items-center gap-2 text-sm text-brand-maroon mb-6"><ArrowLeft size={16} /> Dashboard</Link>
     <h1 className="font-display text-3xl font-bold">Quarterly tax records</h1>
     <p className="mt-2 text-sm text-brand-charcoal/70">Website sales and refunds, grouped by transaction date in US Central time.</p>
     <div className="flex flex-wrap items-end gap-3 my-6">
