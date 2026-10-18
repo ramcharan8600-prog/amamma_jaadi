@@ -84,8 +84,8 @@ export const PRODUCTS: Product[] = [
       'A signature Guntur delicacy — deep-fried discs of refined flour soaked in fragrant sugar syrup infused with cardamom. Crispy on the outside, melt-in-your-mouth inside.',
     category: 'sweets',
     unitPrice: 2.5,
-    // 15 pieces for $40 (owner, 2026-10-12); 25 and 50 stay at $2.50/pc.
-    tierPrices: { 15: 40 },
+    // 15 pieces for $40 (owner, 2026-10-12); 25 pieces for $65 (owner, 2026-10-18); 50 stays at $2.50/pc.
+    tierPrices: { 15: 40, 25: 65 },
     image: '/images/web/guntur-malpuri.webp',
     imageFit: 'contain',
     quantityOptions: [15, 25, 50],
@@ -102,8 +102,8 @@ export const PRODUCTS: Product[] = [
       'Flaky, layered pastry from Nellore, delicately fried and dipped in sugar syrup. Each layer shatters into a shower of sweetness — a true South Indian masterpiece.',
     category: 'sweets',
     unitPrice: 2.5,
-    // 15 pieces for $40 (owner, 2026-10-12); 25 and 50 stay at $2.50/pc.
-    tierPrices: { 15: 40 },
+    // 15 pieces for $40 (owner, 2026-10-12); 25 pieces for $65 (owner, 2026-10-18); 50 stays at $2.50/pc.
+    tierPrices: { 15: 40, 25: 65 },
     image: '/images/web/nellore-malai-khaja.webp',
     quantityOptions: [15, 25, 50],
     inStock: true,

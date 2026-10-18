@@ -674,7 +674,7 @@ describe('Assorted Bobbatlu Box stock', () => {
 
 describe('far-state $60 minimum', () => {
   it.each([
-    ['Malpuri 25', [{ ...sweet, selectedTier: 25 }], 62.5, 74.49],
+    ['Malpuri 25', [{ ...sweet, selectedTier: 25 }], 65, 76.99],
     ['Bobbatlu 25', [{ productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 25 }], 70, 81.99],
     ['Malpuri + Kova', [sweet, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], 76, 87.99],
   ])('now accepts %s to a far state at $11.99', async (_name, items, subtotal, totalAmount) => {

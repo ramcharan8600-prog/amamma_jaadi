@@ -80,7 +80,7 @@ describe('new checkout cart validation', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     expect(result.items).toHaveLength(4);
-    expect(result.subtotal).toBe(162.5);
+    expect(result.subtotal).toBe(165); // 15 pcs $40 + 25 pcs $65 + 2 gift boxes $60
     expect(result.requestedByProduct.get(gift.productId)).toBe(2);
     expect(result.requestedByProduct.get(sweet.productId)).toBe(2);
   });
