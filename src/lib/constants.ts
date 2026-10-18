@@ -78,8 +78,8 @@ export const SHIPPING_BOBBATLU_BOX_FAR = 9.99;
 export const SHIPPING_MINI_COMBO_TX = 3.99;
 
 /**
- * Notice under Delivery at checkout. Since 2026-10-17 delivery runs as a
- * weekly batch (capped in Admin → Production, shipped every Monday/Tuesday).
+ * Notice on the checkout delivery details step (Step 3; it sat under the Delivery choice until 2026-10-18). Since 2026-10-17 delivery runs as a
+ * weekly batch (capped in Admin → Settings, shipped every Monday/Tuesday).
  * Set to null to remove it.
  */
 export const DELIVERY_QUEUE_NOTICE: string | null =

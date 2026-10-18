@@ -27,14 +27,11 @@ import {
   pickupWindowLabel,
   getTotalPieces as calculateTotalPieces,
   isProductTaxExempt,
-  getBobbatluPieces,
-  BOBBATLU_PRODUCT_ID,
   BOBBATLU_TASTE_PACK_PRODUCT_ID,
-  KOVA_BOBBATLU_PRODUCT_ID,
   calculateSweetPrice,
   getProductById,
 } from '@/data/products';
-import { useStock, invalidateStock } from '@/hooks/useStock';
+import { invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
 import { couponBenefitLabel, type CouponBenefit } from '@/lib/coupons';
@@ -557,12 +554,6 @@ export default function CheckoutPage() {
     [mounted, items]
   );
   const largeOrder = totalPieces > 150;
-  const bobbatluPieces = mounted ? getBobbatluPieces(items) : 0;
-  const kovaBobbatluPieces = mounted ? getBobbatluPieces(items, KOVA_BOBBATLU_PRODUCT_ID) : 0;
-  const { count: bobbatluStock } = useStock(bobbatluPieces > 0 ? BOBBATLU_PRODUCT_ID : null);
-  const { count: kovaBobbatluStock } = useStock(kovaBobbatluPieces > 0 ? KOVA_BOBBATLU_PRODUCT_ID : null);
-  const bobbatluNeedsPreparation = bobbatluPieces > (bobbatluStock ?? 0);
-  const kovaBobbatluNeedsPreparation = kovaBobbatluPieces > (kovaBobbatluStock ?? 0);
   const hasNextDayProduct = requiresNextDayPickup(items);
   const nextDayProductNames = Array.from(new Set(
     items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
@@ -1297,12 +1288,6 @@ export default function CheckoutPage() {
                   <p className="font-body text-sm text-brand-charcoal/60 mt-1">
                     Nationwide shipping with destination-based rates shown before payment.
                   </p>
-                  {DELIVERY_QUEUE_NOTICE && (
-                    <p role="note" className="font-body text-sm text-amber-900 bg-amber-50 border border-amber-300 rounded-lg p-3 mt-3">
-                      ⏳ {DELIVERY_QUEUE_NOTICE.split(/(sold out)/i).map((part, i) =>
-                        i % 2 ? <strong key={i} className="font-bold">{part}</strong> : part)}
-                    </p>
-                  )}
                 </>
               )}
             </button>
@@ -1523,30 +1508,12 @@ export default function CheckoutPage() {
             <p className="font-body text-sm text-brand-charcoal/60">Delivery details</p>
           </div>
 
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-1">
-            <p className="font-body text-sm text-green-800 font-semibold">
-              Shipping times begin after your order is prepared.
-            </p>
-            {bobbatluNeedsPreparation && (
-              <p className="font-body text-sm text-green-800">Bobbatlu for this order needs 1 day for preparation before dispatch.</p>
-            )}
-            {kovaBobbatluNeedsPreparation && (
-              <p className="font-body text-sm text-green-800">Kova Bobbatlu for this order needs 1 day for preparation before dispatch.</p>
-            )}
-            <p className="font-body text-sm text-green-800">
-              {!deliveryState.trim()
-                ? 'Your shipping service and fee appear once you select your state.'
-                : service === 'texas'
-                  ? 'Texas orders typically arrive 1 business day after dispatch. Tracking details will be emailed when your order ships.'
-                  : service === 'express'
-                    ? 'This order ships Express (2-day ETA). Tracking details will be emailed when your order ships.'
-                    : service === 'second-day-air'
-                      ? 'This order ships UPS 2nd Day Air. Packages typically arrive within 2 business days after dispatch.'
-                      : picklesOnly
-                        ? 'Pickle-only orders use Express shipping. Tracking details will be emailed when your order ships.'
-                        : 'This order uses Express shipping. Tracking details will be emailed when your order ships.'}
-            </p>
-          </div>
+          {/* The weekly dispatch note (moved here from Step 2, owner 2026-10-18). */}
+          {DELIVERY_QUEUE_NOTICE && (
+            <div role="note" className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <p className="font-body text-sm text-green-800 font-semibold">{DELIVERY_QUEUE_NOTICE}</p>
+            </div>
+          )}
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>

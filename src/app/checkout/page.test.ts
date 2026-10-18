@@ -395,14 +395,18 @@ describe('paused delivery areas (Admin → Production)', () => {
 });
 
 describe('delivery queue notice', () => {
-  it('says under Delivery that delivery orders ship every Monday/Tuesday', async () => {
+  it('says on the delivery details step (not on the method choice) that orders ship every Monday/Tuesday', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await render();
     await click('Continue');
     const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
-    expect(delivery?.textContent).toContain('Delivery orders are freshly prepared and shipped every Monday/Tuesday');
-    const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
-    expect(pickup?.textContent).not.toContain('Monday/Tuesday');
+    expect(delivery?.textContent).not.toContain('Monday/Tuesday');
+    await act(async () => delivery!.click());
+    const note = host.querySelector('[role="note"]');
+    expect(note?.className).toContain('bg-green-50');
+    expect(note?.textContent).toBe('Delivery orders are freshly prepared and shipped every Monday/Tuesday, so your sweets never sit in a UPS truck over the weekend.');
+    expect(host.textContent).not.toContain('Shipping times begin after your order is prepared.');
+    expect(host.textContent).not.toContain('needs 1 day for preparation before dispatch.');
   });
 });
 
@@ -490,7 +494,7 @@ describe('checkout pickup date controls', () => {
     expect(host.textContent).toContain('Step 3');
     expect(host.textContent).not.toContain('After 1:30 PM, pickup starts tomorrow');
     expect(host.textContent).not.toContain('Orders containing Bobbatlu or Kova are available for pickup from tomorrow.');
-    if (method === 'Delivery') expect(host.textContent).toContain('Shipping times begin after your order is prepared.');
+    if (method === 'Delivery') expect(host.textContent).toContain('shipped every Monday/Tuesday');
   });
 
   it.each(['2026-09-09', '2026-12-10'])('greys out %s so it cannot be picked or submitted', async (date) => {
@@ -1056,50 +1060,6 @@ describe.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu'])('%s pickup preparation'
   });
 });
 
-describe('Bobbatlu variant delivery preparation', () => {
-  async function openDelivery() {
-    await render();
-    await click('Continue');
-    const delivery = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
-    await act(async () => delivery!.click());
-  }
-
-  it.each([
-    [16, 0, false, true],
-    [0, 16, true, false],
-    [16, 16, false, false],
-    [0, 0, true, true],
-  ] as const)('keeps variant stock separate with %s Bobbatlu pieces and %s Kova Bobbatlu pieces', async (regularStock, kovaStock, regularPrep, kovaPrep) => {
-    bobbatluStock = regularStock;
-    kovaBobbatluStock = kovaStock;
-    useCartStore.getState().addItem(getProductById('sweet-bobbatlu')!, 1, 16);
-    useCartStore.getState().addItem(getProductById('sweet-kova-bobbatlu')!, 1, 16);
-    await openDelivery();
-    const paragraphs = Array.from(host.querySelectorAll('p')).map(paragraph => paragraph.textContent);
-    expect(paragraphs.includes('Bobbatlu for this order needs 1 day for preparation before dispatch.')).toBe(regularPrep);
-    expect(paragraphs.includes('Kova Bobbatlu for this order needs 1 day for preparation before dispatch.')).toBe(kovaPrep);
-    expect(calls('/api/inventory')).toHaveLength(1);
-  });
-
-  it('counts every box and tier against only that variant’s inventory', async () => {
-    bobbatluStock = 50;
-    kovaBobbatluStock = 49;
-    useCartStore.getState().addItem(getProductById('sweet-bobbatlu')!, 2, 25);
-    useCartStore.getState().addItem(getProductById('sweet-kova-bobbatlu')!, 1, 50);
-    await openDelivery();
-    const paragraphs = Array.from(host.querySelectorAll('p')).map(paragraph => paragraph.textContent);
-    expect(paragraphs).not.toContain('Bobbatlu for this order needs 1 day for preparation before dispatch.');
-    expect(paragraphs).toContain('Kova Bobbatlu for this order needs 1 day for preparation before dispatch.');
-  });
-
-  it('does not show preparation for an absent variant', async () => {
-    kovaBobbatluStock = 16;
-    useCartStore.getState().addItem(getProductById('sweet-kova-bobbatlu')!, 1, 16);
-    await openDelivery();
-    expect(host.textContent).not.toContain('needs 1 day for preparation before dispatch.');
-  });
-});
-
 it.each([[1,'5.99','2.06','27.05'],[2,'5.99','3.63','47.62'],[3,'5.99','5.20','68.19']])(
   'displays the correct shipping and tax for %s pickle jars',async(quantity,shipping,tax,total)=>{
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!,Number(quantity));
@@ -1201,7 +1161,6 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).toContain('$6.99');
     expect(host.textContent).toContain('$46.99');
     expect(host.textContent).toContain('Express shipping (2-day ETA)$6.99');
-    expect(host.textContent).toContain('This order ships Express (2-day ETA).');
     expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
     expect(host.textContent).not.toContain('UPS 2nd Day Air');
     expect(button('Continue to payment').disabled).toBe(false);
