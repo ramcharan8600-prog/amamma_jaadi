@@ -67,12 +67,12 @@ export default function HomePage() {
                 {PROMISES.map(({ icon: Icon, label }) => (
                   <div
                     key={label}
-                    className="flex items-center gap-2.5 text-brand-charcoal/70"
+                    className="flex items-center gap-2.5 text-brand-charcoal"
                   >
-                    <span className="w-8 h-8 rounded-full bg-brand-gold/10 flex items-center justify-center shrink-0">
-                      <Icon size={15} className="text-brand-gold" />
+                    <span className="w-8 h-8 rounded-full bg-brand-gold/25 flex items-center justify-center shrink-0">
+                      <Icon size={15} className="text-brand-maroon" />
                     </span>
-                    <span className="font-body text-xs font-medium">{label}</span>
+                    <span className="font-body text-xs font-semibold">{label}</span>
                   </div>
                 ))}
               </div>
