@@ -297,7 +297,7 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-/** Pickles and the Assorted Box have a hard stock limit; Bobbatlu falls back to made-to-order. */
+/** Pickles, the Assorted Boxes, Malpuri and Malai Khaja have a hard stock limit; Bobbatlu falls back to made-to-order. */
 export const TRACKED_CATEGORY: ProductCategory = 'pickles';
 export const BOBBATLU_PRODUCT_ID = 'sweet-bobbatlu';
 export const KOVA_BOBBATLU_PRODUCT_ID = 'sweet-kova-bobbatlu';
@@ -322,14 +322,26 @@ export function isBobbatluProduct(productId: string): boolean {
   return productId === BOBBATLU_PRODUCT_ID || productId === KOVA_BOBBATLU_PRODUCT_ID;
 }
 
-export function isStockTracked(product: Product): boolean {
-  return product.category === TRACKED_CATEGORY || isBobbatluProduct(product.id) ||
-    isBoxStockProduct(product.id);
+/**
+ * Loose Malpuri and Malai Khaja (not the boxes they go into): counted in pieces,
+ * and unlike Bobbatlu a pack size sells out when not enough pieces are left.
+ */
+export const PIECE_STOCK_SWEET_IDS: readonly string[] = ['sweet-malpuri', 'sweet-malai-khaja'];
+
+export function isPieceStockSweet(productId: string): boolean {
+  return PIECE_STOCK_SWEET_IDS.includes(productId);
 }
 
-/** Jars for pickles; individual pieces for Bobbatlu's variable box sizes. */
+export function isStockTracked(product: Product): boolean {
+  return product.category === TRACKED_CATEGORY || isBobbatluProduct(product.id) ||
+    isBoxStockProduct(product.id) || isPieceStockSweet(product.id);
+}
+
+/** Jars for pickles; individual pieces for Bobbatlu, Malpuri and Malai Khaja pack sizes. */
 export function stockUnits(productId: string, quantity: number, selectedTier?: number | null): number {
-  return quantity * (isBobbatluProduct(productId) ? (selectedTier ?? 16) : 1);
+  if (isBobbatluProduct(productId)) return quantity * (selectedTier ?? 16);
+  if (isPieceStockSweet(productId)) return quantity * (selectedTier ?? 15);
+  return quantity;
 }
 
 export function getBobbatluPieces(items: Array<{ productId: string; quantity: number; selectedTier?: number | null }>, productId = BOBBATLU_PRODUCT_ID): number {

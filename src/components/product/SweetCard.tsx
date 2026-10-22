@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles, Gift } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
-import { calculateSweetPrice, isBobbatluProduct, isBoxStockProduct, isFixedPriceBox, regularSweetPrice } from '@/data/products';
+import { calculateSweetPrice, isBobbatluProduct, isBoxStockProduct, isFixedPriceBox, isPieceStockSweet, regularSweetPrice } from '@/data/products';
 import { useStock } from '@/hooks/useStock';
 import { formatCurrency, strikeThrough } from '@/lib/utils';
 import { renderDescription } from '@/lib/description';
@@ -36,10 +36,17 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
   // Assorted boxes have a hard limit in whole boxes; Bobbatlu stock only
   // changes the preparation notice. `count === null` means untracked.
   const isAssortedBox = isBoxStockProduct(product.id);
-  const { count, loaded } = useStock(isBobbatlu || isAssortedBox ? product.id : null);
+  // Loose Malpuri / Malai Khaja: a hard limit in pieces, per pack size.
+  const isPieceSweet = isPieceStockSweet(product.id);
+  const { count, loaded } = useStock(isBobbatlu || isAssortedBox || isPieceSweet ? product.id : null);
   const boxesInCart = useCartStore((s) => s.items
     .filter((item) => item.productId === product.id)
     .reduce((sum, item) => sum + item.quantity, 0));
+  const piecesInCart = useCartStore((s) => s.items
+    .filter((item) => item.productId === product.id)
+    .reduce((sum, item) => sum + item.quantity * (item.selectedTier ?? 0), 0));
+  const piecesLeft = isPieceSweet && loaded && count !== null ? count - piecesInCart : null;
+  const tierAvailable = (tier: number) => piecesLeft === null || tier <= piecesLeft;
   const readyFromStock = isBobbatlu && (count ?? 0) >= selectedTier;
   const prepNotice = readyFromStock ? 'Freshly made and in stock.' : product.prepNotice;
   const freshNotice = readyFromStock || product.prepNoticeTone === 'fresh';
@@ -48,8 +55,10 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
   const regularPrice = regularSweetPrice(product, selectedTier);
 
   const boxLimit = isAssortedBox && loaded && count !== null ? count : null;
-  const soldOut = !product.inStock || (boxLimit !== null && boxLimit <= 0);
-  const limitReached = !soldOut && boxLimit !== null && boxesInCart >= boxLimit;
+  const smallestTier = Math.min(...tiers);
+  const soldOut = !product.inStock || (boxLimit !== null && boxLimit <= 0)
+    || (isPieceSweet && loaded && count !== null && count < smallestTier);
+  const limitReached = !soldOut && ((boxLimit !== null && boxesInCart >= boxLimit) || !tierAvailable(selectedTier));
   const lowStock = !soldOut && boxLimit !== null && boxLimit <= 5;
 
   const handleAdd = () => {
@@ -165,10 +174,11 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
               const price = formatCurrency(calculateSweetPrice(product, tier));
               const regular = regularSweetPrice(product, tier);
               return (
-                <option key={tier} value={tier}
+                <option key={tier} value={tier} disabled={!tierAvailable(tier)}
                   aria-label={regular !== null ? `${tier} pcs, ${price}, regular price ${formatCurrency(regular)}` : undefined}>
                   {tier} pcs — {price}
                   {regular !== null ? `  ${strikeThrough(formatCurrency(regular))}` : ''}
+                  {tierAvailable(tier) ? '' : ' (Sold out)'}
                 </option>
               );
             })}
@@ -194,7 +204,7 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
         <div className="flex flex-col gap-2">
           <button onClick={handleAdd} disabled={soldOut || limitReached} className="btn-primary w-full gap-2">
             <ShoppingBag size={16} />
-            {soldOut ? 'Out of Stock' : limitReached ? 'All available boxes in cart' : added ? 'Added!' : 'Add to Cart'}
+            {soldOut ? 'Out of Stock' : limitReached ? (isPieceSweet ? (piecesLeft !== null && piecesLeft < smallestTier ? 'All available in cart' : 'Sold out — pick a smaller pack') : 'All available boxes in cart') : added ? 'Added!' : 'Add to Cart'}
           </button>
           {lowStock && (
             <p className="font-body text-xs font-medium text-amber-600 text-center">

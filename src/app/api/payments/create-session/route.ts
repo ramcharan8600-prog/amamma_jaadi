@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
-import { PRODUCTS, getTotalPieces, isActivePickupLocation, isBobbatluProduct } from '@/data/products';
+import { PRODUCTS, getTotalPieces, isActivePickupLocation, isBobbatluProduct, isPieceStockSweet, stockUnits } from '@/data/products';
 import { validateCart } from '@/lib/cart-validation';
 import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
 import { SOLD_OUT_DATE_ERROR, isSoldOutDate } from '@/lib/sold-out-dates';
@@ -87,13 +87,20 @@ export async function POST(request: NextRequest) {
       // Stock check for tracked products (untracked products aren't in the map).
       if (Object.prototype.hasOwnProperty.call(stock, product.id)) {
         const available = stock[product.id];
-        const wanted = requestedByProduct.get(product.id) ?? 0;
+        // Malpuri and Malai Khaja are counted in pieces across every pack size in the cart.
+        const pieces = isPieceStockSweet(product.id);
+        const wanted = pieces
+          ? cart.items.filter((item) => item.productId === product.id)
+            .reduce((sum, item) => sum + stockUnits(item.productId, item.quantity, item.selectedTier), 0)
+          : requestedByProduct.get(product.id) ?? 0;
         if (available <= 0) {
           return fail(`${product.name} is sold out.`, 409);
         }
         if (wanted > available) {
           return fail(
-            `Only ${available} ${product.name} left — please reduce the quantity.`,
+            pieces
+              ? `Only ${available} pieces of ${product.name} left — please choose a smaller pack.`
+              : `Only ${available} ${product.name} left — please reduce the quantity.`,
             409
           );
         }

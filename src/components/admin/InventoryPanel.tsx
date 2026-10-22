@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Boxes, Check, Loader2 } from 'lucide-react';
-import { ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, PRODUCTS, isStockTracked, isBobbatluProduct, isBoxStockProduct } from '@/data/products';
+import { ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, PRODUCTS, isStockTracked, isBobbatluProduct, isBoxStockProduct, isPieceStockSweet } from '@/data/products';
 import type { Product } from '@/types';
 import { invalidateStock } from '@/hooks/useStock';
 
@@ -79,15 +79,22 @@ export default function InventoryPanel() {
   const renderRow = (p: Product) => {
     const current = stock[p.id] ?? 0;
     const isBobbatlu = isBobbatluProduct(p.id);
+    const isPieces = isPieceStockSweet(p.id);
     const isBox = isBoxStockProduct(p.id);
-    const isOut = current <= 0;
-    const isLow = current > 0 && current <= 5;
+    // No count saved yet: the shop treats it as untracked (always available).
+    const notCounted = isPieces && !(p.id in stock);
+    const isOut = !notCounted && current <= 0;
+    // Loose Malpuri / Malai Khaja: below the smallest pack (15) nothing can be bought.
+    const isLow = current > 0 && current <= (isPieces ? 30 : 5);
     const hint = isBobbatlu
       ? 'Count individual pieces. Orders beyond stock need 1 day to prepare.'
+      : isPieces ? 'Count individual pieces (loose packs only, not boxes). A pack size shows Sold out when not enough pieces are left.'
       : isBox ? `Count whole boxes (${boxContents[p.id]} each).` : 'Count jars.';
-    const status = isOut
+    const status = notCounted
+      ? 'Not counted yet — always available'
+      : isOut
       ? (isBobbatlu ? '1-day preparation' : 'Out of stock')
-      : `${current} ${isBobbatlu ? 'pieces ready' : isBox ? (current === 1 ? 'box in stock' : 'boxes in stock') : 'in stock'}`;
+      : `${current} ${isBobbatlu ? 'pieces ready' : isPieces ? 'pieces in stock' : isBox ? (current === 1 ? 'box in stock' : 'boxes in stock') : 'in stock'}`;
     return (
       <div
         key={p.id}
