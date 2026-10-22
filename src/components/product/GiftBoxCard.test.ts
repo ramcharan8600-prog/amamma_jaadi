@@ -32,3 +32,30 @@ it('opens the $30 box on the 6 + 6 mix and adds it to the cart, with the other m
     vi.unstubAllGlobals();
   }
 });
+
+it('greys out sold-out contents, opens on the first one left and shows Out of Stock when none are left', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  useCartStore.getState().clearCart();
+  const base = getProductById('gift-box-sweet-memories')!;
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    const noKhaja = { ...base, unavailableVariants: ['Mix: 6 Malpuri + 6 Malai Khaja', '12 pcs Nellore Malai Khaja'] };
+    await act(async () => root.render(createElement(GiftBoxCard, { product: noKhaja })));
+    const select = host.querySelector('select')!;
+    expect(select.value).toBe('12 pcs Guntur Malpuri');
+    expect([...select.options].map((o) => [o.textContent, o.disabled])).toEqual([
+      ['Mix: 6 Malpuri + 6 Malai Khaja (Sold out)', true],
+      ['12 pcs Guntur Malpuri', false],
+      ['12 pcs Nellore Malai Khaja (Sold out)', true],
+    ]);
+    await act(async () => root.render(createElement(GiftBoxCard, { product: { ...base, unavailableVariants: base.variantOptions } })));
+    expect([...host.querySelectorAll('button')].some((b) => b.textContent === 'Out of Stock')).toBe(true);
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    useCartStore.getState().clearCart();
+    vi.unstubAllGlobals();
+  }
+});

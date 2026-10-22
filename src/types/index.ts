@@ -42,6 +42,8 @@ export interface Product {
   variantOptions?: string[];
   /** Earlier wording of a variantOptions entry → its current wording (saved carts and open checkouts). */
   renamedVariants?: Record<string, string>;
+  /** variantOptions entries that can't be bought right now: shown greyed out as (Sold out), refused at checkout. */
+  unavailableVariants?: string[];
   /** Pickup only: checkout and the server refuse delivery for any cart holding it. */
   pickupOnly?: boolean;
   /** When present, delivery is permitted only to these shipping zones (see getShippingZone). */

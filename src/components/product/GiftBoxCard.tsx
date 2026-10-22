@@ -7,7 +7,7 @@ import { Gift, ShoppingBag, Eye, CreditCard, Minus, Plus } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
 import { useStock } from '@/hooks/useStock';
-import { isBoxStockProduct } from '@/data/products';
+import { isBoxStockProduct, isVariantAvailable } from '@/data/products';
 import { formatCurrency } from '@/lib/utils';
 import { renderDescription } from '@/lib/description';
 
@@ -22,7 +22,8 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
   const contentsId = useId();
   const photos = [{ src: product.image, alt: product.name }, ...(product.additionalImages ?? [])];
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState(variants[0]);
+  const openVariants = variants.filter((v) => isVariantAvailable(product, v));
+  const [selectedVariant, setSelectedVariant] = useState(openVariants[0] ?? variants[0]);
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
 
@@ -32,7 +33,8 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
     .filter((item) => item.productId === product.id)
     .reduce((sum, item) => sum + item.quantity, 0));
   const boxesLeft = loaded && count !== null ? Math.max(0, count - boxesInCart) : null;
-  const soldOut = !product.inStock || (loaded && count !== null && count <= 0);
+  const soldOut = !product.inStock || (loaded && count !== null && count <= 0)
+    || (variants.length > 0 && openVariants.length === 0);
   const limitReached = !soldOut && boxesLeft !== null && boxesLeft <= 0;
 
   const handleAdd = () => {
@@ -105,12 +107,12 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
               className="input-field"
             >
               {variants.map((v) => (
-                <option key={v} value={v}>
-                  {v}
+                <option key={v} value={v} disabled={!isVariantAvailable(product, v)}>
+                  {v}{isVariantAvailable(product, v) ? '' : ' (Sold out)'}
                 </option>
               ))}
             </select>
-            {variants.length > 1 && (
+            {openVariants.length > 1 && (
               <p className="font-body text-xs text-brand-charcoal/50 mt-1">
                 Same price for every option.
               </p>

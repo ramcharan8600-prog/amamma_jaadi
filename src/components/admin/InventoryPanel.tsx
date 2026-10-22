@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Boxes, Check, Loader2 } from 'lucide-react';
-import { ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, SWEET_MEMORIES_BOX_PRODUCT_ID, PRODUCTS, isStockTracked, isBobbatluProduct, isBoxStockProduct, isPieceStockSweet } from '@/data/products';
+import { ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, SWEET_MEMORIES_BOX_PRODUCT_ID, MINI_COMBO_PACK_PRODUCT_ID, MINI_PARTY_BOX_PRODUCT_ID, PRODUCTS, isStockTracked, isBobbatluProduct, isBoxStockProduct, isPieceStockSweet } from '@/data/products';
 import type { Product } from '@/types';
 import { invalidateStock } from '@/hooks/useStock';
 
@@ -74,7 +74,9 @@ export default function InventoryPanel() {
   const boxContents: Record<string, string> = {
     [ASSORTED_BOX_PRODUCT_ID]: '10 Malpuri + 10 Malai Khaja',
     [ASSORTED_BOBBATLU_BOX_PRODUCT_ID]: '8 Bobbatlu + 8 Kova Bobbatlu',
-    [SWEET_MEMORIES_BOX_PRODUCT_ID]: '6 Malpuri + 6 Malai Khaja, or 12 of one',
+    [SWEET_MEMORIES_BOX_PRODUCT_ID]: '12 pieces',
+    [MINI_COMBO_PACK_PRODUCT_ID]: '16 pieces',
+    [MINI_PARTY_BOX_PRODUCT_ID]: '20 pieces',
   };
 
   const renderRow = (p: Product) => {

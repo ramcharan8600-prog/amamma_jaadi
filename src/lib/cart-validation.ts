@@ -1,4 +1,4 @@
-import { PRODUCTS, calculateSweetPrice, currentVariant, getProductById, isProductTaxExempt } from '@/data/products';
+import { PRODUCTS, calculateSweetPrice, currentVariant, getProductById, isProductTaxExempt, isVariantAvailable } from '@/data/products';
 import type { CartItem } from '@/types';
 
 export const MAX_CART_LINES = 50;
@@ -77,6 +77,9 @@ export function validateCart(input: unknown): CartValidationResult {
       const variant = typeof raw.selectedVariant === 'string' ? currentVariant(product, raw.selectedVariant) : null;
       if (variant === null || !product.variantOptions.includes(variant)) {
         return invalid(`Please choose the contents for ${product.name}.`);
+      }
+      if (!isVariantAvailable(product, variant)) {
+        return invalid(`${product.name}: ${variant} is sold out right now. Please choose other contents.`);
       }
       selectedVariant = variant;
     } else if (raw.selectedVariant != null) {

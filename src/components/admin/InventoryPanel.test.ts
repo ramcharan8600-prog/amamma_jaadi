@@ -81,14 +81,14 @@ it('lists the counted boxes under Box stock, in whole boxes', async () => {
     const section = host.querySelector('section[aria-labelledby="assorted-box-stock"]')!;
     expect(section.querySelector('h3')?.textContent).toBe('Box stock');
     const rows = Array.from(section.querySelectorAll('div.flex')).map((row) => row.textContent);
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(5);
     expect(rows[0]).toContain('Count whole boxes (10 Malpuri + 10 Malai Khaja each).');
     expect(rows[0]).toContain('4 boxes in stock');
     expect(rows[1]).toContain('Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu');
     expect(rows[1]).toContain('Count whole boxes (8 Bobbatlu + 8 Kova Bobbatlu each).');
     expect(rows[1]).toContain('Out of stock');
     // The 6 + 6 gift box has no count saved yet, so it stays always available.
-    expect(rows[2]).toContain('Count whole boxes (6 Malpuri + 6 Malai Khaja, or 12 of one each).');
+    expect(rows[2]).toContain('Count whole boxes (12 pieces each).');
     expect(rows[2]).toContain('Not counted yet — always available');
     expect(section.querySelector<HTMLInputElement>('input[aria-label="Stock count for Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu"]')?.value).toBe('0');
     // Loose Bobbatlu stays in the main list, not under Box stock.

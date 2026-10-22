@@ -129,3 +129,17 @@ describe('server line prices match the storefront price rule', () => {
     if (result.ok) expect(result.items[0].lineTotal).toBeCloseTo(calculateSweetPrice(product, selectedTier) * 2, 2);
   });
 });
+
+describe('sold-out box contents', () => {
+  it('refuses contents marked unavailable and still accepts the others', () => {
+    const box = getProductById('gift-box-party')!;
+    box.unavailableVariants = ['20 pcs Nellore Malai Khaja'];
+    try {
+      expect(validateCart([{ productId: box.id, quantity: 1, selectedVariant: '20 pcs Nellore Malai Khaja' }]))
+        .toMatchObject({ ok: false, status: 400, error: 'Mini Party Box: 20 pcs Nellore Malai Khaja is sold out right now. Please choose other contents.' });
+      expect(validateCart([{ productId: box.id, quantity: 1, selectedVariant: '20 pcs Guntur Malpuri' }]).ok).toBe(true);
+    } finally {
+      delete box.unavailableVariants;
+    }
+  });
+});

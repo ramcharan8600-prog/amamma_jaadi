@@ -156,8 +156,8 @@ describe('inventory — stock map', () => {
     expect(await getStockMap(db)).toEqual({ 'pickle-chicken': 7, 'pickle-mutton': 0 });
   });
 
-  it('tracks all four pickles, loose Malpuri and Malai Khaja, the three counted boxes and both Bobbatlu products', () => {
-    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-malpuri', 'sweet-malai-khaja', 'sweet-assorted-box', 'sweet-assorted-bobbatlu-box', 'sweet-bobbatlu', 'sweet-kova-bobbatlu', 'gift-box-sweet-memories']);
+  it('tracks all four pickles, loose Malpuri and Malai Khaja, every counted box and both Bobbatlu products', () => {
+    expect(TRACKED_PRODUCT_IDS).toEqual(['pickle-chicken', 'pickle-gongura-chicken', 'pickle-mutton', 'pickle-prawns', 'sweet-malpuri', 'sweet-malai-khaja', 'sweet-assorted-box', 'sweet-assorted-bobbatlu-box', 'sweet-bobbatlu', 'sweet-kova-bobbatlu', 'gift-box-sweet-memories', 'gift-box-mini-combo', 'gift-box-party']);
   });
 
   it('counts loose Malpuri and Malai Khaja in pieces, boxes and pickles in whole units', () => {

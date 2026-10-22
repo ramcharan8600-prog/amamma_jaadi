@@ -15,6 +15,7 @@ import { Product, PickupLocation, ProductCategory } from '@/types';
 
 /** The $40 Mini Combo Pack: a box-only cart ships $6.99 in Texas, $9.99 to nearby states. */
 export const MINI_COMBO_PACK_PRODUCT_ID = 'gift-box-mini-combo';
+export const MINI_PARTY_BOX_PRODUCT_ID = 'gift-box-party';
 
 export const PRODUCTS: Product[] = [
   // ── Pickles ──────────────────────────────────────────────
@@ -250,6 +251,8 @@ export const PRODUCTS: Product[] = [
       '12 pcs Nellore Malai Khaja',
     ],
     renamedVariants: { 'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja': 'Mix: 6 Malpuri + 6 Malai Khaja' },
+    // Weekend of Oct 24–25, 2026 only: no Malai Khaja (owner). Remove to bring it back.
+    unavailableVariants: ['Mix: 6 Malpuri + 6 Malai Khaja', '12 pcs Nellore Malai Khaja'],
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {
@@ -269,12 +272,14 @@ export const PRODUCTS: Product[] = [
     isFixedQuantity: true,
     inStock: true,
     deliveryZones: ['texas', 'nearby'],
-    // One choice for now, shown like the other boxes' contents dropdown.
-    variantOptions: ['Assorted: 8 Malpuri + 8 Malai Khaja'],
+    // Shown like the other boxes' contents dropdown. The all-Malpuri choice and the
+    // greyed-out mix are for the weekend of Oct 24–25, 2026 only (no Malai Khaja, owner).
+    variantOptions: ['Assorted: 8 Malpuri + 8 Malai Khaja', '16 pcs Guntur Malpuri'],
+    unavailableVariants: ['Assorted: 8 Malpuri + 8 Malai Khaja'],
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {
-    id: 'gift-box-party',
+    id: MINI_PARTY_BOX_PRODUCT_ID,
     slug: 'mini-party-box',
     name: 'Mini Party Box',
     ribbon: '#Pick-up only',
@@ -293,6 +298,8 @@ export const PRODUCTS: Product[] = [
       'Mix: 10 Malpuri + 10 Malai Khaja',
     ],
     renamedVariants: { 'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja': 'Mix: 10 Malpuri + 10 Malai Khaja' },
+    // Weekend of Oct 24–25, 2026 only: no Malai Khaja (owner). Remove to bring it back.
+    unavailableVariants: ['20 pcs Nellore Malai Khaja', 'Mix: 10 Malpuri + 10 Malai Khaja'],
     tags: ['gifting', 'events', 'party', 'corporate'],
   },
 ];
@@ -309,10 +316,15 @@ export const SWEET_MEMORIES_BOX_PRODUCT_ID = 'gift-box-sweet-memories';
 /** Checkout add-on offered alongside a Texas shipping coupon (temporary promotion). */
 export const BOBBATLU_TASTE_PACK_PRODUCT_ID = 'sweet-bobbatlu-taste-pack';
 /** Boxes whose stock is counted in whole boxes, separately from loose sweets. */
-export const BOX_STOCK_PRODUCT_IDS: readonly string[] = [ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, SWEET_MEMORIES_BOX_PRODUCT_ID];
+export const BOX_STOCK_PRODUCT_IDS: readonly string[] = [ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, SWEET_MEMORIES_BOX_PRODUCT_ID,
+  MINI_COMBO_PACK_PRODUCT_ID, MINI_PARTY_BOX_PRODUCT_ID];
 
 export function isBoxStockProduct(productId: string): boolean {
   return BOX_STOCK_PRODUCT_IDS.includes(productId);
+}
+
+export function isVariantAvailable(product: Pick<Product, 'unavailableVariants'>, variant: string): boolean {
+  return !product.unavailableVariants?.includes(variant);
 }
 
 /** A single-size box sold at a fixed price (e.g. the Assorted Boxes), not per piece. */
