@@ -304,10 +304,12 @@ export const KOVA_BOBBATLU_PRODUCT_ID = 'sweet-kova-bobbatlu';
 /** Counted in whole boxes, separately from the loose sweets it contains. */
 export const ASSORTED_BOX_PRODUCT_ID = 'sweet-assorted-box';
 export const ASSORTED_BOBBATLU_BOX_PRODUCT_ID = 'sweet-assorted-bobbatlu-box';
+/** Pickup gift box of 12 (6 Malpuri + 6 Malai Khaja, or 12 of one); every choice shares one box count. */
+export const SWEET_MEMORIES_BOX_PRODUCT_ID = 'gift-box-sweet-memories';
 /** Checkout add-on offered alongside a Texas shipping coupon (temporary promotion). */
 export const BOBBATLU_TASTE_PACK_PRODUCT_ID = 'sweet-bobbatlu-taste-pack';
 /** Boxes whose stock is counted in whole boxes, separately from loose sweets. */
-export const BOX_STOCK_PRODUCT_IDS: readonly string[] = [ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID];
+export const BOX_STOCK_PRODUCT_IDS: readonly string[] = [ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, SWEET_MEMORIES_BOX_PRODUCT_ID];
 
 export function isBoxStockProduct(productId: string): boolean {
   return BOX_STOCK_PRODUCT_IDS.includes(productId);

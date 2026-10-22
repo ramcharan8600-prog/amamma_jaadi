@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Gift, ShoppingBag, Eye, CreditCard, Minus, Plus } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
+import { useStock } from '@/hooks/useStock';
+import { isBoxStockProduct } from '@/data/products';
 import { formatCurrency } from '@/lib/utils';
 import { renderDescription } from '@/lib/description';
 
@@ -24,11 +26,18 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
 
-  const soldOut = !product.inStock;
+  // Boxes counted in Admin → Kitchen have a hard limit; `count === null` means untracked.
+  const { count, loaded } = useStock(isBoxStockProduct(product.id) ? product.id : null);
+  const boxesInCart = useCartStore((s) => s.items
+    .filter((item) => item.productId === product.id)
+    .reduce((sum, item) => sum + item.quantity, 0));
+  const boxesLeft = loaded && count !== null ? Math.max(0, count - boxesInCart) : null;
+  const soldOut = !product.inStock || (loaded && count !== null && count <= 0);
+  const limitReached = !soldOut && boxesLeft !== null && boxesLeft <= 0;
 
   const handleAdd = () => {
-    if (soldOut) return;
-    addItem(product, quantity, undefined, selectedVariant);
+    if (soldOut || limitReached) return;
+    addItem(product, boxesLeft === null ? quantity : Math.min(quantity, boxesLeft), undefined, selectedVariant);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   };
@@ -123,7 +132,7 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
               {quantity}
             </span>
             <button
-              onClick={() => setQuantity((q) => q + 1)}
+              onClick={() => setQuantity((q) => (boxesLeft !== null ? Math.min(q + 1, Math.max(1, boxesLeft)) : q + 1))}
               className="p-2 hover:bg-brand-cream transition-colors"
               aria-label="Increase"
             >
@@ -133,9 +142,12 @@ export default function GiftBoxCard({ product, eager = false }: GiftBoxCardProps
         </div>
 
         <div className="flex flex-col gap-2">
-          <button onClick={handleAdd} disabled={soldOut} className="btn-gold w-full gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          {!soldOut && loaded && count !== null && count <= 5 && (
+            <p className="font-body text-xs text-amber-700">Only {count} left</p>
+          )}
+          <button onClick={handleAdd} disabled={soldOut || limitReached} className="btn-gold w-full gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
             <ShoppingBag size={16} />
-            {soldOut ? 'Out of Stock' : added ? 'Added!' : 'Add to Cart'}
+            {soldOut ? 'Out of Stock' : added ? 'Added!' : limitReached ? 'All available boxes in cart' : 'Add to Cart'}
           </button>
           <div className="grid grid-cols-2 gap-2">
             <Link href="/checkout" className="btn-secondary text-center text-xs py-2">

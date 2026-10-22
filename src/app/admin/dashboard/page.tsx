@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils';
 import { toBusinessDateString } from '@/lib/date';
 import { currentShipWeek, shipWeekDays, type DeliveryWeeksStatus } from '@/lib/delivery-limit';
 import { productionSheet } from '@/lib/production';
-import { PRODUCTS, isBobbatluProduct, isPieceStockSweet, isStockTracked } from '@/data/products';
+import { PRODUCTS, isBobbatluProduct, isBoxStockProduct, isPieceStockSweet, isStockTracked } from '@/data/products';
 import type { ProductionPlan } from '@/lib/production-plan';
 import type { OrderRecord } from '@/types';
 import type { ShippingZone } from '@/lib/pricing';
@@ -101,8 +101,8 @@ export default function AdminTodayPage() {
   const nextWeek = data?.weeks?.weeks.find((w) => w.week > thisWeek);
   const outOfStock = data?.stock
     ? PRODUCTS.filter((p) => isStockTracked(p) && !isBobbatluProduct(p.id)
-      // Malpuri / Malai Khaja with no count saved yet are untracked, not sold out.
-      && !(isPieceStockSweet(p.id) && !(p.id in data.stock!)) && (data.stock![p.id] ?? 0) <= 0).map((p) => p.name)
+      // Loose sweets and boxes with no count saved yet are untracked, not sold out.
+      && !((isPieceStockSweet(p.id) || isBoxStockProduct(p.id)) && !(p.id in data.stock!)) && (data.stock![p.id] ?? 0) <= 0).map((p) => p.name)
     : [];
   const sheet = productionSheet(plan ? [...plan.days.flatMap((d) => d.orders), ...delivery].flatMap((o) => o.items) : []);
 
