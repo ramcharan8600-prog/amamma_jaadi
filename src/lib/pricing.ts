@@ -31,6 +31,8 @@ import {
   SHIPPING_BOBBATLU_BOX_NEARBY,
   SHIPPING_BOBBATLU_BOX_FAR,
   SHIPPING_MINI_COMBO_TX,
+  SHIPPING_SURCHARGE_STATE_CODES,
+  SHIPPING_STATE_SURCHARGE,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod, Product } from '@/types';
 import {
@@ -243,7 +245,7 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'bobbatlu-box'
  * - Only Malai Khaja: regular Texas rates; nearby states $7.99 under $60 and $6.99 from $60;
  *   far states a flat $10.99, no minimum.
  * - Only the 10:10 Assorted Box (any number, with or without the Bobbatlu Taste Pack
- *   add-on, which ships at the box's rate): $3.99 Texas, $5.99 nearby, $6.99 far, no minimum.
+ *   add-on, which ships at the box's rate): $3.99 Texas, $6.99 nearby, $7.99 far, no minimum (no state extra).
  * - Only the 8:8 Assorted Bobbatlu Box: $4.99 Texas, $7.99 nearby, $9.99 far (far keeps the $60 minimum).
  * - Only the Mini Combo Pack: $3.99 Texas, regular nearby rates; it isn't delivered to far states.
  */
@@ -359,6 +361,11 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else {
       regularShipping = regular;
       texasStep = texasRegular;
+    }
+    // California, New York, New Jersey, Virginia and Washington pay $1 more on every rate
+    // above, except a 10:10 box-only cart (owner, 2026-10-23).
+    if (!opts.legacyPickleRates && opts.groundShipping !== 'assorted-box' && SHIPPING_SURCHARGE_STATE_CODES.includes(normalizeStateCode(opts.deliveryState))) {
+      regularShipping = roundMoney(regularShipping + SHIPPING_STATE_SURCHARGE);
     }
   }
   // Texas regular-rate orders pay $3.99 from $100 (shown as savings on the $5.99 rate).

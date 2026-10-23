@@ -268,7 +268,7 @@ describe('checkout step counts (pickup vs delivery)', () => {
     await click('Continue');
     const choice = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Delivery');
     await act(async () => choice!.click());
-    await input('#delivery-state', 'NY');
+    await input('#delivery-state', 'AZ');
     await input('#delivery-state', 'TX');
     expect(funnelReports().map(({ step, detail }) => [step, detail])).toEqual([
       ['method_viewed', ''],
@@ -385,7 +385,7 @@ describe('paused delivery areas (Admin → Production)', () => {
 
   it('blocks a paused state but lets other states continue', async () => {
     pausedZones = ['far'];
-    await toDelivery('NY');
+    await toDelivery('AZ');
     expect(host.textContent).toContain('Sorry, delivery to this state is paused right now.');
     expect(button('Continue to payment').disabled).toBe(true);
     await input('#delivery-state', 'TX');
@@ -1034,11 +1034,11 @@ describe('nearby delivery pickup switch', () => {
     expect(host.textContent).toContain('Free pickup · Order total: $68.57');
   });
 
-  it.each([['77002', 'TX'], ['90001', 'CA'], ['99999', 'TX']])('does not offer a pickup switch for %s %s', async (zip, state) => {
+  it.each([['77002', 'TX'], ['97201', 'OR'], ['99999', 'TX']])('does not offer a pickup switch for %s %s', async (zip, state) => {
     await delivery(zip, state);
     expect(host.textContent).not.toContain('Pick up for free →');
     expect(host.textContent).not.toContain('After 1:30 PM, pickup starts tomorrow');
-    if (state === 'CA') expect(host.textContent).not.toContain('1 business day');
+    if (state === 'OR') expect(host.textContent).not.toContain('1 business day');
     await click('Continue to payment');
     expect(host.textContent).toContain('Step 4');
     expect(host.textContent).not.toContain('Pick up for free →');
@@ -1102,13 +1102,13 @@ describe('nationwide pickle-only delivery', () => {
       city.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await input('#delivery-state', state);
-    await input('#delivery-zip', state === 'NY' ? '10001' : '73102');
+    await input('#delivery-zip', state === 'AZ' ? '85004' : '73102');
   }
 
   it.each([
-    ['NY', 1, '6.99', '1.57', '27.56'],
-    ['NY', 2, '6.99', '3.14', '48.13'],
-    ['NY', 3, '6.99', '4.70', '68.69'],
+    ['AZ', 1, '6.99', '1.57', '27.56'],
+    ['AZ', 2, '6.99', '3.14', '48.13'],
+    ['AZ', 3, '6.99', '4.70', '68.69'],
     ['OK', 3, '6.99', '4.70', '68.69'],
   ] as const)('allows %s delivery of %s jars below $80', async (state, quantity, shipping, tax, total) => {
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, quantity);
@@ -1134,12 +1134,12 @@ describe('nationwide pickle-only delivery', () => {
     });
   });
 
-  it('quietly ships one 10:10 box alone to a far state for $6.99 with no minimum', async () => {
+  it('quietly ships one 10:10 box alone to a far state for $7.99 with no minimum', async () => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 20);
-    await enterDeliveryDetails('NY');
+    await enterDeliveryDetails('AZ');
     expect(host.textContent).not.toContain('A minimum product subtotal');
-    expect(host.textContent).toContain('$6.99');
-    expect(host.textContent).toContain('$66.99');
+    expect(host.textContent).toContain('$7.99');
+    expect(host.textContent).toContain('$67.99');
     expect(host.textContent).toContain('Express shipping');
     expect(host.textContent).not.toContain('Standard shipping');
     expect(button('Continue to payment').disabled).toBe(false);
@@ -1148,7 +1148,7 @@ describe('nationwide pickle-only delivery', () => {
   it('keeps the far-state minimum when the Assorted Box is mixed with Malai Khaja', async () => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 20);
     useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 15);
-    await enterDeliveryDetails('NY');
+    await enterDeliveryDetails('AZ');
     expect(host.textContent).toContain('UPS 2nd Day Air');
     expect(host.textContent).toContain('$11.99');
     expect(button('Continue to payment').disabled).toBe(false);
@@ -1183,7 +1183,7 @@ describe('nationwide pickle-only delivery', () => {
 
   it('refuses far-state delivery of the Mini Combo Pack', async () => {
     useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 2, undefined, 'Assorted: 8 Malpuri + 8 Malai Khaja');
-    await enterDeliveryDetails('NY');
+    await enterDeliveryDetails('AZ');
     expect(host.textContent).toContain('is delivered within Texas and nearby states only');
     expect(button('Continue to payment').disabled).toBe(true);
     expect(host.textContent).not.toContain('$11.99');
@@ -1215,7 +1215,7 @@ describe('nationwide pickle-only delivery', () => {
 
   it('quietly ships a Malai Khaja-only cart to a far state for a flat $10.99 with no minimum', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malai-khaja')!, 1, 15);
-    await enterDeliveryDetails('NY');
+    await enterDeliveryDetails('AZ');
     expect(host.textContent).not.toContain('A minimum product subtotal');
     expect(host.textContent).toContain('$10.99');
     expect(host.textContent).toContain('$50.99');
@@ -1229,7 +1229,7 @@ describe('nationwide pickle-only delivery', () => {
   it('retains the far-state minimum when sweets are included', async () => {
     useCartStore.getState().addItem(getProductById('pickle-gongura-chicken')!, 1);
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
-    await enterDeliveryDetails('NY');
+    await enterDeliveryDetails('AZ');
     expect(host.textContent).toContain('A minimum product subtotal of $60.00');
     expect(host.textContent).toContain('Add $1.00 more');
     expect(button('Continue to payment').disabled).toBe(true);
@@ -1241,8 +1241,8 @@ describe('nationwide pickle-only delivery', () => {
   it.each([
     ['Texas sweets', 'TX', 'sweet-malpuri', 16],
     ['nearby sweets', 'GA', 'sweet-malpuri', 16],
-    ['far sweets', 'NY', 'sweet-malpuri', 25],
-    ['far Malai Khaja only', 'NY', 'sweet-malai-khaja', 16],
+    ['far sweets', 'AZ', 'sweet-malpuri', 25],
+    ['far Malai Khaja only', 'AZ', 'sweet-malai-khaja', 16],
   ] as const)('shows the ghee / no-preservatives note on every delivery order with sweets (%s), through to payment', async (_label, state, productId, tier) => {
     useCartStore.getState().addItem(getProductById(productId)!, 1, tier);
     await enterDeliveryDetails(state);
@@ -1251,7 +1251,7 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
   });
 
-  it.each(['TX', 'GA', 'CA'])('never shows the sweets note on a pickles-only order to %s, through to payment', async (state) => {
+  it.each(['TX', 'GA', 'OR'])('never shows the sweets note on a pickles-only order to %s, through to payment', async (state) => {
     useCartStore.getState().addItem(getProductById('pickle-chicken')!, 2);
     await enterDeliveryDetails(state);
     expect(host.textContent).not.toContain(EXPRESS_SWEETS_NOTE);
@@ -1278,7 +1278,7 @@ describe('nationwide pickle-only delivery', () => {
   it.each([false, true])('retains UPS shipping when sweets are included (mixed: %s)', async mixed => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 2, 15);
     if (mixed) useCartStore.getState().addItem(getProductById('pickle-chicken')!, 1);
-    await enterDeliveryDetails('NY');
+    await enterDeliveryDetails('AZ');
     expect(host.textContent).toContain('UPS 2nd Day Air');
     expect(host.textContent).not.toContain('Standard shipping');
     expect(host.textContent).toContain('$11.99');
@@ -1348,8 +1348,8 @@ describe('promo codes and the Taste Pack offer in checkout', () => {
 
   it.each([
     ['Texas', 'TX', '$3.99', 'Shipping (estimated 1 business day after dispatch)'],
-    ['a nearby state', 'OK', '$5.99', 'Express shipping (2-day ETA)'],
-    ['a far state', 'NY', '$6.99', 'Express shipping'],
+    ['a nearby state', 'OK', '$6.99', 'Express shipping (2-day ETA)'],
+    ['a far state', 'AZ', '$7.99', 'Express shipping'],
   ])('offers the Taste Pack with the 10:10 box in %s, at the box rate before and after', async (_zone, state, rate, label) => {
     useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 20);
     await render();

@@ -68,14 +68,21 @@ export const SHIPPING_MALAI_KHAJA_NEARBY_BELOW = 7.99;
 export const SHIPPING_MALAI_KHAJA_NEARBY = 6.99;
 /** 10:10 Assorted Box-only carts (any number of boxes, with or without the Taste Pack); no minimum. */
 export const SHIPPING_ASSORTED_BOX_TX = 3.99;
-export const SHIPPING_ASSORTED_BOX_NEARBY = 5.99;
-export const SHIPPING_ASSORTED_BOX_FAR = 6.99;
+export const SHIPPING_ASSORTED_BOX_NEARBY = 6.99;
+export const SHIPPING_ASSORTED_BOX_FAR = 7.99;
 /** 8:8 Assorted Bobbatlu Box-only carts; far states keep the $60 minimum (one box can't ship there). */
 export const SHIPPING_BOBBATLU_BOX_TX = 4.99;
 export const SHIPPING_BOBBATLU_BOX_NEARBY = 7.99;
 export const SHIPPING_BOBBATLU_BOX_FAR = 9.99;
 /** Mini Combo Pack-only carts in Texas (nearby states pay the regular rates; far states aren't served). */
 export const SHIPPING_MINI_COMBO_TX = 3.99;
+/**
+ * Extra on every delivery rate to these states (California, New York, New Jersey,
+ * Virginia, Washington), which cost more to reach (owner, 2026-10-23). A 10:10
+ * box-only cart keeps its flat rate.
+ */
+export const SHIPPING_SURCHARGE_STATE_CODES: readonly string[] = ['CA', 'NY', 'NJ', 'VA', 'WA'];
+export const SHIPPING_STATE_SURCHARGE = 1;
 
 /**
  * Notice on the checkout delivery details step (Step 3; it sat under the Delivery choice until 2026-10-18). Since 2026-10-17 delivery runs as a
