@@ -31,6 +31,8 @@ import {
   SHIPPING_BOBBATLU_BOX_NEARBY,
   SHIPPING_BOBBATLU_BOX_FAR,
   SHIPPING_MINI_COMBO_TX,
+  SHIPPING_MINI_COMBO_NEARBY,
+  SHIPPING_MINI_COMBO_NEARBY_100,
   SHIPPING_SURCHARGE_STATE_CODES,
   SHIPPING_STATE_SURCHARGE,
 } from '@/lib/constants';
@@ -247,7 +249,7 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'bobbatlu-box'
  * - Only the 10:10 Assorted Box (any number, with or without the Bobbatlu Taste Pack
  *   add-on, which ships at the box's rate): $3.99 Texas, $6.99 nearby, $7.99 far, no minimum (no state extra).
  * - Only the 8:8 Assorted Bobbatlu Box: $4.99 Texas, $7.99 nearby, $9.99 far (far keeps the $60 minimum).
- * - Only the Mini Combo Pack: $3.99 Texas, regular nearby rates; it isn't delivered to far states.
+ * - Only the Mini Combo Pack: $3.99 Texas; nearby $6.99 under $100 and $5.99 from $100; it isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string; quantity?: number }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
@@ -351,6 +353,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
       regularShipping = { texas: SHIPPING_BOBBATLU_BOX_TX, nearby: SHIPPING_BOBBATLU_BOX_NEARBY, far: SHIPPING_BOBBATLU_BOX_FAR }[zone];
     } else if (opts.groundShipping === 'mini-combo' && zone === 'texas') {
       regularShipping = SHIPPING_MINI_COMBO_TX;
+    } else if (opts.groundShipping === 'mini-combo' && zone === 'nearby') {
+      regularShipping = subtotal >= NEARBY_SHIPPING_TOP_THRESHOLD ? SHIPPING_MINI_COMBO_NEARBY_100 : SHIPPING_MINI_COMBO_NEARBY;
     } else if (opts.groundShipping === 'malai-khaja' && zone === 'far') {
       regularShipping = SHIPPING_MALAI_KHAJA_FAR;
     } else if (opts.groundShipping === 'malai-khaja' && zone === 'nearby') {

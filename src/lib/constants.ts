@@ -74,8 +74,10 @@ export const SHIPPING_ASSORTED_BOX_FAR = 7.99;
 export const SHIPPING_BOBBATLU_BOX_TX = 4.99;
 export const SHIPPING_BOBBATLU_BOX_NEARBY = 7.99;
 export const SHIPPING_BOBBATLU_BOX_FAR = 9.99;
-/** Mini Combo Pack-only carts in Texas (nearby states pay the regular rates; far states aren't served). */
+/** Mini Combo Pack-only carts: Texas, and nearby states under / from $100 (owner, 2026-10-23); far states aren't served. */
 export const SHIPPING_MINI_COMBO_TX = 3.99;
+export const SHIPPING_MINI_COMBO_NEARBY = 6.99;
+export const SHIPPING_MINI_COMBO_NEARBY_100 = 5.99;
 /**
  * Extra on every delivery rate to these states (California, New York, New Jersey,
  * Virginia, Washington), which cost more to reach (owner, 2026-10-23). A 10:10

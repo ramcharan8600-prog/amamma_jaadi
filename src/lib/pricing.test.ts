@@ -174,12 +174,13 @@ describe('shipping rate card — 8:8 Bobbatlu box only', () => {
 });
 
 describe('shipping rate card — Mini Combo only', () => {
-  it('ships $3.99 in Texas at any value and pays normal nearby rates', () => {
+  it('ships $3.99 in Texas at any value, and $6.99 nearby ($5.99 from $100)', () => {
     expect(ship([mini], 48, 'TX')).toBe(3.99);
     expect(ship([{ ...mini, quantity: 3 }], 144, 'TX')).toBe(3.99);
     expect(ship([mini], 48, 'GA')).toBe(6.99);
-    expect(ship([{ ...mini, quantity: 2 }], 96, 'GA')).toBe(5.99);
-    expect(ship([{ ...mini, quantity: 3 }], 144, 'GA')).toBe(4.99);
+    expect(ship([{ ...mini, quantity: 2 }], 96, 'GA')).toBe(6.99);
+    expect(ship([{ ...mini, quantity: 3 }], 144, 'GA')).toBe(5.99);
+    expect(ship([{ ...mini, quantity: 3 }], 144, 'OK')).toBe(5.99);
   });
 
   it('pays normal rates when mixed', () => {
