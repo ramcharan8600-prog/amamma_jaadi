@@ -105,7 +105,7 @@ function ship(items: Array<{ productId: string; quantity?: number }>, subtotal: 
 describe('shipping rate card — normal carts', () => {
   it.each([
     ['TX', 40, 5.99], ['TX', 99.99, 5.99], ['TX', 100, 3.99], ['TX', 250, 3.99],
-    ['GA', 40, 6.99], ['GA', 59.99, 6.99], ['GA', 60, 5.99], ['GA', 99.99, 5.99], ['GA', 100, 4.99], ['OK', 150, 4.99],
+    ['GA', 40, 7.99], ['GA', 59.99, 7.99], ['GA', 60, 6.99], ['GA', 99.99, 6.99], ['GA', 100, 6.99], ['OK', 150, 6.99],
     ['AZ', 60, 11.99], ['OR', 150, 11.99],
   ])('%s at $%s pays $%s', (state, subtotal, rate) => {
     expect(ship([malpuri], subtotal as number, state as string)).toBe(rate);
@@ -169,7 +169,7 @@ describe('shipping rate card — 8:8 Bobbatlu box only', () => {
   it('pays normal rates when mixed or for loose Bobbatlu packs', () => {
     expect(groundShippingKind([bobBox(), malpuri])).toBeUndefined();
     expect(groundShippingKind([{ productId: 'sweet-bobbatlu' }])).toBeUndefined();
-    expect(ship([{ productId: 'sweet-bobbatlu' }], 48, 'GA')).toBe(6.99);
+    expect(ship([{ productId: 'sweet-bobbatlu' }], 48, 'GA')).toBe(7.99);
   });
 });
 
@@ -207,9 +207,9 @@ describe('shipping rate card — Malai Khaja only', () => {
 
 describe('Malai Khaja mixed with anything else', () => {
   it('goes back to the regular nearby rates', () => {
-    expect(ship([khaja, malpuri], 40, 'GA')).toBe(6.99);
-    expect(ship([khaja, malpuri], 80, 'GA')).toBe(5.99);
-    expect(ship([khaja, malpuri], 125, 'GA')).toBe(4.99);
+    expect(ship([khaja, malpuri], 40, 'GA')).toBe(7.99);
+    expect(ship([khaja, malpuri], 80, 'GA')).toBe(6.99);
+    expect(ship([khaja, malpuri], 125, 'GA')).toBe(6.99);
   });
 });
 

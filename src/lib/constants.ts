@@ -53,10 +53,10 @@ export const SHIPPING_PICKLES_SINGLE = 6.99;
 export const SHIPPING_PICKLES_DOUBLE = 5.99;
 export const SHIPPING_PICKLES_THREE_PLUS = 4.99;
 
-/** Nearby-state sweets/mixed orders: under $60, $60-$99.99, $100+. */
-export const SHIPPING_NEARBY_BELOW = 6.99;
-export const SHIPPING_NEARBY_ABOVE = 5.99;
-export const SHIPPING_NEARBY_100 = 4.99;
+/** Nearby-state sweets/mixed orders: under $60, $60-$99.99, $100+ (owner, 2026-10-30: $7.99, then $6.99 from $60). */
+export const SHIPPING_NEARBY_BELOW = 7.99;
+export const SHIPPING_NEARBY_ABOVE = 6.99;
+export const SHIPPING_NEARBY_100 = 6.99;
 
 /** Far-state sweets/mixed orders (with the $60 minimum). */
 export const SHIPPING_FAR = 11.99;
