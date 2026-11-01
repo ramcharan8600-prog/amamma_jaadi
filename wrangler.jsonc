@@ -125,10 +125,22 @@
       },
       "triggers": {
         "crons": ["*/15 * * * *", "0 */3 * * *", "0 14,15 * * *"]
+      },
+      // The sandbox keeps every request's log: its traffic is tiny and full
+      // logs are what make a test checkout easy to follow.
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1
       }
     }
   },
+  // Workers Logs bill per log line past 20M a month. Keeping 1 request in 10
+  // (all of its lines) caps the bill if traffic ever runs away again — October's
+  // stuck-tab loop wrote 26M logs ($4.20). Orders, payments, checkout steps and
+  // emails are recorded in D1, not in these logs, so nothing customer-facing is
+  // lost; Cloudflare's request/error/CPU metrics stay exact (they aren't sampled).
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "head_sampling_rate": 0.1
   }
 }
