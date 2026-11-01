@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import Image from 'next/image';
 import { Instagram, MapPin, Phone } from 'lucide-react';
 import WhatsAppIcon from '@/components/icons/WhatsAppIcon';
@@ -87,24 +86,24 @@ export default function Footer() {
           </p>
           {/* sm:pr-20 keeps the links clear of the floating WhatsApp button. */}
           <div className="flex gap-4 sm:pr-20">
-            <Link
+            <a
               href="/about"
               className="-my-2 inline-block py-2 font-body text-xs text-white/50 hover:text-white transition-colors"
             >
               About Us
-            </Link>
-            <Link
+            </a>
+            <a
               href="/about#refund-policy"
               className="-my-2 inline-block py-2 font-body text-xs text-white/50 hover:text-white transition-colors"
             >
               Refund Policy
-            </Link>
-            <Link
+            </a>
+            <a
               href="/events"
               className="-my-2 inline-block py-2 font-body text-xs text-white/50 hover:text-white transition-colors"
             >
               Events
-            </Link>
+            </a>
           </div>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Page not found',
@@ -22,12 +21,12 @@ export default function NotFound() {
           The link may be old or mistyped. Our sweets and pickles are right here:
         </p>
         <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/sweets" className="btn-primary">Sweets</Link>
-          <Link href="/pickles" className="btn-secondary">Pickles</Link>
-          <Link href="/gift-boxes" className="btn-secondary">Sweets Gift Packs</Link>
+          <a href="/sweets" className="btn-primary">Sweets</a>
+          <a href="/pickles" className="btn-secondary">Pickles</a>
+          <a href="/gift-boxes" className="btn-secondary">Sweets Gift Packs</a>
         </div>
         <p className="font-body text-sm">
-          <Link href="/" className="text-brand-maroon underline underline-offset-4">Back to home</Link>
+          <a href="/" className="text-brand-maroon underline underline-offset-4">Back to home</a>
         </p>
       </div>
     </section>

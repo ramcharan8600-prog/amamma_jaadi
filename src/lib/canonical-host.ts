@@ -36,3 +36,13 @@ export function canonicalHostRedirect(request: { url: string; method: string }):
     },
   });
 }
+
+/**
+ * The same move for the shop pages served as static files (Home, Sweets, ...):
+ * Cloudflare answers those without running the Worker, so canonicalHostRedirect
+ * never sees them. This runs first thing in each page's <head> and sends a www
+ * visitor to the same path on the bare domain before the cart loads.
+ */
+export const CANONICAL_HOST_SCRIPT =
+  `if(${JSON.stringify([...REDIRECTED_HOSTS])}.indexOf(location.hostname)>=0)` +
+  `location.replace("https://${CANONICAL_HOST}"+location.pathname+location.search+location.hash)`;

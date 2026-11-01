@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
-import Link from 'next/link';
 import {
   Clock,
   MapPin,
@@ -657,9 +656,9 @@ export default function CheckoutPage() {
       <div className="section-padding py-24 text-center space-y-4">
         <Package size={48} className="mx-auto text-brand-charcoal/20" />
         <h1 className="font-display text-2xl font-bold text-brand-charcoal">No items to checkout</h1>
-        <Link href="/sweets" className="btn-primary inline-flex gap-2">
+        <a href="/sweets" className="btn-primary inline-flex gap-2">
           <ArrowLeft size={16} /> Go to Shop
-        </Link>
+        </a>
       </div>
     );
   }
@@ -682,9 +681,9 @@ export default function CheckoutPage() {
           ) : null}
           Your confirmation email has been queued for delivery to your inbox.
         </p>
-        <Link href="/sweets" className="btn-primary inline-flex gap-2">
+        <a href="/sweets" className="btn-primary inline-flex gap-2">
           Continue Shopping
-        </Link>
+        </a>
       </div>
     );
   }
@@ -1211,9 +1210,9 @@ export default function CheckoutPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <Link href="/sweets" className="btn-secondary flex-1 text-center">
+            <a href="/sweets" className="btn-secondary flex-1 text-center">
               + Add more items
-            </Link>
+            </a>
             <button disabled={promoApplying} onClick={() => setStep('method')} className="btn-primary flex-1">
               Continue
             </button>

@@ -2,7 +2,6 @@
 
 import { useId, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { ShoppingBag, Eye, CreditCard, Clock, Sparkles, Gift } from 'lucide-react';
 import { Product } from '@/types';
 import { useCartStore } from '@/store/cart';
@@ -212,14 +211,14 @@ export default function SweetCard({ product, eager = false }: SweetCardProps) {
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <Link href="/checkout" className="btn-secondary text-center text-xs py-2">
+            <a href="/checkout" className="btn-secondary text-center text-xs py-2">
               <Eye size={14} className="inline mr-1" />
               View Cart
-            </Link>
-            <Link href="/checkout" className="btn-gold text-center text-xs py-2">
+            </a>
+            <a href="/checkout" className="btn-gold text-center text-xs py-2">
               <CreditCard size={14} className="inline mr-1" />
               Checkout
-            </Link>
+            </a>
           </div>
         </div>
       </div>

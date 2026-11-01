@@ -13,6 +13,9 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'off',
       // Checkout telemetry timestamps an interaction trail at component start.
       'react-hooks/purity': 'off',
+      // Shop pages are served as static files, so links to them are plain <a> on
+      // purpose (see src/components/layout/Header.tsx and static-pages.test.ts).
+      '@next/next/no-html-link-for-pages': 'off',
     },
   },
   globalIgnores([

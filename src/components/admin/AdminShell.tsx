@@ -57,9 +57,10 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="ml-auto flex items-center gap-1">
             {/* Phones: icons only, so the bar stays one line. */}
-            <Link href="/" aria-label="View shop" className="inline-flex items-center gap-1.5 rounded-full p-2 sm:px-3 sm:py-1.5 font-body text-xs text-white/85 hover:bg-white/10 whitespace-nowrap">
+            {/* A plain link: the shop is served as static files (see Header.tsx). */}
+            <a href="/" aria-label="View shop" className="inline-flex items-center gap-1.5 rounded-full p-2 sm:px-3 sm:py-1.5 font-body text-xs text-white/85 hover:bg-white/10 whitespace-nowrap">
               <Store size={18} aria-hidden="true" /> <span className="hidden sm:inline">View shop</span>
-            </Link>
+            </a>
             <button type="button" onClick={logout} aria-label="Log out" className="inline-flex items-center gap-1.5 rounded-full p-2 sm:px-3 sm:py-1.5 font-body text-xs text-white/85 hover:bg-white/10 whitespace-nowrap">
               <LogOut size={18} aria-hidden="true" /> <span className="hidden sm:inline">Log out</span>
             </button>

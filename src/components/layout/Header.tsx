@@ -1,12 +1,16 @@
 'use client';
 
 import { Fragment, useState, useEffect } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ShoppingBag } from 'lucide-react';
 import { useCartStore } from '@/store/cart';
 
+// Plain <a> links, not next/link, across the shop: Home, Sweets, Pickles, Gift
+// Packs, Events and About are served as static files straight from Cloudflare
+// (free, no Worker run — see scripts/populate-page-cache.mjs). A static file
+// can't answer the App Router's in-page data requests, so every shop link is
+// a normal page load. src/lib/static-pages.test.ts guards this.
 const NAV_LINKS = [
   { label: 'Sweets', href: '/sweets' },
   { label: 'Gift Packs', href: '/gift-boxes' },
@@ -41,7 +45,7 @@ export default function Header() {
       <div className="section-padding">
         <div className="flex items-center justify-between gap-2 h-16 sm:h-20 lg:h-24">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
+          <a href="/" className="flex items-center gap-2 shrink-0">
             <Image
               src="/images/web/logo-192.webp"
               alt="Amamma Jaadi"
@@ -53,12 +57,12 @@ export default function Header() {
             <span className="font-display font-bold text-brand-gold-light text-lg sm:text-xl tracking-widest uppercase whitespace-nowrap">
               Amamma Jaadi
             </span>
-          </Link>
+          </a>
 
           {/* Wide screens: one row next to the logo. */}
           <nav aria-label="Main" className="hidden lg:flex items-center gap-8">
             {NAV_LINKS.map((link) => (
-              <Link
+              <a
                 key={link.href}
                 href={link.href}
                 aria-current={isCurrent(link.href) ? 'page' : undefined}
@@ -70,11 +74,11 @@ export default function Header() {
                 <span className={`absolute -bottom-1 left-0 h-0.5 bg-brand-gold transition-all ${
                   isCurrent(link.href) ? 'w-full' : 'w-0 group-hover:w-full'
                 }`} />
-              </Link>
+              </a>
             ))}
           </nav>
 
-          <Link
+          <a
             href="/checkout"
             className="relative flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors"
           >
@@ -88,7 +92,7 @@ export default function Header() {
                 {itemCount}
               </span>
             )}
-          </Link>
+          </a>
         </div>
 
         {/* Phones and tablets: every link always visible under the logo. */}
@@ -98,7 +102,7 @@ export default function Header() {
         >
           {NAV_LINKS.map((link) => (
             <Fragment key={link.href}>
-            <Link
+            <a
               href={link.href}
               aria-current={isCurrent(link.href) ? 'page' : undefined}
               className={`font-body text-[16.4px] font-medium py-1 border-b-2 transition-colors ${
@@ -108,7 +112,7 @@ export default function Header() {
               }`}
             >
               {link.label}
-            </Link>
+            </a>
             </Fragment>
           ))}
         </nav>

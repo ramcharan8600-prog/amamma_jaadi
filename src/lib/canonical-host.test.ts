@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalHostRedirect } from '@/lib/canonical-host';
+import { CANONICAL_HOST_SCRIPT, canonicalHostRedirect } from '@/lib/canonical-host';
 
 const get = (url: string, method = 'GET') => canonicalHostRedirect(new Request(url, { method }));
 
@@ -33,5 +33,29 @@ describe('canonicalHostRedirect', () => {
     expect(get('http://localhost:3000/')).toBeNull();
     expect(get('https://www.amammajaadi.com.evil.example/')).toBeNull();
     expect(get('https://shop.amammajaadi.com/')).toBeNull();
+  });
+});
+
+describe('CANONICAL_HOST_SCRIPT (shop pages served as static files)', () => {
+  const run = (href: string) => {
+    const url = new URL(href);
+    let replacedWith: string | null = null;
+    const location = {
+      hostname: url.hostname, pathname: url.pathname, search: url.search, hash: url.hash,
+      replace: (to: string) => { replacedWith = to; },
+    };
+    new Function('location', CANONICAL_HOST_SCRIPT)(location);
+    return replacedWith;
+  };
+
+  it('sends a www visitor to the same path, query and anchor on the bare domain', () => {
+    expect(run('https://www.amammajaadi.com/sweets?utm_source=reel#bobbatlu'))
+      .toBe('https://amammajaadi.com/sweets?utm_source=reel#bobbatlu');
+    expect(run('https://www.amammajaadi.com/')).toBe('https://amammajaadi.com/');
+  });
+
+  it('does nothing on the bare domain or the sandbox', () => {
+    expect(run('https://amammajaadi.com/sweets')).toBeNull();
+    expect(run('https://amammajaadi-sandbox.ramcharan8600.workers.dev/')).toBeNull();
   });
 });

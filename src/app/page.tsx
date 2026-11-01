@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
-import Link from 'next/link';
 import { ArrowRight, Leaf, MapPin, Sparkles, Truck } from 'lucide-react';
 import { MINI_COMBO_PACK_PRODUCT_ID, PRODUCTS, calculateSweetPrice, getProductById, isFixedPriceBox } from '@/data/products';
 import { renderDescription } from '@/lib/description';
@@ -54,12 +53,12 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Link href="/sweets" className="btn-primary gap-2 text-base px-7 py-3.5">
+                <a href="/sweets" className="btn-primary gap-2 text-base px-7 py-3.5">
                   Shop Sweets <ArrowRight size={16} />
-                </Link>
-                <Link href="/pickles" className="btn-gold gap-2 text-base px-7 py-3.5">
+                </a>
+                <a href="/pickles" className="btn-gold gap-2 text-base px-7 py-3.5">
                   Shop Pickles <ArrowRight size={16} />
-                </Link>
+                </a>
               </div>
 
               {/* Promises */}
@@ -172,7 +171,7 @@ export default function HomePage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {featuredSweets.map((product) => (
-              <Link
+              <a
                 key={product.id}
                 href={`/sweets#${product.slug}`}
                 className="card group cursor-pointer flex flex-col"
@@ -204,14 +203,14 @@ export default function HomePage() {
                     </span>
                   </div>
                 </div>
-              </Link>
+              </a>
             ))}
           </div>
 
           <div className="text-center mt-10">
-            <Link href="/sweets" className="btn-primary gap-2">
+            <a href="/sweets" className="btn-primary gap-2">
               View All Sweets <ArrowRight size={16} />
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -229,12 +228,12 @@ export default function HomePage() {
               the patience, the pure ingredients, the love you can taste in every
               bite — to NRIs across America.
             </p>
-            <Link
+            <a
               href="/about"
               className="inline-flex items-center gap-2 font-body text-sm font-semibold text-brand-gold hover:text-brand-gold-light transition-colors"
             >
               Read Our Story <ArrowRight size={16} />
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -248,14 +247,14 @@ export default function HomePage() {
               { title: 'Pickles', desc: 'Chicken, Mutton & Prawns', href: '/pickles', img: '/images/web/chicken-pickle.webp' },
               { title: 'Sweets Gift Packs', desc: 'Desi-style matt-finish sweets boxes', href: '/gift-boxes', img: '/images/web/gift-box.webp' },
             ].map((cat) => (
-              <Link key={cat.href} href={cat.href} className="group relative rounded-2xl overflow-hidden aspect-[3/2]">
+              <a key={cat.href} href={cat.href} className="group relative rounded-2xl overflow-hidden aspect-[3/2]">
                 <Image src={cat.img} alt={cat.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 p-6">
                   <h3 className="font-display text-2xl font-bold text-white">{cat.title}</h3>
                   <p className="font-body text-sm text-white/80 mt-1">{cat.desc}</p>
                 </div>
-              </Link>
+              </a>
             ))}
           </div>
         </div>
