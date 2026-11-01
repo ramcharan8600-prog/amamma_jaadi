@@ -14,6 +14,13 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: { bodySizeLimit: '2mb' },
+    // Next 16.3 bundles small prefetch pieces together ("inlining", on by default).
+    // The OpenNext page cache (open-next.config.ts) can't serve those bundles and
+    // answers each one with the whole page, so the browser kept re-asking — about
+    // 100 prefetches a second per open tab, millions of Worker requests a day
+    // from Oct 18 2026. With inlining off, every prefetch piece is served from the
+    // page cache as its own small file.
+    prefetchInlining: false,
   },
 };
 
