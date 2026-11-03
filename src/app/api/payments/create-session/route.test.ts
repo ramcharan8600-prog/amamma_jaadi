@@ -283,13 +283,17 @@ describe('create-session retains approved shipping and gift-box rules', () => {
     { name: 'pickup Mini Combo Pack', items: [mini], fulfillment: pickup, subtotal: 48, shipping: 0 },
     { name: 'Mini Combo Pack in Texas', items: [mini], fulfillment: delivery('TX'), subtotal: 48, shipping: 3.99 },
     { name: 'Mini Combo Pack to a nearby state', items: [mini], fulfillment: delivery('FL'), subtotal: 48, shipping: 6.99 },
-    { name: 'nearby below $60', items: [sweet], fulfillment: delivery('AL'), subtotal: 40, shipping: 7.99 },
+    { name: 'nearby below $60', items: [{ productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], fulfillment: delivery('AL'), subtotal: 36, shipping: 7.99 },
     { name: 'two Mini Combo Packs to a nearby state under $100', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('CO'), subtotal: 96, shipping: 6.99 },
     { name: 'two Mini Combo Packs in Texas', items: [{ ...mini, quantity: 2 }], fulfillment: delivery('TX'), subtotal: 96, shipping: 3.99 },
     { name: 'far at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('NC'), subtotal: 80, shipping: 11.99 },
-    { name: 'Florida (now nearby) below $60 with no minimum', items: [sweet], fulfillment: delivery('FL'), subtotal: 40, shipping: 7.99 },
-    { name: 'Tennessee (now nearby) at $80', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('TN'), subtotal: 80, shipping: 6.99 },
-    { name: 'Georgia (now nearby) at $120', items: [{ ...sweet, quantity: 3 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 6.99 },
+    // Malpuri only, nearby: a flat $8.99 at any order size (owner, 2026-11-03).
+    { name: 'Florida (now nearby) below $60 with no minimum, Malpuri only', items: [sweet], fulfillment: delivery('FL'), subtotal: 40, shipping: 8.99 },
+    { name: 'Tennessee (now nearby) at $80, Malpuri only', items: [{ ...sweet, quantity: 2 }], fulfillment: delivery('TN'), subtotal: 80, shipping: 8.99 },
+    { name: 'Georgia (now nearby) at $120, Malpuri only', items: [{ ...sweet, quantity: 3 }], fulfillment: delivery('GA'), subtotal: 120, shipping: 8.99 },
+    { name: 'Malpuri 25 pcs to a nearby state', items: [{ ...sweet, selectedTier: 25 }], fulfillment: delivery('IL'), subtotal: 65, shipping: 8.99 },
+    { name: 'Malpuri 50 pcs to a nearby state', items: [{ ...sweet, selectedTier: 50 }], fulfillment: delivery('LA'), subtotal: 125, shipping: 8.99 },
+    { name: 'Malpuri with Malai Khaja pays regular nearby rates', items: [sweet, { productId: 'sweet-malai-khaja', quantity: 1, selectedTier: 15 }], fulfillment: delivery('GA'), subtotal: 80, shipping: 6.99 },
     { name: 'Oklahoma at exactly $100 with a 10:10 box (the higher box rate)', items: [assorted, { productId: 'sweet-malpuri', quantity: 1, selectedTier: 15 }], fulfillment: delivery('OK'), subtotal: 100, shipping: 6.99 },
     { name: 'Oklahoma from $100 without a box', items: [{ ...sweet, quantity: 2 }, { productId: 'sweet-kova', quantity: 1, selectedTier: 25 }], fulfillment: delivery('OK'), subtotal: 136.25, shipping: 6.99 },
     { name: 'Mini Combo Pack mixed with Malpuri pays nearby rates', items: [mini, sweet], fulfillment: delivery('OK'), subtotal: 88, shipping: 6.99 },
@@ -315,7 +319,7 @@ describe('create-session retains approved shipping and gift-box rules', () => {
 
   it.each([
     ['TX', 5.99],
-    ['FL', 7.99],
+    ['FL', 8.99],
     ['AZ', 10.99],
     ['OR', 10.99],
   ])('ships a Malai Khaja-only cart to %s for %s with no minimum', async (state, shipping) => {
@@ -696,9 +700,9 @@ describe('Malai Khaja-only shipping by pack size', () => {
     ['15 to NY (flat $10.99 far)', [mk(15)], 'AZ', 10.99],
     ['25 to NY', [mk(25)], 'AZ', 10.99],
     ['50 to NY', [mk(50)], 'AZ', 10.99],
-    ['15 to GA (nearby, under $60)', [mk(15)], 'GA', 7.99],
-    ['25 to GA (nearby, from $60)', [mk(25)], 'GA', 6.99],
-    ['50 to GA (nearby, $100 and up)', [mk(50)], 'GA', 6.99],
+    ['15 to GA (nearby, under $60)', [mk(15)], 'GA', 8.99],
+    ['25 to GA (nearby, from $60)', [mk(25)], 'GA', 8.99],
+    ['50 to GA (nearby, $100 and up)', [mk(50)], 'GA', 8.99],
     ['50 to TX ($3.99 from $100)', [mk(50)], 'TX', 3.99],
     ['2 x 25 to CA', [mk(25, 2)], 'OR', 10.99],
     ['15 to TX', [mk(15)], 'TX', 5.99],
@@ -770,7 +774,7 @@ describe('Texas $5.99, $3.99 from $100', () => {
     expect(await (await post(checkout([{ ...sweet, quantity: 2 }], delivery('TX')))).json()).toMatchObject({ shipping: 5.99, totalAmount: 85.99 });
     expect(await (await post(checkout([assorted, { productId: 'sweet-kova', quantity: 1, selectedTier: 16 }], delivery('TX')))).json())
       .toMatchObject({ subtotal: 96, shipping: 5.99 });
-    expect(await (await post(checkout([{ ...sweet, quantity: 3 }], delivery('GA')))).json()).toMatchObject({ shipping: 6.99, totalAmount: 126.99 });
+    expect(await (await post(checkout([{ ...sweet, quantity: 3 }], delivery('GA')))).json()).toMatchObject({ shipping: 8.99, totalAmount: 128.99 });
   });
 });
 

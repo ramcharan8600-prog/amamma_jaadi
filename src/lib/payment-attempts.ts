@@ -9,7 +9,7 @@ import { isSoldOutDate } from '@/lib/sold-out-dates';
 import { isDeliveryPausedFor } from '@/lib/delivery-pauses';
 import { isShipWeekOpen, isShipWeek } from '@/lib/delivery-limit';
 import { isBlockedCustomer } from '@/lib/blocked-customers';
-import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isSupportedDeliveryState, normalizeStateCode, containsAssortedBox } from '@/lib/pricing';
+import { calculateOrderTotals, deliveryRestriction, getDeliveryMinimumShortfall, groundShippingKind, isMalpuriOnlyCart, isSupportedDeliveryState, normalizeStateCode, containsAssortedBox } from '@/lib/pricing';
 import {
   buildSquarePaymentRequest,
   executeSquarePaymentRequest,
@@ -144,6 +144,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
       legacyPickleRates: !['texas_v2', 'texas_v3', 'rate_card_2026_10'].includes(String(session.pricing_policy)),
       picklesOnly,
       groundShipping,
+      malpuriOnly: isMalpuriOnlyCart(cart.items),
       assortedBoxInCart: containsAssortedBox(cart.items),
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       taxableSubtotal: cart.taxableSubtotal, fulfillmentType: delivery ? 'delivery' : 'pickup',

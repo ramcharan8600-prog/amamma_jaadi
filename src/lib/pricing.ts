@@ -22,8 +22,8 @@ import {
   SHIPPING_NEARBY_100,
   SHIPPING_FAR,
   SHIPPING_MALAI_KHAJA_FAR,
-  SHIPPING_MALAI_KHAJA_NEARBY_BELOW,
   SHIPPING_MALAI_KHAJA_NEARBY,
+  SHIPPING_MALPURI_NEARBY,
   SHIPPING_ASSORTED_BOX_TX,
   SHIPPING_ASSORTED_BOX_NEARBY,
   SHIPPING_ASSORTED_BOX_FAR,
@@ -237,6 +237,7 @@ export function deliveryRestriction(
 }
 
 export const MALAI_KHAJA_PRODUCT_ID = 'sweet-malai-khaja';
+export const MALPURI_PRODUCT_ID = 'sweet-malpuri';
 
 export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'bobbatlu-box' | 'mini-combo';
 
@@ -244,7 +245,7 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'bobbatlu-box'
  * Carts made only of one of these get their own rate (see calculateShippingQuote);
  * adding anything else restores the regular rates. Intentionally quiet: no
  * banner or copy mentions these rates.
- * - Only Malai Khaja: regular Texas rates; nearby states $7.99 under $60 and $6.99 from $60;
+ * - Only Malai Khaja: regular Texas rates; nearby states a flat $8.99;
  *   far states a flat $10.99, no minimum.
  * - Only the 10:10 Assorted Box (any number, with or without the Bobbatlu Taste Pack
  *   add-on, which ships at the box's rate): $3.99 Texas, $6.99 nearby, $7.99 far, no minimum (no state extra).
@@ -262,6 +263,15 @@ export function groundShippingKind(items: ReadonlyArray<{ productId: string; qua
     return 'assorted-box';
   }
   return undefined;
+}
+
+/**
+ * Only loose Guntur Malpuri: nearby states pay a flat $8.99, any order size
+ * (owner, 2026-11-03). Everywhere else it ships like any sweets order, so it is
+ * not a ground-shipping kind (that would change the far-state service and minimum).
+ */
+export function isMalpuriOnlyCart(items: ReadonlyArray<{ productId: string }>): boolean {
+  return items.length > 0 && items.every(({ productId }) => productId === MALPURI_PRODUCT_ID);
 }
 
 /** A 10:10 box mixed with other items: the cart pays the higher of its regular and box rates (owner, 2026-10-12). */
@@ -307,6 +317,8 @@ export interface ShippingOptions {
   picklesOnly?: boolean;
   /** The cart is only one product or box with its own rate (see groundShippingKind). */
   groundShipping?: GroundShippingKind;
+  /** The cart is only loose Guntur Malpuri (see isMalpuriOnlyCart). */
+  malpuriOnly?: boolean;
   /** The cart holds a 10:10 box mixed with other items (see containsAssortedBox). */
   assortedBoxInCart?: boolean;
   pickleJarCount?: number;
@@ -358,7 +370,9 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else if (opts.groundShipping === 'malai-khaja' && zone === 'far') {
       regularShipping = SHIPPING_MALAI_KHAJA_FAR;
     } else if (opts.groundShipping === 'malai-khaja' && zone === 'nearby') {
-      regularShipping = subtotal >= STANDARD_SHIPPING_THRESHOLD ? SHIPPING_MALAI_KHAJA_NEARBY : SHIPPING_MALAI_KHAJA_NEARBY_BELOW;
+      regularShipping = SHIPPING_MALAI_KHAJA_NEARBY;
+    } else if (opts.malpuriOnly && zone === 'nearby') {
+      regularShipping = SHIPPING_MALPURI_NEARBY;
     } else if (opts.assortedBoxInCart && zone !== 'texas') {
       // A 10:10 box mixed with other items pays the higher of the two rates.
       regularShipping = Math.max(regular, box);

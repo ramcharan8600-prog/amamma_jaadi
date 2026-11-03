@@ -1082,7 +1082,8 @@ describe('nationwide pickle-only delivery', () => {
     expect(host.textContent).toContain('$123.99');
     await enterDeliveryDetails('GA');
     expect(host.textContent).not.toContain('Operational fee');
-    expect(host.textContent).toContain('$6.99');
+    // Malpuri only to a nearby state: a flat $8.99 (owner, 2026-11-03).
+    expect(host.textContent).toContain('Express shipping (2-day ETA)$8.99');
   });
 
   async function enterDeliveryDetails(state: string) {
@@ -1154,13 +1155,12 @@ describe('nationwide pickle-only delivery', () => {
     expect(button('Continue to payment').disabled).toBe(false);
   });
 
-  it('treats Florida as nearby: no minimum and $7.99 below $60', async () => {
+  it('treats Florida as nearby: no minimum and $8.99 below $60 for Malpuri only', async () => {
     useCartStore.getState().addItem(getProductById('sweet-malpuri')!, 1, 15);
     await enterDeliveryDetails('FL');
     expect(host.textContent).not.toContain('A minimum product subtotal');
-    expect(host.textContent).toContain('$7.99');
-    expect(host.textContent).toContain('$47.99');
-    expect(host.textContent).toContain('Express shipping (2-day ETA)$7.99');
+    expect(host.textContent).toContain('$48.99');
+    expect(host.textContent).toContain('Express shipping (2-day ETA)$8.99');
     expect(host.textContent).toContain(EXPRESS_SWEETS_NOTE);
     expect(host.textContent).not.toContain('UPS 2nd Day Air');
     expect(button('Continue to payment').disabled).toBe(false);

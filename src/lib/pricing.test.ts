@@ -16,6 +16,7 @@ import {
   isExpressDeliveryService,
   isGroundShippingCart,
   groundShippingKind,
+  isMalpuriOnlyCart,
   deliveryRestriction,
   containsAssortedBox,
   SALES_TAX_RATE,
@@ -92,13 +93,15 @@ const pack = { productId: 'sweet-bobbatlu-taste-pack' };
 const bobBox = (quantity = 1) => ({ productId: 'sweet-assorted-bobbatlu-box', quantity });
 const malpuri = { productId: 'sweet-malpuri' };
 const khaja = { productId: 'sweet-malai-khaja' };
+const kova = { productId: 'sweet-kova' };
 const mini = { productId: 'gift-box-mini-combo' };
 
 /** Shipping the checkout and server charge for these cart lines. */
 function ship(items: Array<{ productId: string; quantity?: number }>, subtotal: number, state: string, picklesOnly = false) {
   return calculateShippingQuote(subtotal, {
     fulfillmentType: 'delivery', deliveryState: state, picklesOnly,
-    groundShipping: groundShippingKind(items), assortedBoxInCart: containsAssortedBox(items),
+    groundShipping: groundShippingKind(items), malpuriOnly: isMalpuriOnlyCart(items),
+    assortedBoxInCart: containsAssortedBox(items),
   }).shipping;
 }
 
@@ -108,7 +111,7 @@ describe('shipping rate card — normal carts', () => {
     ['GA', 40, 7.99], ['GA', 59.99, 7.99], ['GA', 60, 6.99], ['GA', 99.99, 6.99], ['GA', 100, 6.99], ['OK', 150, 6.99],
     ['AZ', 60, 11.99], ['OR', 150, 11.99],
   ])('%s at $%s pays $%s', (state, subtotal, rate) => {
-    expect(ship([malpuri], subtotal as number, state as string)).toBe(rate);
+    expect(ship([kova], subtotal as number, state as string)).toBe(rate);
   });
 
   it('shows the Texas $3.99 from $100 as savings on the $5.99 rate', () => {
@@ -189,19 +192,37 @@ describe('shipping rate card — Mini Combo only', () => {
 });
 
 describe('shipping rate card — Malai Khaja only', () => {
-  it('pays normal Texas rates, $7.99 / $6.99 to nearby states, and a flat $10.99 far with no minimum', () => {
+  it('pays normal Texas rates, a flat $8.99 to nearby states, and a flat $10.99 far with no minimum', () => {
     expect(ship([khaja], 40, 'TX')).toBe(5.99);
     expect(ship([khaja], 125, 'TX')).toBe(3.99);
-    // Nearby (owner, 2026-10-15): $7.99 under $60, $6.99 from $60 — including $100 and up.
-    expect(ship([khaja], 40, 'GA')).toBe(7.99);
-    expect(ship([khaja], 59.99, 'IL')).toBe(7.99);
-    expect(ship([khaja], 60, 'OK')).toBe(6.99);
-    expect(ship([khaja], 62.5, 'GA')).toBe(6.99);
-    expect(ship([khaja], 125, 'GA')).toBe(6.99);
+    // Nearby (owner, 2026-11-03): $8.99 at any order size.
+    expect(ship([khaja], 40, 'GA')).toBe(8.99);
+    expect(ship([khaja], 59.99, 'IL')).toBe(8.99);
+    expect(ship([khaja], 60, 'OK')).toBe(8.99);
+    expect(ship([khaja], 62.5, 'GA')).toBe(8.99);
+    expect(ship([khaja], 125, 'GA')).toBe(8.99);
     expect(getDeliveryMinimumShortfall(40, 'GA', false, groundShippingKind([khaja]))).toBe(0);
     expect(ship([khaja], 40, 'AZ')).toBe(10.99);
     expect(ship([khaja], 125, 'OR')).toBe(10.99);
     expect(getDeliveryMinimumShortfall(40, 'AZ', false, groundShippingKind([khaja]))).toBe(0);
+  });
+});
+
+describe('shipping rate card — Guntur Malpuri only', () => {
+  it('pays a flat $8.99 to nearby states and the regular rates everywhere else', () => {
+    // Nearby (owner, 2026-11-03): $8.99 at any order size.
+    expect(ship([malpuri], 40, 'GA')).toBe(8.99);
+    expect(ship([malpuri], 59.99, 'FL')).toBe(8.99);
+    expect(ship([malpuri], 60, 'OK')).toBe(8.99);
+    expect(ship([malpuri, malpuri], 80, 'TN')).toBe(8.99);
+    expect(ship([malpuri], 125, 'GA')).toBe(8.99);
+    expect(ship([malpuri], 40, 'TX')).toBe(5.99);
+    expect(ship([malpuri], 125, 'TX')).toBe(3.99);
+    expect(ship([malpuri], 65, 'AZ')).toBe(11.99);
+    expect(getDeliveryMinimumShortfall(40, 'AZ', false, groundShippingKind([malpuri]))).toBe(20);
+    expect(isMalpuriOnlyCart([malpuri, malpuri])).toBe(true);
+    expect(isMalpuriOnlyCart([malpuri, khaja])).toBe(false);
+    expect(isMalpuriOnlyCart([])).toBe(false);
   });
 });
 
