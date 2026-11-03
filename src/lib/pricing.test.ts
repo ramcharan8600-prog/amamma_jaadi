@@ -108,7 +108,8 @@ function ship(items: Array<{ productId: string; quantity?: number }>, subtotal: 
 describe('shipping rate card — normal carts', () => {
   it.each([
     ['TX', 40, 5.99], ['TX', 99.99, 5.99], ['TX', 100, 3.99], ['TX', 250, 3.99],
-    ['GA', 40, 7.99], ['GA', 59.99, 7.99], ['GA', 60, 6.99], ['GA', 99.99, 6.99], ['GA', 100, 6.99], ['OK', 150, 6.99],
+    // Nearby: a flat $9.99 at any order value (owner, 2026-11-03).
+    ['GA', 40, 9.99], ['GA', 59.99, 9.99], ['GA', 60, 9.99], ['GA', 99.99, 9.99], ['GA', 100, 9.99], ['OK', 150, 9.99],
     ['AZ', 60, 11.99], ['OR', 150, 11.99],
   ])('%s at $%s pays $%s', (state, subtotal, rate) => {
     expect(ship([kova], subtotal as number, state as string)).toBe(rate);
@@ -148,7 +149,7 @@ describe('shipping rate card — 10:10 box only', () => {
 describe('shipping rate card — 10:10 box with other items (the higher rate)', () => {
   it.each([
     ['TX', 100, 3.99], ['TX', 99, 5.99],
-    ['GA', 80, 6.99], ['GA', 100, 6.99], ['GA', 160, 6.99],
+    ['GA', 80, 9.99], ['GA', 100, 9.99], ['GA', 160, 9.99],
     ['AZ', 100, 11.99],
   ])('%s at $%s pays $%s', (state, subtotal, rate) => {
     expect(ship([box(), malpuri], subtotal as number, state as string)).toBe(rate);
@@ -160,8 +161,8 @@ describe('shipping rate card — 10:10 box with other items (the higher rate)', 
 });
 
 describe('shipping rate card — 8:8 Bobbatlu box only', () => {
-  it.each([[1, 49.99], [2, 99.98], [3, 149.97]])('%s box(es): $4.99 Texas, $7.99 nearby, $9.99 far', (quantity, subtotal) => {
-    expect(['TX', 'GA', 'AZ'].map((state) => ship([bobBox(quantity)], subtotal, state))).toEqual([4.99, 7.99, 9.99]);
+  it.each([[1, 49.99], [2, 99.98], [3, 149.97]])('%s box(es): $4.99 Texas, $9.99 nearby, $9.99 far', (quantity, subtotal) => {
+    expect(['TX', 'GA', 'AZ'].map((state) => ship([bobBox(quantity)], subtotal, state))).toEqual([4.99, 9.99, 9.99]);
   });
 
   it('cannot ship one box to a far state (the $60 minimum), but can ship two', () => {
@@ -172,18 +173,20 @@ describe('shipping rate card — 8:8 Bobbatlu box only', () => {
   it('pays normal rates when mixed or for loose Bobbatlu packs', () => {
     expect(groundShippingKind([bobBox(), malpuri])).toBeUndefined();
     expect(groundShippingKind([{ productId: 'sweet-bobbatlu' }])).toBeUndefined();
-    expect(ship([{ productId: 'sweet-bobbatlu' }], 48, 'GA')).toBe(7.99);
+    expect(ship([{ productId: 'sweet-bobbatlu' }], 48, 'GA')).toBe(9.99);
+    expect(ship([bobBox(), kova], 85.99, 'GA')).toBe(9.99);
   });
 });
 
 describe('shipping rate card — Mini Combo only', () => {
-  it('ships $3.99 in Texas at any value, and $6.99 nearby ($5.99 from $100)', () => {
+  it('ships $3.99 in Texas at any value, and a flat $7.99 nearby', () => {
     expect(ship([mini], 48, 'TX')).toBe(3.99);
     expect(ship([{ ...mini, quantity: 3 }], 144, 'TX')).toBe(3.99);
-    expect(ship([mini], 48, 'GA')).toBe(6.99);
-    expect(ship([{ ...mini, quantity: 2 }], 96, 'GA')).toBe(6.99);
-    expect(ship([{ ...mini, quantity: 3 }], 144, 'GA')).toBe(5.99);
-    expect(ship([{ ...mini, quantity: 3 }], 144, 'OK')).toBe(5.99);
+    // Nearby (owner, 2026-11-03): $7.99 for any number of packs.
+    expect(ship([mini], 48, 'GA')).toBe(7.99);
+    expect(ship([{ ...mini, quantity: 2 }], 96, 'GA')).toBe(7.99);
+    expect(ship([{ ...mini, quantity: 3 }], 144, 'GA')).toBe(7.99);
+    expect(ship([{ ...mini, quantity: 4 }], 192, 'OK')).toBe(7.99);
   });
 
   it('pays normal rates when mixed', () => {
@@ -239,9 +242,9 @@ describe('Malpuri and Malai Khaja mixed', () => {
   });
 
   it('goes back to the regular nearby rates with anything else in the cart', () => {
-    expect(ship([khaja, kova], 40, 'GA')).toBe(7.99);
-    expect(ship([khaja, malpuri, kova], 80, 'GA')).toBe(6.99);
-    expect(ship([malpuri, kova], 125, 'GA')).toBe(6.99);
+    expect(ship([khaja, kova], 40, 'GA')).toBe(9.99);
+    expect(ship([khaja, malpuri, kova], 80, 'GA')).toBe(9.99);
+    expect(ship([malpuri, kova], 125, 'GA')).toBe(9.99);
   });
 });
 

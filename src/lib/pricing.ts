@@ -9,7 +9,6 @@
 
 import {
   STANDARD_SHIPPING_THRESHOLD,
-  NEARBY_SHIPPING_TOP_THRESHOLD,
   FAR_SHIPPING_MINIMUM,
   SHIPPING_TX,
   TEXAS_DISCOUNTED_SHIPPING_MINIMUM,
@@ -17,9 +16,7 @@ import {
   SHIPPING_PICKLES_SINGLE,
   SHIPPING_PICKLES_DOUBLE,
   SHIPPING_PICKLES_THREE_PLUS,
-  SHIPPING_NEARBY_BELOW,
-  SHIPPING_NEARBY_ABOVE,
-  SHIPPING_NEARBY_100,
+  SHIPPING_NEARBY,
   SHIPPING_FAR,
   SHIPPING_MALAI_KHAJA_FAR,
   SHIPPING_MALPURI_KHAJA_NEARBY_BELOW,
@@ -32,7 +29,6 @@ import {
   SHIPPING_BOBBATLU_BOX_FAR,
   SHIPPING_MINI_COMBO_TX,
   SHIPPING_MINI_COMBO_NEARBY,
-  SHIPPING_MINI_COMBO_NEARBY_100,
   SHIPPING_SURCHARGE_STATE_CODES,
   SHIPPING_STATE_SURCHARGE,
 } from '@/lib/constants';
@@ -249,8 +245,8 @@ export type GroundShippingKind = 'malai-khaja' | 'assorted-box' | 'bobbatlu-box'
  *   far states a flat $10.99, no minimum.
  * - Only the 10:10 Assorted Box (any number, with or without the Bobbatlu Taste Pack
  *   add-on, which ships at the box's rate): $3.99 Texas, $6.99 nearby, $7.99 far, no minimum (no state extra).
- * - Only the 8:8 Assorted Bobbatlu Box: $4.99 Texas, $7.99 nearby, $9.99 far (far keeps the $60 minimum).
- * - Only the Mini Combo Pack: $3.99 Texas; nearby $6.99 under $100 and $5.99 from $100; it isn't delivered to far states.
+ * - Only the 8:8 Assorted Bobbatlu Box: $4.99 Texas, $9.99 nearby, $9.99 far (far keeps the $60 minimum).
+ * - Only the Mini Combo Pack: $3.99 Texas; nearby a flat $7.99; it isn't delivered to far states.
  */
 export function groundShippingKind(items: ReadonlyArray<{ productId: string; quantity?: number }>): GroundShippingKind | undefined {
   if (items.length === 0) return undefined;
@@ -347,12 +343,9 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
   let texasStep = false;
   const zone = getShippingZone(opts.deliveryState);
   if (opts.fulfillmentType === 'delivery') {
-    // The regular rates (owner's rate card, 2026-10-12); Texas steps down to $3.99 from $100.
+    // The regular rates (owner's rate card, 2026-10-12; nearby flat since 2026-11-03); Texas steps down to $3.99 from $100.
     const texasRegular = zone === 'texas';
-    const regular = zone === 'texas' ? SHIPPING_TX
-      : zone === 'nearby' ? subtotal >= NEARBY_SHIPPING_TOP_THRESHOLD ? SHIPPING_NEARBY_100
-        : subtotal >= STANDARD_SHIPPING_THRESHOLD ? SHIPPING_NEARBY_ABOVE : SHIPPING_NEARBY_BELOW
-      : SHIPPING_FAR;
+    const regular = zone === 'texas' ? SHIPPING_TX : zone === 'nearby' ? SHIPPING_NEARBY : SHIPPING_FAR;
     const box = { texas: SHIPPING_ASSORTED_BOX_TX, nearby: SHIPPING_ASSORTED_BOX_NEARBY, far: SHIPPING_ASSORTED_BOX_FAR }[zone];
     if (opts.picklesOnly) {
       const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
@@ -367,7 +360,7 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     } else if (opts.groundShipping === 'mini-combo' && zone === 'texas') {
       regularShipping = SHIPPING_MINI_COMBO_TX;
     } else if (opts.groundShipping === 'mini-combo' && zone === 'nearby') {
-      regularShipping = subtotal >= NEARBY_SHIPPING_TOP_THRESHOLD ? SHIPPING_MINI_COMBO_NEARBY_100 : SHIPPING_MINI_COMBO_NEARBY;
+      regularShipping = SHIPPING_MINI_COMBO_NEARBY;
     } else if (opts.groundShipping === 'malai-khaja' && zone === 'far') {
       regularShipping = SHIPPING_MALAI_KHAJA_FAR;
     } else if (opts.malpuriKhajaOnly && zone === 'nearby') {

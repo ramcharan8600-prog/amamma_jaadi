@@ -13,7 +13,7 @@ import { Product, PickupLocation, ProductCategory } from '@/types';
 // Product Catalog — Amamma Jaadi
 // ============================================================
 
-/** The $48 Mini Combo Pack: a box-only cart ships $3.99 in Texas; nearby $6.99, or $5.99 from $100. */
+/** The $48 Mini Combo Pack: a box-only cart ships $3.99 in Texas and a flat $7.99 to nearby states. */
 export const MINI_COMBO_PACK_PRODUCT_ID = 'gift-box-mini-combo';
 export const MINI_PARTY_BOX_PRODUCT_ID = 'gift-box-party';
 

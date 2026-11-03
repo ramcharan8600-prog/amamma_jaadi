@@ -1172,7 +1172,7 @@ describe('nationwide pickle-only delivery', () => {
 
   it.each([
     ['TX', '$3.99', '$51.99', 'Shipping (estimated 1 business day after dispatch)'],
-    ['OK', '$6.99', '$54.99', 'Express shipping (2-day ETA)'],
+    ['OK', '$7.99', '$55.99', 'Express shipping (2-day ETA)'],
   ])('ships the Mini Combo Pack to %s for %s', async (state, shipping, total, label) => {
     useCartStore.getState().addItem(getProductById('gift-box-mini-combo')!, 1, undefined, 'Assorted: 8 Malpuri + 8 Malai Khaja');
     await enterDeliveryDetails(state);

@@ -32,11 +32,8 @@ export const BUSINESS_TZ = 'America/Chicago';
 // Shipping rate card (owner, 2026-10-12). The private copy lives in
 // docs/internal/shipping-rules.md; never publish these numbers in customer copy.
 
-/** The $60 boundary used by nearby-state shipping. */
+/** The $60 boundary used by nearby-state Malpuri / Malai Khaja shipping. */
 export const STANDARD_SHIPPING_THRESHOLD = 60;
-
-/** At or above this subtotal, nearby-state sweets/mixed orders ship for SHIPPING_NEARBY_100. */
-export const NEARBY_SHIPPING_TOP_THRESHOLD = 100;
 
 /** Minimum merchandise subtotal for far-state delivery when sweets are included. */
 export const FAR_SHIPPING_MINIMUM = 60;
@@ -53,10 +50,8 @@ export const SHIPPING_PICKLES_SINGLE = 6.99;
 export const SHIPPING_PICKLES_DOUBLE = 5.99;
 export const SHIPPING_PICKLES_THREE_PLUS = 4.99;
 
-/** Nearby-state sweets/mixed orders: under $60, $60-$99.99, $100+ (owner, 2026-10-30: $7.99, then $6.99 from $60). */
-export const SHIPPING_NEARBY_BELOW = 7.99;
-export const SHIPPING_NEARBY_ABOVE = 6.99;
-export const SHIPPING_NEARBY_100 = 6.99;
+/** Nearby-state sweets/mixed orders: flat at any order value (owner, 2026-11-03; was $7.99 under $60, $6.99 from $60). */
+export const SHIPPING_NEARBY = 9.99;
 
 /** Far-state sweets/mixed orders (with the $60 minimum). */
 export const SHIPPING_FAR = 11.99;
@@ -73,14 +68,13 @@ export const SHIPPING_MALPURI_KHAJA_NEARBY = 9.99;
 export const SHIPPING_ASSORTED_BOX_TX = 3.99;
 export const SHIPPING_ASSORTED_BOX_NEARBY = 6.99;
 export const SHIPPING_ASSORTED_BOX_FAR = 7.99;
-/** 8:8 Assorted Bobbatlu Box-only carts; far states keep the $60 minimum (one box can't ship there). */
+/** 8:8 Assorted Bobbatlu Box-only carts (nearby $9.99, owner 2026-11-03); far states keep the $60 minimum (one box can't ship there). */
 export const SHIPPING_BOBBATLU_BOX_TX = 4.99;
-export const SHIPPING_BOBBATLU_BOX_NEARBY = 7.99;
+export const SHIPPING_BOBBATLU_BOX_NEARBY = 9.99;
 export const SHIPPING_BOBBATLU_BOX_FAR = 9.99;
-/** Mini Combo Pack-only carts: Texas, and nearby states under / from $100 (owner, 2026-10-23); far states aren't served. */
+/** Mini Combo Pack-only carts: Texas, and nearby states flat at any number of packs (owner, 2026-11-03); far states aren't served. */
 export const SHIPPING_MINI_COMBO_TX = 3.99;
-export const SHIPPING_MINI_COMBO_NEARBY = 6.99;
-export const SHIPPING_MINI_COMBO_NEARBY_100 = 5.99;
+export const SHIPPING_MINI_COMBO_NEARBY = 7.99;
 /**
  * Extra on every delivery rate to these states (California, New York, New Jersey,
  * Virginia, Washington), which cost more to reach (owner, 2026-10-23). A 10:10
