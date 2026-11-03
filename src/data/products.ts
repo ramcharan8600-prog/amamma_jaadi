@@ -251,8 +251,6 @@ export const PRODUCTS: Product[] = [
       '12 pcs Nellore Malai Khaja',
     ],
     renamedVariants: { 'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja': 'Mix: 6 Malpuri + 6 Malai Khaja' },
-    // Weekend of Oct 24–25, 2026 only: no Malai Khaja (owner). Remove to bring it back.
-    unavailableVariants: ['Mix: 6 Malpuri + 6 Malai Khaja', '12 pcs Nellore Malai Khaja'],
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {
@@ -272,10 +270,9 @@ export const PRODUCTS: Product[] = [
     isFixedQuantity: true,
     inStock: true,
     deliveryZones: ['texas', 'nearby'],
-    // Shown like the other boxes' contents dropdown. The all-Malpuri choice and the
-    // greyed-out mix are for the weekend of Oct 24–25, 2026 only (no Malai Khaja, owner).
-    variantOptions: ['Assorted: 8 Malpuri + 8 Malai Khaja', '16 pcs Guntur Malpuri'],
-    unavailableVariants: ['Assorted: 8 Malpuri + 8 Malai Khaja'],
+    // One choice for now, shown like the other boxes' contents dropdown. The
+    // all-Malpuri choice from the weekend of Oct 24–25, 2026 is gone (owner, 2026-11-03).
+    variantOptions: ['Assorted: 8 Malpuri + 8 Malai Khaja'],
     tags: ['gifting', 'festival', 'celebrations'],
   },
   {
@@ -298,8 +295,6 @@ export const PRODUCTS: Product[] = [
       'Mix: 10 Malpuri + 10 Malai Khaja',
     ],
     renamedVariants: { 'Mix — 10 pcs Malpuri + 10 pcs Malai Khaja': 'Mix: 10 Malpuri + 10 Malai Khaja' },
-    // Weekend of Oct 24–25, 2026 only: no Malai Khaja (owner). Remove to bring it back.
-    unavailableVariants: ['20 pcs Nellore Malai Khaja', 'Mix: 10 Malpuri + 10 Malai Khaja'],
     tags: ['gifting', 'events', 'party', 'corporate'],
   },
 ];

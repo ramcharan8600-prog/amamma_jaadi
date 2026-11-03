@@ -127,4 +127,23 @@ describe('cart store', () => {
     expect(items[0].product.tierPrices).toEqual(box.tierPrices);
     localStorage.removeItem('amamma-jaadi-cart');
   });
+
+  it('moves saved box contents that are gone to the first choice, and keeps the rest', async () => {
+    const combo = getProductById('gift-box-mini-combo')!;
+    const memories = getProductById('gift-box-sweet-memories')!;
+    localStorage.setItem('amamma-jaadi-cart', JSON.stringify({ version: 0, state: { items: [
+      // The weekend-only all-Malpuri Mini Combo is gone: the cart shows the 8 + 8 mix instead.
+      { productId: combo.id, product: combo, quantity: 1, selectedVariant: '16 pcs Guntur Malpuri', lineTotal: combo.unitPrice },
+      { productId: memories.id, product: memories, quantity: 1, selectedVariant: '12 pcs Nellore Malai Khaja', lineTotal: memories.unitPrice },
+      // An earlier wording of a choice that still exists is left as saved.
+      { productId: memories.id, product: memories, quantity: 1, selectedVariant: 'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja', lineTotal: memories.unitPrice },
+    ] } }));
+    await useCartStore.persist.rehydrate();
+    expect(useCartStore.getState().items.map((i) => [i.productId, i.selectedVariant, i.lineTotal])).toEqual([
+      [combo.id, 'Assorted: 8 Malpuri + 8 Malai Khaja', combo.unitPrice],
+      [memories.id, '12 pcs Nellore Malai Khaja', memories.unitPrice],
+      [memories.id, 'Mix — 6 pcs Malpuri + 6 pcs Malai Khaja', memories.unitPrice],
+    ]);
+    localStorage.removeItem('amamma-jaadi-cart');
+  });
 });

@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem, Product, FulfillmentDetails } from '@/types';
-import { calculateSweetPrice, getProductById, getTotalPieces } from '@/data/products';
+import { calculateSweetPrice, currentVariant, getProductById, getTotalPieces } from '@/data/products';
 import { productLine, trackFunnel } from '@/lib/analytics';
 
 interface CartState {
@@ -155,7 +155,12 @@ export const useCartStore = create<CartState>()(
           // (the 22-piece 11:11 box → the 10:10 box, 16 pcs Malpuri → 15 pcs).
           const sizes = product.category === 'sweets' ? product.quantityOptions : undefined;
           const selectedTier = sizes?.length && !sizes.includes(item.selectedTier ?? -1) ? sizes[0] : item.selectedTier;
-          return [{ ...item, product, selectedTier, lineTotal: computeLineTotal(product, item.quantity, selectedTier) }];
+          // Box contents that are gone move to today's first choice
+          // (the Mini Combo's 16 pcs Guntur Malpuri → the 8 + 8 mix, same price).
+          const choices = product.variantOptions;
+          const selectedVariant = choices?.length && item.selectedVariant != null
+            && !choices.includes(currentVariant(product, item.selectedVariant)) ? choices[0] : item.selectedVariant;
+          return [{ ...item, product, selectedTier, selectedVariant, lineTotal: computeLineTotal(product, item.quantity, selectedTier) }];
         }),
       }),
     }
