@@ -16,7 +16,7 @@ import {
   isExpressDeliveryService,
   isGroundShippingCart,
   groundShippingKind,
-  isMalpuriOnlyCart,
+  isMalpuriKhajaCart,
   deliveryRestriction,
   containsAssortedBox,
   SALES_TAX_RATE,
@@ -100,7 +100,7 @@ const mini = { productId: 'gift-box-mini-combo' };
 function ship(items: Array<{ productId: string; quantity?: number }>, subtotal: number, state: string, picklesOnly = false) {
   return calculateShippingQuote(subtotal, {
     fulfillmentType: 'delivery', deliveryState: state, picklesOnly,
-    groundShipping: groundShippingKind(items), malpuriOnly: isMalpuriOnlyCart(items),
+    groundShipping: groundShippingKind(items), malpuriKhajaOnly: isMalpuriKhajaCart(items),
     assortedBoxInCart: containsAssortedBox(items),
   }).shipping;
 }
@@ -192,15 +192,15 @@ describe('shipping rate card — Mini Combo only', () => {
 });
 
 describe('shipping rate card — Malai Khaja only', () => {
-  it('pays normal Texas rates, a flat $8.99 to nearby states, and a flat $10.99 far with no minimum', () => {
+  it('pays normal Texas rates, $10.99 / $9.99 to nearby states, and a flat $10.99 far with no minimum', () => {
     expect(ship([khaja], 40, 'TX')).toBe(5.99);
     expect(ship([khaja], 125, 'TX')).toBe(3.99);
-    // Nearby (owner, 2026-11-03): $8.99 at any order size.
-    expect(ship([khaja], 40, 'GA')).toBe(8.99);
-    expect(ship([khaja], 59.99, 'IL')).toBe(8.99);
-    expect(ship([khaja], 60, 'OK')).toBe(8.99);
-    expect(ship([khaja], 62.5, 'GA')).toBe(8.99);
-    expect(ship([khaja], 125, 'GA')).toBe(8.99);
+    // Nearby (owner, 2026-11-03): $10.99 under $60, $9.99 from $60 — including $100 and up.
+    expect(ship([khaja], 40, 'GA')).toBe(10.99);
+    expect(ship([khaja], 59.99, 'IL')).toBe(10.99);
+    expect(ship([khaja], 60, 'OK')).toBe(9.99);
+    expect(ship([khaja], 62.5, 'GA')).toBe(9.99);
+    expect(ship([khaja], 125, 'GA')).toBe(9.99);
     expect(getDeliveryMinimumShortfall(40, 'GA', false, groundShippingKind([khaja]))).toBe(0);
     expect(ship([khaja], 40, 'AZ')).toBe(10.99);
     expect(ship([khaja], 125, 'OR')).toBe(10.99);
@@ -209,28 +209,39 @@ describe('shipping rate card — Malai Khaja only', () => {
 });
 
 describe('shipping rate card — Guntur Malpuri only', () => {
-  it('pays a flat $8.99 to nearby states and the regular rates everywhere else', () => {
-    // Nearby (owner, 2026-11-03): $8.99 at any order size.
-    expect(ship([malpuri], 40, 'GA')).toBe(8.99);
-    expect(ship([malpuri], 59.99, 'FL')).toBe(8.99);
-    expect(ship([malpuri], 60, 'OK')).toBe(8.99);
-    expect(ship([malpuri, malpuri], 80, 'TN')).toBe(8.99);
-    expect(ship([malpuri], 125, 'GA')).toBe(8.99);
+  it('pays $10.99 / $9.99 to nearby states and the regular rates everywhere else', () => {
+    // Nearby (owner, 2026-11-03): $10.99 under $60, $9.99 from $60 — including $100 and up.
+    expect(ship([malpuri], 40, 'GA')).toBe(10.99);
+    expect(ship([malpuri], 59.99, 'FL')).toBe(10.99);
+    expect(ship([malpuri], 60, 'OK')).toBe(9.99);
+    expect(ship([malpuri, malpuri], 80, 'TN')).toBe(9.99);
+    expect(ship([malpuri], 125, 'GA')).toBe(9.99);
     expect(ship([malpuri], 40, 'TX')).toBe(5.99);
     expect(ship([malpuri], 125, 'TX')).toBe(3.99);
     expect(ship([malpuri], 65, 'AZ')).toBe(11.99);
     expect(getDeliveryMinimumShortfall(40, 'AZ', false, groundShippingKind([malpuri]))).toBe(20);
-    expect(isMalpuriOnlyCart([malpuri, malpuri])).toBe(true);
-    expect(isMalpuriOnlyCart([malpuri, khaja])).toBe(false);
-    expect(isMalpuriOnlyCart([])).toBe(false);
+    expect(isMalpuriKhajaCart([malpuri, malpuri])).toBe(true);
+    expect(isMalpuriKhajaCart([khaja])).toBe(true);
+    expect(isMalpuriKhajaCart([malpuri, khaja])).toBe(true);
+    expect(isMalpuriKhajaCart([malpuri, kova])).toBe(false);
+    expect(isMalpuriKhajaCart([])).toBe(false);
   });
 });
 
-describe('Malai Khaja mixed with anything else', () => {
-  it('goes back to the regular nearby rates', () => {
-    expect(ship([khaja, malpuri], 40, 'GA')).toBe(7.99);
-    expect(ship([khaja, malpuri], 80, 'GA')).toBe(6.99);
-    expect(ship([khaja, malpuri], 125, 'GA')).toBe(6.99);
+describe('Malpuri and Malai Khaja mixed', () => {
+  it('pays the same nearby rates as either one alone ($10.99 / $9.99)', () => {
+    expect(ship([khaja, malpuri], 40, 'GA')).toBe(10.99);
+    expect(ship([khaja, malpuri], 80, 'GA')).toBe(9.99);
+    expect(ship([khaja, malpuri], 125, 'GA')).toBe(9.99);
+    // Other states: the regular rates (the Malai Khaja-only far rate is for Malai Khaja alone).
+    expect(ship([khaja, malpuri], 80, 'TX')).toBe(5.99);
+    expect(ship([khaja, malpuri], 80, 'AZ')).toBe(11.99);
+  });
+
+  it('goes back to the regular nearby rates with anything else in the cart', () => {
+    expect(ship([khaja, kova], 40, 'GA')).toBe(7.99);
+    expect(ship([khaja, malpuri, kova], 80, 'GA')).toBe(6.99);
+    expect(ship([malpuri, kova], 125, 'GA')).toBe(6.99);
   });
 });
 

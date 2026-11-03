@@ -785,18 +785,20 @@ it.each([
   expect(execute.mock.calls[0][0].body.amount_money.amount).toBe(Math.round(Number(total) * 100));
 });
 
+const pack = (productId: string, tier: number, lineTotal: number) => ({ productId, quantity: 1, selectedTier: tier, lineTotal });
+
 it.each([
-  ['sweet-malpuri', 15, 40, 8.99],
-  ['sweet-malpuri', 25, 65, 8.99],
-  ['sweet-malai-khaja', 15, 40, 8.99],
-  ['sweet-malai-khaja', 50, 125, 8.99],
-])('charges a nearby %s-only order (%s pcs) at $%s + $%s shipping', async (productId, tier, lineTotal, shipping) => {
-  const total = Math.round((Number(lineTotal) + Number(shipping)) * 100) / 100;
+  ['Malpuri 15 pcs', 10.99, [pack('sweet-malpuri', 15, 40)]],
+  ['Malpuri 25 pcs', 9.99, [pack('sweet-malpuri', 25, 65)]],
+  ['Malai Khaja 15 pcs', 10.99, [pack('sweet-malai-khaja', 15, 40)]],
+  ['Malai Khaja 50 pcs', 9.99, [pack('sweet-malai-khaja', 50, 125)]],
+  ['Malpuri 15 + Malai Khaja 15 pcs', 9.99, [pack('sweet-malpuri', 15, 40), pack('sweet-malai-khaja', 15, 40)]],
+] as const)('charges a nearby %s order at $%s shipping', async (name, shipping, items) => {
+  const total = Math.round((items.reduce((sum, item) => sum + item.lineTotal, 0) + Number(shipping)) * 100) / 100;
   fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data=?,fulfillment_data=?,shipping=?,maintenance_fee=0,tax=0,total_amount=?')
-    .run(JSON.stringify([{ productId, quantity: 1, selectedTier: tier, lineTotal }]),
-      JSON.stringify({ type: 'delivery', state: 'GA' }), shipping, total);
+    .run(JSON.stringify(items), JSON.stringify({ type: 'delivery', state: 'GA' }), shipping, total);
   const execute = vi.fn<(request: SquarePaymentRequest) => Promise<{ paymentId: string; status: string }>>(
-    async () => ({ paymentId: `payment-${productId}-${tier}-GA`, status: 'COMPLETED' }));
+    async () => ({ paymentId: `payment-${String(name).replace(/\W+/g, '-')}-GA`, status: 'COMPLETED' }));
   expect(await runPaymentAttempt(fixture.db,
     { sessionId: 'test-session', sourceId: 'test-token' }, { execute, finalize }))
     .toMatchObject({ status: 'completed' });
