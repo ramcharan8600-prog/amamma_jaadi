@@ -14,14 +14,21 @@ export const BRAND_TAGLINE = 'Flavors of Home';
  * The admin portal (/admin) and everything it needs are UNAFFECTED, so orders
  * already paid for can still be prepared, shipped and emailed.
  *
- * Reopening is one deploy: change CLOSED to false.
+ * CLOSED below is the switch, and one deploy either way: true closes the shop,
+ * false opens it.
  *
- * The test suite sets SHOP_CLOSED=off (vitest.config.mts) so the 1400-odd tests
- * keep checking the open shop we go back to; shop-closed.test.ts covers the
- * closed state itself.
+ * The SHOP_CLOSED environment variable overrides it, and only the test run sets
+ * it: 'off' for the suite at large, which checks the open shop, and 'on' in
+ * shop-closed.test.ts, which checks the closed one. It is deliberately NOT a
+ * NEXT_PUBLIC variable, so it never reaches the browser bundle — don't set it on
+ * a deployed Worker, where the pages and the API would then disagree. To open or
+ * close the real shop, change CLOSED.
  */
-const CLOSED = true;
-export const SHOP_CLOSED = CLOSED && process.env.SHOP_CLOSED !== 'off';
+const CLOSED = false;
+export const SHOP_CLOSED =
+  process.env.SHOP_CLOSED === 'on' ? true
+    : process.env.SHOP_CLOSED === 'off' ? false
+      : CLOSED;
 
 export const PHONE_NUMBER = '510-574-5578';
 export const PHONE_E164 = '+1-510-574-5578';
