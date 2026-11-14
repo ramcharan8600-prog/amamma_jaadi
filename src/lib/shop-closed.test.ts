@@ -63,7 +63,7 @@ describe('the closed shop', () => {
   });
 
   it('hides the shop header, footer and WhatsApp button', async () => {
-    const mod = await closed<{ default: (p: { children: ReactNode }) => unknown }>(
+    const mod = await closed<{ default: (p: { children: ReactNode }) => ReactNode }>(
       '@/components/layout/ShopOnly',
     );
     const ShopOnly = mod.default;
