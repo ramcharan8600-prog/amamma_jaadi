@@ -6,6 +6,8 @@ import { renderDescription } from '@/lib/description';
 import SweetCard from '@/components/product/SweetCard';
 import GiftBoxCard from '@/components/product/GiftBoxCard';
 import PickleCard from '@/components/product/PickleCard';
+import ShopClosed from '@/components/layout/ShopClosed';
+import { SHOP_CLOSED } from '@/lib/constants';
 
 export const metadata: Metadata = {
   alternates: { canonical: 'https://amammajaadi.com' },
@@ -22,6 +24,9 @@ const PROMISES = [
 const BEST_SELLER_IDS = ['sweet-assorted-box', MINI_COMBO_PACK_PRODUCT_ID, 'sweet-assorted-bobbatlu-box', 'pickle-chicken'];
 
 export default function HomePage() {
+  // The shop is closed: nothing of this page is rendered or shipped to the
+  // browser. See SHOP_CLOSED in src/lib/constants.ts.
+  if (SHOP_CLOSED) return <ShopClosed />;
   // Assorted boxes live on the Sweets page; the homepage keeps featuring single sweets.
   const featuredSweets = PRODUCTS.filter((p) => p.category === 'sweets' && !isFixedPriceBox(p) && !p.addOnOnly).slice(0, 3);
   const bestSellers = BEST_SELLER_IDS.map((id) => getProductById(id)).filter((p) => p !== undefined);

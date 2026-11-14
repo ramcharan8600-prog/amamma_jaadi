@@ -27,6 +27,7 @@ import { sanitize } from '@/lib/sanitize';
 import { normalizeUsPhone, validateRequiredContact } from '@/lib/contact-validation';
 import { buildTaxSnapshot } from '@/lib/tax-records';
 import { ok, fail } from '@/lib/api';
+import { SHOP_CLOSED } from '@/lib/constants';
 import { couponBenefit, type CouponBenefit, type CouponRow } from '@/lib/coupons';
 
 /**
@@ -45,6 +46,13 @@ import { couponBenefit, type CouponBenefit, type CouponRow } from '@/lib/coupons
 
 export async function POST(request: NextRequest) {
   try {
+    // The shop is closed (see SHOP_CLOSED in src/lib/constants.ts). The pages
+    // cannot start a checkout, and neither can anything else: a saved tab, a
+    // bookmarked link or a direct call all stop here, before any charge.
+    if (SHOP_CLOSED) {
+      return fail('We are not taking orders right now.', 503);
+    }
+
     // Throttle abuse: 10 session creations per minute per IP.
     if (!rateLimit(`create-session:${getClientIp(request)}`, 10, 60_000)) {
       return fail('Too many requests. Please slow down.', 429);

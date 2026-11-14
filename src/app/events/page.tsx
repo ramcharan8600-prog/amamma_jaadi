@@ -5,6 +5,8 @@ import { CalendarHeart, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { PRODUCTS } from '@/data/products';
 import { getMinEventDate } from '@/lib/utils';
 import { EVENT_MIN_PIECES } from '@/lib/constants';
+import ShopClosed from '@/components/layout/ShopClosed';
+import { SHOP_CLOSED } from '@/lib/constants';
 
 const EVENT_TYPES = [
   'Wedding',
@@ -18,7 +20,17 @@ const EVENT_TYPES = [
   'Other',
 ];
 
+/**
+ * While the shop is closed the event enquiry form does not render at all.
+ * A wrapper rather than an early return, so the hooks below are never skipped.
+ * See SHOP_CLOSED in src/lib/constants.ts.
+ */
 export default function EventsPage() {
+  if (SHOP_CLOSED) return <ShopClosed />;
+  return <EventsEnquiry />;
+}
+
+function EventsEnquiry() {
   const sweets = PRODUCTS.filter((p) => p.category === 'sweets' && !p.addOnOnly);
   const minDate = getMinEventDate();
 

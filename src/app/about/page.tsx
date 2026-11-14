@@ -9,6 +9,8 @@ import { FAQS } from '@/data/faq';
 import JsonLd from '@/components/JsonLd';
 import { getFaqSchema, pageShareMetadata } from '@/lib/seo';
 import { renderDescription } from '@/lib/description';
+import ShopClosed from '@/components/layout/ShopClosed';
+import { SHOP_CLOSED } from '@/lib/constants';
 
 // Italic Playfair is used only for the quote below, so only this page loads it.
 const playfairItalic = Playfair_Display({ subsets: ['latin'], style: 'italic', display: 'swap' });
@@ -30,6 +32,9 @@ const pickupCityList = Array.from(new Set(ACTIVE_PICKUP_LOCATIONS.map((l) => l.c
 const pickupCities = `${pickupCityList.slice(0, -1).join(', ')} and ${pickupCityList[pickupCityList.length - 1]}`;
 
 export default function AboutPage() {
+  // The shop is closed: nothing of this page is rendered or shipped to the
+  // browser. See SHOP_CLOSED in src/lib/constants.ts.
+  if (SHOP_CLOSED) return <ShopClosed />;
   return (
     <>
       {/* Every Q&A below is rendered on the page — required for FAQ rich results. */}

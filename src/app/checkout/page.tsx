@@ -33,6 +33,8 @@ import {
 import { invalidateStock } from '@/hooks/useStock';
 import { getNearbyPickup } from '@/lib/nearby-pickup';
 import { formatCurrency } from '@/lib/utils';
+import ShopClosed from '@/components/layout/ShopClosed';
+import { SHOP_CLOSED } from '@/lib/constants';
 import { couponBenefitLabel, type CouponBenefit } from '@/lib/coupons';
 import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, isPickupClosedDate, requiresNextDayPickup } from '@/lib/pickup-date';
 import { daysBetween, type CheckoutFunnelStep } from '@/lib/checkout-funnel';
@@ -85,7 +87,18 @@ const STEP_LABELS: { key: Step | 'done'; label: string }[] = [
   { key: 'done', label: 'Done' },
 ];
 
+/**
+ * While the shop is closed there is no checkout at all: the cart, the forms and
+ * the payment step below never render. See SHOP_CLOSED in src/lib/constants.ts.
+ * The guard is a wrapper rather than an early return so the hooks underneath
+ * are never conditionally skipped.
+ */
 export default function CheckoutPage() {
+  if (SHOP_CLOSED) return <ShopClosed />;
+  return <CheckoutFlow />;
+}
+
+function CheckoutFlow() {
   const [mounted, setMounted] = useState(false);
   const { items, fulfillment, setFulfillment, clearCart, removeItem, addItem } =
     useCartStore();

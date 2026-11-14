@@ -5,6 +5,8 @@ import FreeShippingNotice from '@/components/FreeShippingNotice';
 import JsonLd from '@/components/JsonLd';
 import { getProductListSchema, pageShareMetadata } from '@/lib/seo';
 import { Gift, Star, Calendar, Building2 } from 'lucide-react';
+import ShopClosed from '@/components/layout/ShopClosed';
+import { SHOP_CLOSED } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Events, Party Packs & Gift Boxes — South Indian Sweet Gifting',
@@ -26,6 +28,9 @@ const OCCASIONS = [
 ];
 
 export default function GiftBoxesPage() {
+  // The shop is closed: nothing of this page is rendered or shipped to the
+  // browser. See SHOP_CLOSED in src/lib/constants.ts.
+  if (SHOP_CLOSED) return <ShopClosed />;
   const giftBoxes = getProductsByCategory('gift-boxes');
 
   return (

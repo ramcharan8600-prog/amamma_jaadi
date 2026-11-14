@@ -4,6 +4,8 @@ import SweetCard from '@/components/product/SweetCard';
 import GiftBoxCard from '@/components/product/GiftBoxCard';
 import JsonLd from '@/components/JsonLd';
 import { getProductListSchema, pageShareMetadata } from '@/lib/seo';
+import ShopClosed from '@/components/layout/ShopClosed';
+import { SHOP_CLOSED } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Sweets — Freshly Made South Indian Sweets',
@@ -18,6 +20,9 @@ export const metadata: Metadata = {
 };
 
 export default function SweetsPage() {
+  // The shop is closed: nothing of this page is rendered or shipped to the
+  // browser. See SHOP_CLOSED in src/lib/constants.ts.
+  if (SHOP_CLOSED) return <ShopClosed />;
   const sweets = getProductsByCategory('sweets');
   // The $30 Texas Limited Edition box also shows here. It is the same product as on
   // Sweets Gift Packs (same cart line, stock and pickup-only rule), not a copy.

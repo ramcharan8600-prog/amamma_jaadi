@@ -6,6 +6,23 @@
 export const BRAND_NAME = 'Amamma Jaadi';
 export const BRAND_TAGLINE = 'Flavors of Home';
 
+/**
+ * Closes the online shop: every customer-facing page becomes the ShopClosed
+ * notice and the checkout API refuses to start a payment. Nothing is deleted
+ * and nothing is hidden — it simply says we are not taking orders.
+ *
+ * The admin portal (/admin) and everything it needs are UNAFFECTED, so orders
+ * already paid for can still be prepared, shipped and emailed.
+ *
+ * Reopening is one deploy: change CLOSED to false.
+ *
+ * The test suite sets SHOP_CLOSED=off (vitest.config.mts) so the 1400-odd tests
+ * keep checking the open shop we go back to; shop-closed.test.ts covers the
+ * closed state itself.
+ */
+const CLOSED = true;
+export const SHOP_CLOSED = CLOSED && process.env.SHOP_CLOSED !== 'off';
+
 export const PHONE_NUMBER = '510-574-5578';
 export const PHONE_E164 = '+1-510-574-5578';
 export const INSTAGRAM_HANDLE = 'AMAMMA_JAADI';

@@ -3,6 +3,8 @@ import { getProductsByCategory } from '@/data/products';
 import PickleCard from '@/components/product/PickleCard';
 import JsonLd from '@/components/JsonLd';
 import { getProductListSchema, pageShareMetadata } from '@/lib/seo';
+import ShopClosed from '@/components/layout/ShopClosed';
+import { SHOP_CLOSED } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'Pickles — Authentic Andhra Non-Veg Pickles',
@@ -17,6 +19,9 @@ export const metadata: Metadata = {
 };
 
 export default function PicklesPage() {
+  // The shop is closed: nothing of this page is rendered or shipped to the
+  // browser. See SHOP_CLOSED in src/lib/constants.ts.
+  if (SHOP_CLOSED) return <ShopClosed />;
   const pickles = getProductsByCategory('pickles');
 
   return (
