@@ -31,6 +31,9 @@ import {
   SHIPPING_MINI_COMBO_NEARBY,
   SHIPPING_SURCHARGE_STATE_CODES,
   SHIPPING_STATE_SURCHARGE,
+  FLAT_RATE_STATE_CODES,
+  SHIPPING_FLAT_RATE_STATE,
+  FLAT_RATE_STATE_MINIMUM,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod, Product } from '@/types';
 import {
@@ -146,6 +149,11 @@ export function getShippingZone(state: string | undefined | null): ShippingZone 
   return 'far';
 }
 
+/** Delaware and any other flat-rate state: one rate and one minimum for every cart (see FLAT_RATE_STATE_CODES). */
+export function isFlatRateState(state: unknown): boolean {
+  return FLAT_RATE_STATE_CODES.includes(normalizeStateCode(state));
+}
+
 /**
  * `standardShipping` is true for carts that do not go UPS 2nd Day Air:
  * pickle-only carts and ground-shipped carts (see isGroundShippingCart).
@@ -217,7 +225,8 @@ export function deliveryRestriction(
   if (product.pickupOnly) {
     return `${product.name} is pickup only. Choose pickup, or remove it from your cart to have your order delivered.`;
   }
-  if (product.deliveryZones && !product.deliveryZones.includes(getShippingZone(state))) {
+  // Flat-rate states (Delaware) take every deliverable product, the Mini Combo Pack included.
+  if (product.deliveryZones && !product.deliveryZones.includes(getShippingZone(state)) && !isFlatRateState(state)) {
     const zones = product.deliveryZones.map((zone) => ZONE_NAMES[zone]).join(' and ');
     return `${product.name} is delivered within ${zones} only. Choose pickup, remove it from your cart, or select an address in ${zones}.`;
   }
@@ -289,6 +298,7 @@ export function getDeliveryMinimumSubtotal(
   picklesOnly = false,
   groundShipping: GroundShippingKind | boolean | undefined = false
 ): number {
+  if (isFlatRateState(state)) return FLAT_RATE_STATE_MINIMUM;
   const waived = picklesOnly || (!!groundShipping && groundShipping !== 'bobbatlu-box');
   return !waived && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
@@ -347,7 +357,10 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     const texasRegular = zone === 'texas';
     const regular = zone === 'texas' ? SHIPPING_TX : zone === 'nearby' ? SHIPPING_NEARBY : SHIPPING_FAR;
     const box = { texas: SHIPPING_ASSORTED_BOX_TX, nearby: SHIPPING_ASSORTED_BOX_NEARBY, far: SHIPPING_ASSORTED_BOX_FAR }[zone];
-    if (opts.picklesOnly) {
+    if (isFlatRateState(opts.deliveryState) && !opts.legacyPickleRates) {
+      // Delaware (owner, 2026-11-24): one flat rate for every cart, boxes and pickles included.
+      regularShipping = SHIPPING_FLAT_RATE_STATE;
+    } else if (opts.picklesOnly) {
       const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
       regularShipping = opts.legacyPickleRates ? jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS
         : jars === 2 ? SHIPPING_PICKLES_DOUBLE : SHIPPING_PICKLES_SINGLE

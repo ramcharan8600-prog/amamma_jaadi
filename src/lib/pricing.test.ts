@@ -19,6 +19,7 @@ import {
   isMalpuriKhajaCart,
   deliveryRestriction,
   containsAssortedBox,
+  isFlatRateState,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
   salesTaxLineLabel,
@@ -95,6 +96,9 @@ const malpuri = { productId: 'sweet-malpuri' };
 const khaja = { productId: 'sweet-malai-khaja' };
 const kova = { productId: 'sweet-kova' };
 const mini = { productId: 'gift-box-mini-combo' };
+
+/** Every state except Delaware-style flat-rate states, which have their own block. */
+const NOT_FLAT_RATE_STATES = DELIVERY_STATE_OPTIONS.filter(({ code }) => !isFlatRateState(code));
 
 /** Shipping the checkout and server charge for these cart lines. */
 function ship(items: Array<{ productId: string; quantity?: number }>, subtotal: number, state: string, picklesOnly = false) {
@@ -273,6 +277,42 @@ describe('shipping rate card — $1 extra for California, New York, New Jersey, 
   });
 });
 
+describe('shipping rate card — Delaware flat rate (owner, 2026-11-24)', () => {
+  it('charges $12.99 on every cart, the $60 10:10 box and $48 Mini Combo included', () => {
+    expect(ship([box()], 60, 'DE')).toBe(12.99);
+    expect(ship([mini], 48, 'DE')).toBe(12.99);
+    expect(ship([{ ...mini, quantity: 2 }], 96, 'DE')).toBe(12.99);
+    expect(ship([bobBox()], 49.99, 'DE')).toBe(12.99);
+    expect(ship([malpuri, kova], 80, 'DE')).toBe(12.99);
+    expect(ship([khaja], 48, 'DE')).toBe(12.99);
+    expect(ship([box(), pack], 84, ' de ')).toBe(12.99);
+    expect(ship([], 48, 'DE', true)).toBe(12.99);
+  });
+
+  it('needs a $48 product subtotal for every cart', () => {
+    expect(getDeliveryMinimumSubtotal('DE')).toBe(48);
+    expect(getDeliveryMinimumSubtotal('DE', true)).toBe(48);
+    expect(getDeliveryMinimumSubtotal('DE', false, 'assorted-box')).toBe(48);
+    expect(getDeliveryMinimumSubtotal('DE', false, 'mini-combo')).toBe(48);
+    expect(getDeliveryMinimumShortfall(40, 'DE')).toBe(8);
+    expect(getDeliveryMinimumShortfall(48, 'DE')).toBe(0);
+  });
+
+  it('delivers the Mini Combo Pack to Delaware', () => {
+    expect(deliveryRestriction(getProductById('gift-box-mini-combo')!, 'DE', 48)).toBeNull();
+    expect(deliveryRestriction(getProductById('gift-box-sweet-memories')!, 'DE', 500)).toContain('is pickup only');
+  });
+
+  it('leaves other states, pickup and free delivery alone', () => {
+    expect(getShippingZone('DE')).toBe('far');
+    expect(ship([box()], 60, 'MD')).toBe(7.99);
+    expect(ship([malpuri], 60, 'PA')).toBe(11.99);
+    expect(getDeliveryMinimumSubtotal('MD')).toBe(60);
+    expect(calculateShippingQuote(60, { fulfillmentType: 'pickup', deliveryState: 'DE' }).shipping).toBe(0);
+    expect(calculateShippingQuote(60, { fulfillmentType: 'delivery', deliveryState: 'DE', freeDelivery: true }).shipping).toBe(0);
+  });
+});
+
 describe('shipping rate card — pickles only', () => {
   it('pays $5.99 in Texas ($3.99 from $100) and $6.99 everywhere else, with no minimum', () => {
     expect(ship([], 18, 'TX', true)).toBe(5.99);
@@ -282,12 +322,12 @@ describe('shipping rate card — pickles only', () => {
     expect(ship([], 18, 'AZ', true)).toBe(6.99);
   });
 
-  it.each(DELIVERY_STATE_OPTIONS)('$code: pickles only pay the flat rate with no minimum', ({ code }) => {
+  it.each(NOT_FLAT_RATE_STATES)('$code: pickles only pay the flat rate with no minimum', ({ code }) => {
     expect(ship([], 19, code, true)).toBe(code === 'TX' ? 5.99 : roundMoney(6.99 + extra(code)));
     expect(getDeliveryMinimumShortfall(19, code, true)).toBe(0);
   });
 
-  it.each(DELIVERY_STATE_OPTIONS)('$code: one 10:10 box ships at its zone rate with no minimum', ({ code }) => {
+  it.each(NOT_FLAT_RATE_STATES)('$code: one 10:10 box ships at its zone rate with no minimum', ({ code }) => {
     const zone = getShippingZone(code);
     expect(ship([box()], 60, code)).toBe(zone === 'texas' ? 3.99 : zone === 'nearby' ? 6.99 : 7.99);
     expect(getDeliveryMinimumShortfall(60, code, false, groundShippingKind([box()]))).toBe(0);

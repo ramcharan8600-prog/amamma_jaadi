@@ -106,6 +106,15 @@ export const SHIPPING_MINI_COMBO_NEARBY = 7.99;
  */
 export const SHIPPING_SURCHARGE_STATE_CODES: readonly string[] = ['CA', 'NY', 'NJ', 'VA', 'WA'];
 export const SHIPPING_STATE_SURCHARGE = 1;
+/**
+ * Flat-rate states (owner, 2026-11-24; Delaware first): every delivery order pays
+ * one flat rate and needs a minimum product subtotal, whatever is in the cart
+ * (the 10:10 box and Mini Combo Pack included). They stay in the "far" zone for
+ * service labels and delivery pauses.
+ */
+export const FLAT_RATE_STATE_CODES: readonly string[] = ['DE'];
+export const SHIPPING_FLAT_RATE_STATE = 12.99;
+export const FLAT_RATE_STATE_MINIMUM = 48;
 
 /**
  * Notice on the checkout delivery details step (Step 3; it sat under the Delivery choice until 2026-10-18). Since 2026-10-17 delivery runs as a
