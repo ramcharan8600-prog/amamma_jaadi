@@ -68,7 +68,7 @@ export const SHIPPING_TX = 5.99;
 export const TEXAS_DISCOUNTED_SHIPPING_MINIMUM = 100;
 export const SHIPPING_TX_DISCOUNTED = 3.99;
 
-/** Pickle-only orders outside Texas (Texas pickle-only orders pay the Texas rates). */
+/** Pickle-only orders outside Texas: flat in every state, no minimum, no state extra (owner, 2026-11-24). Texas pickle-only orders pay the Texas rates. */
 export const SHIPPING_PICKLES_SINGLE = 6.99;
 /** Only for quotes saved before the flat pickle rate. */
 export const SHIPPING_PICKLES_DOUBLE = 5.99;
@@ -102,13 +102,13 @@ export const SHIPPING_MINI_COMBO_NEARBY = 7.99;
 /**
  * Extra on every delivery rate to these states (California, New York, New Jersey,
  * Virginia, Washington), which cost more to reach (owner, 2026-10-23). A 10:10
- * box-only cart keeps its flat rate.
+ * box-only cart keeps its flat rate, and pickles only stay $6.99 (owner, 2026-11-24).
  */
 export const SHIPPING_SURCHARGE_STATE_CODES: readonly string[] = ['CA', 'NY', 'NJ', 'VA', 'WA'];
 export const SHIPPING_STATE_SURCHARGE = 1;
 /**
  * Special-rate states (owner, 2026-11-24; Delaware first). Every delivery order
- * needs a $60 product subtotal. Carts of only the combo boxes (the $60 10:10
+ * except pickles only (SHIPPING_PICKLES_SINGLE, no minimum) needs a $60 product subtotal. Carts of only the combo boxes (the $60 10:10
  * Assorted Box, with or without the Taste Pack, and/or the $48 Mini Combo Pack)
  * pay $12.99; every other cart pays $14.99, shown as "UPS 2Day Air (Required)".
  * They stay in the "far" zone for delivery pauses.

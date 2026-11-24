@@ -253,8 +253,6 @@ describe('Malpuri and Malai Khaja mixed', () => {
   });
 });
 
-/** California, New York, New Jersey, Virginia and Washington pay $1 more on every delivery rate (owner, 2026-10-23). */
-const extra = (code: string) => (['CA', 'NY', 'NJ', 'VA', 'WA'].includes(code) ? 1 : 0);
 
 describe('shipping rate card — $1 extra for California, New York, New Jersey, Virginia and Washington', () => {
   it.each(['CA', 'NY', 'NJ', 'VA', 'WA'])('%s pays a dollar more on every rate', (state) => {
@@ -262,7 +260,7 @@ describe('shipping rate card — $1 extra for California, New York, New Jersey, 
     expect(ship([box()], 60, state)).toBe(7.99); // a 10:10 box-only cart keeps its flat rate
     expect(ship([bobBox()], 60, state)).toBe(10.99);
     expect(ship([khaja], 40, state)).toBe(11.99);
-    expect(ship([], 18, state, true)).toBe(7.99);
+    expect(ship([], 18, state, true)).toBe(6.99); // pickles only: $6.99 flat everywhere outside Texas
     expect(ship([box(), malpuri], 100, state)).toBe(12.99);
   });
 
@@ -286,18 +284,23 @@ describe('shipping rate card — Delaware (owner, 2026-11-24)', () => {
     expect(ship([box(), mini], 108, 'DE')).toBe(12.99);
   });
 
-  it('charges $14.99 on every other cart, mixed boxes and pickles included', () => {
+  it('charges $14.99 on every other cart, mixed boxes included', () => {
     expect(ship([malpuri, malpuri], 80, 'DE')).toBe(14.99);
     expect(ship([malpuri, kova], 80, 'DE')).toBe(14.99);
     expect(ship([khaja], 60, 'DE')).toBe(14.99);
     expect(ship([bobBox(2)], 99.98, 'DE')).toBe(14.99);
     expect(ship([box(), malpuri], 100, 'DE')).toBe(14.99);
-    expect(ship([], 72, 'DE', true)).toBe(14.99);
   });
 
-  it('needs a $60 product subtotal for every cart', () => {
+  it('charges pickles only $6.99 flat with no minimum, like every state outside Texas', () => {
+    expect(ship([], 18, 'DE', true)).toBe(6.99);
+    expect(ship([], 90, 'DE', true)).toBe(6.99);
+    expect(getDeliveryMinimumSubtotal('DE', true)).toBe(0);
+    expect(getDeliveryMinimumShortfall(18, 'DE', true)).toBe(0);
+  });
+
+  it('needs a $60 product subtotal for every other cart', () => {
     expect(getDeliveryMinimumSubtotal('DE')).toBe(60);
-    expect(getDeliveryMinimumSubtotal('DE', true)).toBe(60);
     expect(getDeliveryMinimumSubtotal('DE', false, 'assorted-box')).toBe(60);
     expect(getDeliveryMinimumShortfall(48, 'DE', false, 'mini-combo')).toBe(12);
     expect(getDeliveryMinimumShortfall(60, 'DE', false, 'assorted-box')).toBe(0);
@@ -337,8 +340,8 @@ describe('shipping rate card — pickles only', () => {
     expect(ship([], 18, 'AZ', true)).toBe(6.99);
   });
 
-  it.each(NOT_FLAT_RATE_STATES)('$code: pickles only pay the flat rate with no minimum', ({ code }) => {
-    expect(ship([], 19, code, true)).toBe(code === 'TX' ? 5.99 : roundMoney(6.99 + extra(code)));
+  it.each(DELIVERY_STATE_OPTIONS)('$code: pickles only pay the flat rate with no minimum', ({ code }) => {
+    expect(ship([], 19, code, true)).toBe(code === 'TX' ? 5.99 : 6.99);
     expect(getDeliveryMinimumShortfall(19, code, true)).toBe(0);
   });
 

@@ -313,7 +313,7 @@ export function getDeliveryMinimumSubtotal(
   picklesOnly = false,
   groundShipping: GroundShippingKind | boolean | undefined = false
 ): number {
-  if (isSpecialRateState(state)) return SPECIAL_STATE_MINIMUM;
+  if (isSpecialRateState(state) && !picklesOnly) return SPECIAL_STATE_MINIMUM;
   const waived = picklesOnly || (!!groundShipping && groundShipping !== 'bobbatlu-box');
   return !waived && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
@@ -374,8 +374,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     const texasRegular = zone === 'texas';
     const regular = zone === 'texas' ? SHIPPING_TX : zone === 'nearby' ? SHIPPING_NEARBY : SHIPPING_FAR;
     const box = { texas: SHIPPING_ASSORTED_BOX_TX, nearby: SHIPPING_ASSORTED_BOX_NEARBY, far: SHIPPING_ASSORTED_BOX_FAR }[zone];
-    if (isSpecialRateState(opts.deliveryState) && !opts.legacyPickleRates) {
-      // Delaware (owner, 2026-11-24): combo boxes only $12.99, every other cart (pickles too) $14.99.
+    if (isSpecialRateState(opts.deliveryState) && !opts.legacyPickleRates && !opts.picklesOnly) {
+      // Delaware (owner, 2026-11-24): combo boxes only $12.99, every other cart $14.99 (pickles only: below).
       regularShipping = opts.comboBoxesOnly ? SHIPPING_SPECIAL_STATE_COMBO_BOX : SHIPPING_SPECIAL_STATE;
     } else if (opts.picklesOnly) {
       const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
@@ -404,7 +404,8 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     }
     // California, New York, New Jersey, Virginia and Washington pay $1 more on every rate
     // above, except a 10:10 box-only cart (owner, 2026-10-23).
-    if (!opts.legacyPickleRates && opts.groundShipping !== 'assorted-box' && SHIPPING_SURCHARGE_STATE_CODES.includes(normalizeStateCode(opts.deliveryState))) {
+    // Pickles-only carts are $6.99 flat in every state outside Texas (owner, 2026-11-24), so no extra.
+    if (!opts.legacyPickleRates && !opts.picklesOnly && opts.groundShipping !== 'assorted-box' && SHIPPING_SURCHARGE_STATE_CODES.includes(normalizeStateCode(opts.deliveryState))) {
       regularShipping = roundMoney(regularShipping + SHIPPING_STATE_SURCHARGE);
     }
   }
