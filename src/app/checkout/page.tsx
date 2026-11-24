@@ -58,6 +58,7 @@ import {
   containsAssortedBox,
   isComboBoxCart,
   getShippingZone,
+  isSpecialRateState,
   type ShippingZone,
 } from '@/lib/pricing';
 import PaymentRecoveryPanel from '@/components/checkout/PaymentRecoveryPanel';
@@ -559,7 +560,8 @@ function CheckoutFlow() {
   const catalogProducts = items.map((item) => getProductById(item.productId) ?? item.product);
   const pickupOnlyProduct = catalogProducts.find((product) => product.pickupOnly);
   // Pickup-only items block delivery outright; other limits wait for a valid state and minimum.
-  const deliveryStatePaused = isSupportedDeliveryState(deliveryState) && pausedZones.includes(getShippingZone(deliveryState));
+  const deliveryStatePaused = isSupportedDeliveryState(deliveryState) && !isSpecialRateState(deliveryState) &&
+    pausedZones.includes(getShippingZone(deliveryState));
   const deliveryRestrictionMessage = (deliveryStatePaused ? DELIVERY_ZONE_PAUSED_ERROR : null) ?? catalogProducts
     .map((product) => product.pickupOnly || (isSupportedDeliveryState(deliveryState) && deliveryMinimumShortfall === 0)
       ? deliveryRestriction(product, deliveryState, subtotal)

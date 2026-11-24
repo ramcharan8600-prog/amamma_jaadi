@@ -23,6 +23,15 @@ describe('delivery pauses', () => {
     expect(await isDeliveryPausedFor(d, 'NY')).toBe(false);
   });
 
+  it('keeps Delaware open while far-away states are paused', async () => {
+    const d = db();
+    await setPausedZones(d, ['far']);
+    expect(await isDeliveryPausedFor(d, 'DE')).toBe(false);
+    expect(await isDeliveryPausedFor(d, ' de ')).toBe(false);
+    expect(await isDeliveryPausedFor(d, 'CA')).toBe(true);
+    expect(await isDeliveryPausedFor(d, 'MD')).toBe(true);
+  });
+
   it('accepts only the three areas', () => {
     expect(['texas', 'nearby', 'far'].every(isDeliveryZone)).toBe(true);
     expect(isDeliveryZone('alaska')).toBe(false);

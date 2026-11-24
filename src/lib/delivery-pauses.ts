@@ -1,5 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types';
-import { getShippingZone, normalizeStateCode, type ShippingZone } from '@/lib/pricing';
+import { getShippingZone, isSpecialRateState, normalizeStateCode, type ShippingZone } from '@/lib/pricing';
 
 /** Delivery areas in the order the admin panel lists them. */
 export const DELIVERY_ZONES: ReadonlyArray<ShippingZone> = ['texas', 'nearby', 'far'];
@@ -38,6 +38,8 @@ export async function setPausedZones(db: D1Database, zones: ShippingZone[]): Pro
 export async function isDeliveryPausedFor(db: D1Database, state: unknown): Promise<boolean> {
   const code = normalizeStateCode(state);
   if (!code) return false;
+  // Delaware has its own rates and stays open while the far-away area is paused (owner, 2026-11-24).
+  if (isSpecialRateState(code)) return false;
   try {
     return Boolean(await db.prepare('SELECT 1 AS hit FROM delivery_pauses WHERE zone = ?').bind(getShippingZone(code)).first());
   } catch (error) {

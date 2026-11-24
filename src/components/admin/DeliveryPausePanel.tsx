@@ -9,7 +9,7 @@ import type { DeliveryWeeksStatus } from '@/lib/delivery-limit';
 const ZONE_LABELS: Record<ShippingZone, { title: string; detail: string }> = {
   texas: { title: 'Texas', detail: 'Deliveries within Texas' },
   nearby: { title: 'Nearby states', detail: NEARBY_STATE_CODES.join(', ') },
-  far: { title: 'Far-away states', detail: 'All other states and DC' },
+  far: { title: 'Far-away states', detail: 'All other states and DC (Delaware stays open)' },
 };
 
 /**
