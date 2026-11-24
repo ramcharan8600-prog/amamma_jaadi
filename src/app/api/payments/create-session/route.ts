@@ -20,6 +20,7 @@ import {
   isSupportedDeliveryState,
   normalizeStateCode,
   containsAssortedBox,
+  isComboBoxCart,
 } from '@/lib/pricing';
 import { getStockMap } from '@/lib/inventory';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
@@ -229,6 +230,7 @@ export async function POST(request: NextRequest) {
       groundShipping,
       malpuriKhajaOnly: isMalpuriKhajaCart(cart.items),
       assortedBoxInCart: containsAssortedBox(cart.items),
+      comboBoxesOnly: isComboBoxCart(cart.items),
       pickleJarCount: cart.items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       deliveryState,
       shippingMethod,

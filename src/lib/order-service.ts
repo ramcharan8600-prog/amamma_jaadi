@@ -6,7 +6,7 @@ import { isShipWeek } from '@/lib/delivery-limit';
 import { prepareEmailOutboxInsert, publishPersistedEmail, type EmailQueueMessage } from '@/lib/email-outbox';
 import { currentVariant, getPickupLocationById, getProductById, isStockTracked, pickupWindowLabel, stockUnits } from '@/data/products';
 import { prepareOrderTaxRecord } from '@/lib/tax-records';
-import { deliveryService, deliveryServiceLabel, groundShippingKind, isGroundShippingCart } from '@/lib/pricing';
+import { deliveryService, deliveryServiceLabel, groundShippingKind, isComboBoxCart, isGroundShippingCart } from '@/lib/pricing';
 import type { DeliveryShippingMethod } from '@/types';
 import { couponBenefit, type CouponBenefit, type CouponRow } from '@/lib/coupons';
 
@@ -236,7 +236,7 @@ export async function createOrderFromSession(
     // The same service wording checkout showed for this state and cart.
     shippingLabel: fulfillment.type === 'delivery'
       ? deliveryServiceLabel(
-        deliveryService(fulfillment.state, picklesOnlyCart, groundShippingKind(lines)),
+        deliveryService(fulfillment.state, picklesOnlyCart, groundShippingKind(lines), isComboBoxCart(lines)),
         fulfillment.shippingMethod
       )
       : undefined,

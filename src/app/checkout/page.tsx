@@ -56,6 +56,7 @@ import {
   deliveryServiceLabel,
   EXPRESS_SWEETS_NOTE,
   containsAssortedBox,
+  isComboBoxCart,
   getShippingZone,
   type ShippingZone,
 } from '@/lib/pricing';
@@ -484,6 +485,7 @@ function CheckoutFlow() {
       groundShipping,
       malpuriKhajaOnly: isMalpuriKhajaCart(items),
       assortedBoxInCart: containsAssortedBox(items),
+      comboBoxesOnly: isComboBoxCart(items),
       pickleJarCount: items.reduce((sum, item) => sum + (item.product.category === 'pickles' ? item.quantity : 0), 0),
       fulfillmentType: fulfillmentType ?? undefined,
       deliveryState: fulfillmentType === 'delivery' ? deliveryState : undefined,
@@ -507,7 +509,7 @@ function CheckoutFlow() {
     // Only a step change should fire; cart edits within a step should not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, mounted]);
-  const service = deliveryService(deliveryState, picklesOnly, groundShipping);
+  const service = deliveryService(deliveryState, picklesOnly, groundShipping, isComboBoxCart(items));
   const serviceLabel = deliveryServiceLabel(service);
   const expressSweetsNote = <p className="font-body text-xs text-brand-maroon">{EXPRESS_SWEETS_NOTE}</p>;
   // The owner's ghee / no-preservatives note shows on every delivery order with sweets
@@ -515,7 +517,7 @@ function CheckoutFlow() {
   const showExpressNote = !!deliveryState.trim() && !picklesOnly;
   // Step 4 describes the delivery saved with the payment session.
   const paymentService = fulfillment?.type === 'delivery'
-    ? deliveryService(fulfillment.state, picklesOnly, groundShipping)
+    ? deliveryService(fulfillment.state, picklesOnly, groundShipping, isComboBoxCart(items))
     : null;
   const nearbyPickup = getNearbyPickup(deliveryState, deliveryZip);
   const pickupLocations = nearbyPickup

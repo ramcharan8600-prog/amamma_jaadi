@@ -31,9 +31,10 @@ import {
   SHIPPING_MINI_COMBO_NEARBY,
   SHIPPING_SURCHARGE_STATE_CODES,
   SHIPPING_STATE_SURCHARGE,
-  FLAT_RATE_STATE_CODES,
-  SHIPPING_FLAT_RATE_STATE,
-  FLAT_RATE_STATE_MINIMUM,
+  SPECIAL_RATE_STATE_CODES,
+  SHIPPING_SPECIAL_STATE_COMBO_BOX,
+  SHIPPING_SPECIAL_STATE,
+  SPECIAL_STATE_MINIMUM,
 } from '@/lib/constants';
 import type { DeliveryShippingMethod, Product } from '@/types';
 import {
@@ -149,9 +150,9 @@ export function getShippingZone(state: string | undefined | null): ShippingZone 
   return 'far';
 }
 
-/** Delaware and any other flat-rate state: one rate and one minimum for every cart (see FLAT_RATE_STATE_CODES). */
-export function isFlatRateState(state: unknown): boolean {
-  return FLAT_RATE_STATE_CODES.includes(normalizeStateCode(state));
+/** Delaware and any other special-rate state: its own rates and minimum (see SPECIAL_RATE_STATE_CODES). */
+export function isSpecialRateState(state: unknown): boolean {
+  return SPECIAL_RATE_STATE_CODES.includes(normalizeStateCode(state));
 }
 
 /**
@@ -165,7 +166,7 @@ export function shippingMethodLabel(method: DeliveryShippingMethod | null | unde
   return standardShipping ? 'Express shipping' : 'UPS 2nd Day Air';
 }
 
-export type DeliveryService = 'texas' | 'standard' | 'express' | 'second-day-air';
+export type DeliveryService = 'texas' | 'standard' | 'express' | 'second-day-air' | 'second-day-air-required';
 
 /**
  * The delivery service customers are told about, in checkout and emails:
@@ -179,11 +180,14 @@ export type DeliveryService = 'texas' | 'standard' | 'express' | 'second-day-air
 export function deliveryService(
   state: string | undefined | null,
   picklesOnly: boolean,
-  groundShipping: GroundShippingKind | boolean | undefined
+  groundShipping: GroundShippingKind | boolean | undefined,
+  comboBoxesOnly = false
 ): DeliveryService {
   const zone = getShippingZone(state);
   if (zone === 'texas') return 'texas';
   if (picklesOnly) return 'standard';
+  // Delaware (owner, 2026-11-24): combo boxes ship Express; everything else UPS 2Day Air (Required).
+  if (isSpecialRateState(state)) return comboBoxesOnly ? 'standard' : 'second-day-air-required';
   if (zone === 'nearby') return 'express';
   return groundShipping ? 'standard' : 'second-day-air';
 }
@@ -193,6 +197,7 @@ const DELIVERY_SERVICE_LABELS: Record<DeliveryService, string> = {
   standard: 'Express shipping',
   express: 'Express shipping (2-day ETA)',
   'second-day-air': 'UPS 2nd Day Air',
+  'second-day-air-required': 'UPS 2Day Air (Required)',
 };
 
 /** The shipping line's label. Orders recorded with a legacy method keep its wording. */
@@ -208,7 +213,7 @@ export const EXPRESS_SWEETS_NOTE =
   'Our sweets have ZERO preservatives and are made with ghee, so express shipping is mandatory to enjoy them fresh and delicious. Thanks for understanding.';
 
 export function isExpressDeliveryService(service: DeliveryService): boolean {
-  return service === 'express' || service === 'second-day-air';
+  return service === 'express' || service === 'second-day-air' || service === 'second-day-air-required';
 }
 
 const ZONE_NAMES: Record<ShippingZone, string> = { texas: 'Texas', nearby: 'nearby states', far: 'other states' };
@@ -225,8 +230,8 @@ export function deliveryRestriction(
   if (product.pickupOnly) {
     return `${product.name} is pickup only. Choose pickup, or remove it from your cart to have your order delivered.`;
   }
-  // Flat-rate states (Delaware) take every deliverable product, the Mini Combo Pack included.
-  if (product.deliveryZones && !product.deliveryZones.includes(getShippingZone(state)) && !isFlatRateState(state)) {
+  // Special-rate states (Delaware) take every deliverable product, the Mini Combo Pack included.
+  if (product.deliveryZones && !product.deliveryZones.includes(getShippingZone(state)) && !isSpecialRateState(state)) {
     const zones = product.deliveryZones.map((zone) => ZONE_NAMES[zone]).join(' and ');
     return `${product.name} is delivered within ${zones} only. Choose pickup, remove it from your cart, or select an address in ${zones}.`;
   }
@@ -285,6 +290,16 @@ export function containsAssortedBox(items: ReadonlyArray<{ productId: string }>)
   return items.some(({ productId }) => productId === ASSORTED_BOX_PRODUCT_ID);
 }
 
+/**
+ * Only the combo boxes: the 10:10 Assorted Box (with or without the Taste Pack add-on)
+ * and/or the Mini Combo Pack. Delaware charges these the combo-box rate.
+ */
+export function isComboBoxCart(items: ReadonlyArray<{ productId: string }>): boolean {
+  const boxes = [ASSORTED_BOX_PRODUCT_ID, MINI_COMBO_PACK_PRODUCT_ID];
+  return items.some(({ productId }) => boxes.includes(productId)) &&
+    items.every(({ productId }) => boxes.includes(productId) || productId === BOBBATLU_TASTE_PACK_PRODUCT_ID);
+}
+
 export function isGroundShippingCart(items: ReadonlyArray<{ productId: string; quantity?: number }>): boolean {
   return groundShippingKind(items) !== undefined;
 }
@@ -298,7 +313,7 @@ export function getDeliveryMinimumSubtotal(
   picklesOnly = false,
   groundShipping: GroundShippingKind | boolean | undefined = false
 ): number {
-  if (isFlatRateState(state)) return FLAT_RATE_STATE_MINIMUM;
+  if (isSpecialRateState(state)) return SPECIAL_STATE_MINIMUM;
   const waived = picklesOnly || (!!groundShipping && groundShipping !== 'bobbatlu-box');
   return !waived && getShippingZone(state) === 'far' ? FAR_SHIPPING_MINIMUM : 0;
 }
@@ -328,6 +343,8 @@ export interface ShippingOptions {
   malpuriKhajaOnly?: boolean;
   /** The cart holds a 10:10 box mixed with other items (see containsAssortedBox). */
   assortedBoxInCart?: boolean;
+  /** The cart is only combo boxes (see isComboBoxCart); used by Delaware's rates. */
+  comboBoxesOnly?: boolean;
   pickleJarCount?: number;
   deliveryState?: string;
   shippingMethod?: DeliveryShippingMethod;
@@ -357,9 +374,9 @@ export function calculateShippingQuote(subtotal: number, opts: ShippingOptions =
     const texasRegular = zone === 'texas';
     const regular = zone === 'texas' ? SHIPPING_TX : zone === 'nearby' ? SHIPPING_NEARBY : SHIPPING_FAR;
     const box = { texas: SHIPPING_ASSORTED_BOX_TX, nearby: SHIPPING_ASSORTED_BOX_NEARBY, far: SHIPPING_ASSORTED_BOX_FAR }[zone];
-    if (isFlatRateState(opts.deliveryState) && !opts.legacyPickleRates) {
-      // Delaware (owner, 2026-11-24): one flat rate for every cart, boxes and pickles included.
-      regularShipping = SHIPPING_FLAT_RATE_STATE;
+    if (isSpecialRateState(opts.deliveryState) && !opts.legacyPickleRates) {
+      // Delaware (owner, 2026-11-24): combo boxes only $12.99, every other cart (pickles too) $14.99.
+      regularShipping = opts.comboBoxesOnly ? SHIPPING_SPECIAL_STATE_COMBO_BOX : SHIPPING_SPECIAL_STATE;
     } else if (opts.picklesOnly) {
       const jars = Number.isSafeInteger(opts.pickleJarCount) ? (opts.pickleJarCount ?? 1) : 1;
       regularShipping = opts.legacyPickleRates ? jars >= 3 ? SHIPPING_PICKLES_THREE_PLUS

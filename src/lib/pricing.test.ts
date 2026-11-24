@@ -19,7 +19,8 @@ import {
   isMalpuriKhajaCart,
   deliveryRestriction,
   containsAssortedBox,
-  isFlatRateState,
+  isSpecialRateState,
+  isComboBoxCart,
   SALES_TAX_RATE,
   SALES_TAX_LABEL,
   salesTaxLineLabel,
@@ -97,15 +98,15 @@ const khaja = { productId: 'sweet-malai-khaja' };
 const kova = { productId: 'sweet-kova' };
 const mini = { productId: 'gift-box-mini-combo' };
 
-/** Every state except Delaware-style flat-rate states, which have their own block. */
-const NOT_FLAT_RATE_STATES = DELIVERY_STATE_OPTIONS.filter(({ code }) => !isFlatRateState(code));
+/** Every state except Delaware-style special-rate states, which have their own block. */
+const NOT_FLAT_RATE_STATES = DELIVERY_STATE_OPTIONS.filter(({ code }) => !isSpecialRateState(code));
 
 /** Shipping the checkout and server charge for these cart lines. */
 function ship(items: Array<{ productId: string; quantity?: number }>, subtotal: number, state: string, picklesOnly = false) {
   return calculateShippingQuote(subtotal, {
     fulfillmentType: 'delivery', deliveryState: state, picklesOnly,
     groundShipping: groundShippingKind(items), malpuriKhajaOnly: isMalpuriKhajaCart(items),
-    assortedBoxInCart: containsAssortedBox(items),
+    assortedBoxInCart: containsAssortedBox(items), comboBoxesOnly: isComboBoxCart(items),
   }).shipping;
 }
 
@@ -277,29 +278,41 @@ describe('shipping rate card — $1 extra for California, New York, New Jersey, 
   });
 });
 
-describe('shipping rate card — Delaware flat rate (owner, 2026-11-24)', () => {
-  it('charges $12.99 on every cart, the $60 10:10 box and $48 Mini Combo included', () => {
+describe('shipping rate card — Delaware (owner, 2026-11-24)', () => {
+  it('charges $12.99 on combo-box carts: the 10:10 box and/or the Mini Combo Pack', () => {
     expect(ship([box()], 60, 'DE')).toBe(12.99);
-    expect(ship([mini], 48, 'DE')).toBe(12.99);
-    expect(ship([{ ...mini, quantity: 2 }], 96, 'DE')).toBe(12.99);
-    expect(ship([bobBox()], 49.99, 'DE')).toBe(12.99);
-    expect(ship([malpuri, kova], 80, 'DE')).toBe(12.99);
-    expect(ship([khaja], 48, 'DE')).toBe(12.99);
     expect(ship([box(), pack], 84, ' de ')).toBe(12.99);
-    expect(ship([], 48, 'DE', true)).toBe(12.99);
+    expect(ship([{ ...mini, quantity: 2 }], 96, 'DE')).toBe(12.99);
+    expect(ship([box(), mini], 108, 'DE')).toBe(12.99);
   });
 
-  it('needs a $48 product subtotal for every cart', () => {
-    expect(getDeliveryMinimumSubtotal('DE')).toBe(48);
-    expect(getDeliveryMinimumSubtotal('DE', true)).toBe(48);
-    expect(getDeliveryMinimumSubtotal('DE', false, 'assorted-box')).toBe(48);
-    expect(getDeliveryMinimumSubtotal('DE', false, 'mini-combo')).toBe(48);
-    expect(getDeliveryMinimumShortfall(40, 'DE')).toBe(8);
-    expect(getDeliveryMinimumShortfall(48, 'DE')).toBe(0);
+  it('charges $14.99 on every other cart, mixed boxes and pickles included', () => {
+    expect(ship([malpuri, malpuri], 80, 'DE')).toBe(14.99);
+    expect(ship([malpuri, kova], 80, 'DE')).toBe(14.99);
+    expect(ship([khaja], 60, 'DE')).toBe(14.99);
+    expect(ship([bobBox(2)], 99.98, 'DE')).toBe(14.99);
+    expect(ship([box(), malpuri], 100, 'DE')).toBe(14.99);
+    expect(ship([], 72, 'DE', true)).toBe(14.99);
+  });
+
+  it('needs a $60 product subtotal for every cart', () => {
+    expect(getDeliveryMinimumSubtotal('DE')).toBe(60);
+    expect(getDeliveryMinimumSubtotal('DE', true)).toBe(60);
+    expect(getDeliveryMinimumSubtotal('DE', false, 'assorted-box')).toBe(60);
+    expect(getDeliveryMinimumShortfall(48, 'DE', false, 'mini-combo')).toBe(12);
+    expect(getDeliveryMinimumShortfall(60, 'DE', false, 'assorted-box')).toBe(0);
+  });
+
+  it('labels combo boxes Express shipping and everything else UPS 2Day Air (Required)', () => {
+    expect(deliveryServiceLabel(deliveryService('DE', false, 'assorted-box', true))).toBe('Express shipping');
+    expect(deliveryServiceLabel(deliveryService('DE', false, undefined, true))).toBe('Express shipping');
+    expect(deliveryServiceLabel(deliveryService('DE', false, undefined))).toBe('UPS 2Day Air (Required)');
+    expect(isExpressDeliveryService(deliveryService('DE', false, undefined))).toBe(true);
+    expect(deliveryServiceLabel(deliveryService('DE', true, undefined))).toBe('Express shipping');
   });
 
   it('delivers the Mini Combo Pack to Delaware', () => {
-    expect(deliveryRestriction(getProductById('gift-box-mini-combo')!, 'DE', 48)).toBeNull();
+    expect(deliveryRestriction(getProductById('gift-box-mini-combo')!, 'DE', 96)).toBeNull();
     expect(deliveryRestriction(getProductById('gift-box-sweet-memories')!, 'DE', 500)).toContain('is pickup only');
   });
 
@@ -307,6 +320,8 @@ describe('shipping rate card — Delaware flat rate (owner, 2026-11-24)', () => 
     expect(getShippingZone('DE')).toBe('far');
     expect(ship([box()], 60, 'MD')).toBe(7.99);
     expect(ship([malpuri], 60, 'PA')).toBe(11.99);
+    expect(ship([box(), mini], 108, 'GA')).toBe(9.99);
+    expect(deliveryServiceLabel(deliveryService('MD', false, undefined, true))).toBe('UPS 2nd Day Air');
     expect(getDeliveryMinimumSubtotal('MD')).toBe(60);
     expect(calculateShippingQuote(60, { fulfillmentType: 'pickup', deliveryState: 'DE' }).shipping).toBe(0);
     expect(calculateShippingQuote(60, { fulfillmentType: 'delivery', deliveryState: 'DE', freeDelivery: true }).shipping).toBe(0);

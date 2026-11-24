@@ -1,4 +1,4 @@
-import { deliveryService, groundShippingKind, shippingMethodLabel, type DeliveryService } from '@/lib/pricing';
+import { deliveryService, groundShippingKind, isComboBoxCart, shippingMethodLabel, type DeliveryService } from '@/lib/pricing';
 import { lineProduct } from '@/lib/production';
 import { stateFromAddress } from '@/lib/ship-routing';
 import type { OrderRecord } from '@/types';
@@ -8,6 +8,7 @@ const ADMIN_SERVICE_LABELS: Record<DeliveryService, string> = {
   standard: 'Ground rate (customer sees "Express shipping")',
   express: 'Express · 2-day',
   'second-day-air': 'UPS 2nd Day Air',
+  'second-day-air-required': 'UPS 2Day Air (Required)',
 };
 
 /**
@@ -22,5 +23,5 @@ export function orderShippingLabel(order: Pick<OrderRecord, 'delivery_address' |
   // An unknown (renamed or retired) product never counts as a cheaper ground-rate item.
   const lines = products.map(({ product, quantity }) => ({ productId: product?.id ?? 'unknown', quantity }));
   const picklesOnly = products.length > 0 && products.every(({ product }) => product?.category === 'pickles');
-  return ADMIN_SERVICE_LABELS[deliveryService(stateFromAddress(order.delivery_address), picklesOnly, groundShippingKind(lines))];
+  return ADMIN_SERVICE_LABELS[deliveryService(stateFromAddress(order.delivery_address), picklesOnly, groundShippingKind(lines), isComboBoxCart(lines))];
 }

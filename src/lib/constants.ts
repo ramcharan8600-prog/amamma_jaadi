@@ -107,14 +107,16 @@ export const SHIPPING_MINI_COMBO_NEARBY = 7.99;
 export const SHIPPING_SURCHARGE_STATE_CODES: readonly string[] = ['CA', 'NY', 'NJ', 'VA', 'WA'];
 export const SHIPPING_STATE_SURCHARGE = 1;
 /**
- * Flat-rate states (owner, 2026-11-24; Delaware first): every delivery order pays
- * one flat rate and needs a minimum product subtotal, whatever is in the cart
- * (the 10:10 box and Mini Combo Pack included). They stay in the "far" zone for
- * service labels and delivery pauses.
+ * Special-rate states (owner, 2026-11-24; Delaware first). Every delivery order
+ * needs a $60 product subtotal. Carts of only the combo boxes (the $60 10:10
+ * Assorted Box, with or without the Taste Pack, and/or the $48 Mini Combo Pack)
+ * pay $12.99; every other cart pays $14.99, shown as "UPS 2Day Air (Required)".
+ * They stay in the "far" zone for delivery pauses.
  */
-export const FLAT_RATE_STATE_CODES: readonly string[] = ['DE'];
-export const SHIPPING_FLAT_RATE_STATE = 12.99;
-export const FLAT_RATE_STATE_MINIMUM = 48;
+export const SPECIAL_RATE_STATE_CODES: readonly string[] = ['DE'];
+export const SHIPPING_SPECIAL_STATE_COMBO_BOX = 12.99;
+export const SHIPPING_SPECIAL_STATE = 14.99;
+export const SPECIAL_STATE_MINIMUM = 60;
 
 /**
  * Notice on the checkout delivery details step (Step 3; it sat under the Delivery choice until 2026-10-18). Since 2026-10-17 delivery runs as a
