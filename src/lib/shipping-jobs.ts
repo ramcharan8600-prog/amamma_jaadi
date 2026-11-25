@@ -13,6 +13,8 @@ export interface ShippingJobEnv {
   /** Copied on customer tracking emails (the shop inbox in production). */
   trackingCc?: string[];
   queue?: Queue<EmailQueueMessage>;
+  /** The 10 PM "orders waiting" email; off on the sandbox (owner, 2026-11-25). */
+  waitingList?: boolean;
 }
 
 async function queueEmail(db: D1Database, payload: EmailOutboxPayload, queue?: Queue<EmailQueueMessage>) {
@@ -151,6 +153,6 @@ export async function runShippingJobs(db: D1Database, env: ShippingJobEnv, now =
   const evening = (hour === 18 && minute >= 30) || hour >= 19;
   const morning = hour >= 7 && hour < 12;
   if (evening || morning) result.tracking = await sendTrackingEmails(db, env, { labelsOnly: !evening });
-  if (hour === 22 && minute < 15) result.waiting = await sendWaitingList(db, env, now);
+  if (env.waitingList !== false && hour === 22 && minute < 15) result.waiting = await sendWaitingList(db, env, now);
   return result;
 }

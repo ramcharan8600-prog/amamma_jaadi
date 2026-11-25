@@ -156,6 +156,13 @@ it('runs tracking emails at 6:30 PM and the waiting list at 10 PM Dallas time on
   expect(await runShippingJobs(fixture.db, env(), new Date('2026-10-11T03:00:00Z'))).toMatchObject({ waiting: 0 });
 });
 
+it('skips the 10 PM waiting list when it is switched off (the sandbox)', async () => {
+  order('w');
+  const result = await runShippingJobs(fixture.db, { ...env(), waitingList: false }, new Date('2026-10-10T03:05:00Z'));
+  expect(result).not.toHaveProperty('waiting');
+  expect(await runShippingJobs(fixture.db, env(), new Date('2026-10-10T03:05:00Z'))).toHaveProperty('waiting');
+});
+
 it('keeps checking for the UPS scan all evening and the next morning, so the email is not a day late', async () => {
   order('late', { tracking_id: '1ZLATE' });
   label('ll', 'late', '1ZLATE');

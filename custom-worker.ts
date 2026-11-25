@@ -156,6 +156,7 @@ export default {
     const shippingEnv = {
       apiKey: env.SHIPPO_API_KEY ?? '', shopEmail: shopShippingEmail(vars),
       trackingEmails: customerTrackingEmailsOn(vars), trackingCc: trackingEmailCc(vars), queue: env.EMAIL_QUEUE,
+      waitingList: env.SQUARE_ENVIRONMENT === 'production',
     };
     ctx.waitUntil(
       runShippingJobs(env.DB, shippingEnv, new Date(controller.scheduledTime))
