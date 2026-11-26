@@ -98,7 +98,7 @@ describe('same-day pickup cutoff and product restrictions', () => {
     }
   });
 
-  it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu', 'sweet-assorted-bobbatlu-box', 'sweet-bobbatlu-taste-pack'])(
+  it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu', 'sweet-assorted-bobbatlu-box', 'sweet-bobbatlu-taste-pack', 'sweet-bobbatlu-pickup-taste-pack'])(
     'blocks today and tomorrow for %s alone and in mixed carts', productId => {
       // Monday Sep 28, 9 AM Dallas: pickup opens Wednesday Sep 30.
       const monday = new Date('2026-09-28T14:00:00Z');

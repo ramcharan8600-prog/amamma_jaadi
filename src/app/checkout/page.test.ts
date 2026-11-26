@@ -1309,6 +1309,38 @@ describe('nationwide pickle-only delivery', () => {
 });
 
 
+describe('6-piece Bobbatlu Taste Pack offer on pickup', () => {
+  const offer = () => host.querySelector('[data-testid="pickup-taste-pack-offer"]');
+
+  it('appears once a pickup date 2+ days out is chosen and adds 6 pcs for $20', async () => {
+    await pickupDetails();
+    expect(offer()).toBeNull(); // no date yet
+    await pickDate('2026-09-11'); // tomorrow
+    expect(offer()).toBeNull();
+    await pickDate('2026-09-12'); // day after tomorrow
+    expect(offer()?.textContent).toContain('Add a Bobbatlu Taste Pack (6 pcs) $20.00 →');
+    await act(async () => offer()!.querySelector('button')!.click());
+    expect(useCartStore.getState().items.map(({ productId, selectedTier, lineTotal }) => [productId, selectedTier, lineTotal]))
+      .toEqual([['sweet-malpuri', 16, 40], ['sweet-bobbatlu-pickup-taste-pack', 6, 20]]);
+    expect(offer()).toBeNull();
+    expect(button('Continue to payment').disabled).toBe(false);
+    await click('Continue to payment');
+    const submitted = JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body));
+    expect(submitted.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ productId: 'sweet-bobbatlu-pickup-taste-pack', quantity: 1, selectedTier: 6 }),
+    ]));
+    expect(submitted.fulfillment.date).toBe('2026-09-12');
+  });
+
+  it('is not offered with the delivery Taste Pack already in the cart', async () => {
+    useCartStore.getState().addItem(getProductById('sweet-assorted-box')!, 1, 20);
+    useCartStore.getState().addItem(getProductById('sweet-bobbatlu-taste-pack')!, 1, 8);
+    await pickupDetails();
+    await pickDate('2026-09-12');
+    expect(offer()).toBeNull();
+  });
+});
+
 describe('promo codes and the Taste Pack offer in checkout', () => {
   async function apply(code = 'bonus') {
     await render();

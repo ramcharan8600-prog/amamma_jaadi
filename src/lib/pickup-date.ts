@@ -1,5 +1,5 @@
 import { businessDateUtcRange, toBusinessDateString } from '@/lib/date';
-import { ASSORTED_BOBBATLU_BOX_PRODUCT_ID, BOBBATLU_TASTE_PACK_PRODUCT_ID, isBobbatluProduct } from '@/data/products';
+import { ASSORTED_BOBBATLU_BOX_PRODUCT_ID, BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID, BOBBATLU_TASTE_PACK_PRODUCT_ID, isBobbatluProduct } from '@/data/products';
 
 export const MAX_PICKUP_DAYS_AHEAD = 90;
 export const SAME_DAY_PICKUP_CUTOFF_HOUR = 13;
@@ -12,13 +12,13 @@ export function isPickupClosedDate(date: string): boolean {
 
 /**
  * Days of notice a product needs before pickup, independently of ready stock.
- * Bobbatlu (loose, Kova Bobbatlu, the 8:8 box, the Taste Pack) needs 2 days so
+ * Bobbatlu (loose, Kova Bobbatlu, the 8:8 box, both Taste Packs) needs 2 days so
  * the chef has time to make it (owner, 2026-11-26): added on Monday, pickup
  * opens Wednesday. Kova needs 1 day. Everything else can go same day.
  */
 export function productPickupLeadDays(productId: string): number {
   if (isBobbatluProduct(productId) || productId === ASSORTED_BOBBATLU_BOX_PRODUCT_ID ||
-    productId === BOBBATLU_TASTE_PACK_PRODUCT_ID) return 2;
+    productId === BOBBATLU_TASTE_PACK_PRODUCT_ID || productId === BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID) return 2;
   if (productId === 'sweet-kova') return 1;
   return 0;
 }

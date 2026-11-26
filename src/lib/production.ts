@@ -5,7 +5,7 @@ import type { OrderItemRecord, Product } from '@/types';
 export const PRODUCTION_SWEETS = ['Malpuri', 'Malai Khaja', 'Bobbatlu', 'Kova Bobbatlu', 'Kova'] as const;
 export type ProductionSweet = typeof PRODUCTION_SWEETS[number];
 
-/** Loose sweets sold by the piece (the Taste Pack is Bobbatlu). */
+/** Loose sweets sold by the piece (both Taste Packs are Bobbatlu). */
 const LOOSE_SWEET: Record<string, ProductionSweet> = {
   'sweet-malpuri': 'Malpuri',
   'sweet-malai-khaja': 'Malai Khaja',
@@ -13,6 +13,7 @@ const LOOSE_SWEET: Record<string, ProductionSweet> = {
   'sweet-kova-bobbatlu': 'Kova Bobbatlu',
   'sweet-kova': 'Kova',
   'sweet-bobbatlu-taste-pack': 'Bobbatlu',
+  'sweet-bobbatlu-pickup-taste-pack': 'Bobbatlu',
 };
 
 /** "8 Kova Bobbatlu", "12 pcs Guntur Malpuri", "• 10 Nellore Malai Khaja" (Kova Bobbatlu tried first). */

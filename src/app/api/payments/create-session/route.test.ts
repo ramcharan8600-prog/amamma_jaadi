@@ -734,6 +734,35 @@ describe('Malai Khaja-only shipping by pack size', () => {
   });
 });
 
+describe('6-piece pickup Bobbatlu Taste Pack add-on', () => {
+  const pack = { productId: 'sweet-bobbatlu-pickup-taste-pack', quantity: 1, selectedTier: 6 };
+  it('adds $20 to any pickup order 2 or more days out', async () => {
+    vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
+    const response = await post(checkout([sweet, pack], { ...pickup, date: '2026-09-10' }));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({ subtotal: 60, shipping: 0 });
+  });
+  it('needs 2 days of preparation', async () => {
+    vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
+    const response = await post(checkout([sweet, pack], { ...pickup, date: '2026-09-09' }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain('2 days to prepare');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+  it('is pickup only and never bought on its own', async () => {
+    const shipped = await post(checkout([sweet, pack], delivery('TX')));
+    expect(shipped.status).toBe(400);
+    expect((await shipped.json()).error).toContain('is pickup only');
+    const alone = await post(checkout([pack], pickup));
+    expect(alone.status).toBe(400);
+    expect((await alone.json()).error).toBe('Bobbatlu Taste Pack can only be added to an order with other items.');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+  it('rejects any other size', async () => {
+    expect((await post(checkout([sweet, { ...pack, selectedTier: 8 }], pickup))).status).toBe(400);
+  });
+});
+
 describe('Bobbatlu Taste Pack add-on', () => {
   const pack = { productId: 'sweet-bobbatlu-taste-pack', quantity: 1, selectedTier: 8 };
   it('cannot be bought on its own', async () => {

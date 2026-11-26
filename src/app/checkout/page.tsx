@@ -26,6 +26,7 @@ import {
   pickupWindowLabel,
   getTotalPieces as calculateTotalPieces,
   isProductTaxExempt,
+  BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID,
   BOBBATLU_TASTE_PACK_PRODUCT_ID,
   calculateSweetPrice,
   getProductById,
@@ -595,6 +596,16 @@ function CheckoutFlow() {
   const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, pickupLeadDays)
     ?? (soldOutDates.includes(pickupDate) ? SOLD_OUT_DATE_ERROR : null);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
+  // Pickup Taste Pack (6 Bobbatlu, $20): offered once a valid pickup date at least
+  // 2 days out is chosen, since Bobbatlu needs 2 days' notice. Once per cart, and
+  // never next to the delivery Taste Pack.
+  const pickupTastePack = getProductById(BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID);
+  const pickupTastePackTier = pickupTastePack?.quantityOptions?.[0] ?? 0;
+  const pickupTastePackOffer = pickupTastePack && step !== 'payment' && fulfillmentType === 'pickup' &&
+    Boolean(pickupDate) && !pickupDateError && daysBetween(pickupBounds.today, pickupDate) >= 2 &&
+    !items.some(({ productId }) => productId === BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID || productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)
+    ? { product: pickupTastePack, tier: pickupTastePackTier, price: calculateSweetPrice(pickupTastePack, pickupTastePackTier) }
+    : null;
 
   useEffect(() => {
     const open = deliveryWeeks.filter((w) => !w.full).map((w) => w.week);
@@ -1360,6 +1371,19 @@ function CheckoutFlow() {
             />
             {showPickupDateError && (
               <p id="pickup-date-error" role="alert" className="text-red-500 text-xs mt-1">{pickupDateError}</p>
+            )}
+            {pickupTastePackOffer && (
+              <div data-testid="pickup-taste-pack-offer" className="mt-3 flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2 font-body text-sm">
+                <p className="text-brand-charcoal">
+                  Your pickup date gives our chef time to make Bobbatlu fresh.{' '}
+                  Add a <strong>{pickupTastePackOffer.product.name} ({pickupTastePackOffer.tier} pcs)</strong> {formatCurrency(pickupTastePackOffer.price)} →
+                </p>
+                <button type="button" disabled={submitting || paying || promoApplying}
+                  className="btn-primary shrink-0 text-xs py-1.5 px-3"
+                  onClick={() => addItem(pickupTastePackOffer.product, 1, pickupTastePackOffer.tier)}>
+                  Add
+                </button>
+              </div>
             )}
           </div>
 

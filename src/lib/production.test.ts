@@ -62,3 +62,8 @@ it('counts the 10:10 box as 10 + 10, and a box ordered as the old 22-piece 11:11
     { label: 'Assorted Box — Malpuri & Malai Khaja (22 pcs)', count: 1, unit: 'box' },
   ]);
 });
+
+it('counts the 6-piece pickup Taste Pack as 6 Bobbatlu', () => {
+  expect(productionSheet([line('Bobbatlu Taste Pack', 2, 6)]).sweets)
+    .toEqual(expect.arrayContaining([{ sweet: 'Bobbatlu', pieces: 12 }]));
+});

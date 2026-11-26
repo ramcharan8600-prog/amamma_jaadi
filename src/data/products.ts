@@ -181,6 +181,26 @@ export const PRODUCTS: Product[] = [
     tags: ['traditional', 'andhra', 'ghee'],
   },
   {
+    // Pickup add-on (owner, 2026-11-26): 6 Bobbatlu for $20, offered at checkout
+    // once a pickup date at least 2 days out is chosen (the chef's Bobbatlu
+    // notice). Joins any pickup order; never delivered, listed or sold alone.
+    id: 'sweet-bobbatlu-pickup-taste-pack',
+    slug: 'bobbatlu-pickup-taste-pack',
+    name: 'Bobbatlu Taste Pack',
+    description: 'Six Bobbatlu made with pure **Ghee** — a taste of Amamma\'s recipe.',
+    category: 'sweets',
+    unitPrice: 3,
+    tierPrices: { 6: 20 },
+    image: '/images/web/bobbatlu.webp',
+    quantityOptions: [6],
+    inStock: true,
+    addOnOnly: true,
+    pickupOnly: true,
+    emailDetails: ['• 6 Bobbatlu'],
+    prepNotice: 'Made fresh to order — please allow 2 days for preparation.',
+    tags: ['traditional', 'andhra', 'ghee'],
+  },
+  {
     id: 'sweet-bobbatlu',
     slug: 'bobbatlu',
     name: 'Bobbatlu',
@@ -310,6 +330,8 @@ export const ASSORTED_BOBBATLU_BOX_PRODUCT_ID = 'sweet-assorted-bobbatlu-box';
 export const SWEET_MEMORIES_BOX_PRODUCT_ID = 'gift-box-sweet-memories';
 /** Checkout add-on offered alongside a Texas shipping coupon (temporary promotion). */
 export const BOBBATLU_TASTE_PACK_PRODUCT_ID = 'sweet-bobbatlu-taste-pack';
+/** Pickup add-on: 6 Bobbatlu for $20, offered once the pickup date is 2+ days out. */
+export const BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID = 'sweet-bobbatlu-pickup-taste-pack';
 /** Boxes whose stock is counted in whole boxes, separately from loose sweets. */
 export const BOX_STOCK_PRODUCT_IDS: readonly string[] = [ASSORTED_BOX_PRODUCT_ID, ASSORTED_BOBBATLU_BOX_PRODUCT_ID, SWEET_MEMORIES_BOX_PRODUCT_ID,
   MINI_COMBO_PACK_PRODUCT_ID, MINI_PARTY_BOX_PRODUCT_ID];
