@@ -1381,7 +1381,7 @@ function CheckoutFlow() {
               <div data-testid="pickup-taste-pack-offer" className="mt-3 flex items-center justify-between gap-3 bg-brand-gold/10 border border-brand-gold/30 rounded-lg px-3 py-2 font-body text-sm">
                 <p className="text-brand-charcoal">
                   Your pickup date gives our chef time to make Bobbatlu fresh.{' '}
-                  Add a <strong>{pickupTastePackOffer.product.name} ({pickupTastePackOffer.tier} pcs)</strong> {formatCurrency(pickupTastePackOffer.price)} →
+                  Add a <strong>Delicious {pickupTastePackOffer.product.name} ({pickupTastePackOffer.tier} pcs)</strong> {formatCurrency(pickupTastePackOffer.price)} →
                 </p>
                 <button type="button" disabled={submitting || paying || promoApplying}
                   className="btn-primary shrink-0 text-xs py-1.5 px-3"

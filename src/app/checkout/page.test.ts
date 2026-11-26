@@ -1318,7 +1318,7 @@ describe('6-piece Bobbatlu Taste Pack offer on pickup', () => {
     await pickDate('2026-09-11'); // tomorrow
     expect(offer()).toBeNull();
     await pickDate('2026-09-12'); // day after tomorrow
-    expect(offer()?.textContent).toContain('Add a Bobbatlu Taste Pack (6 pcs) $20.00 →');
+    expect(offer()?.textContent).toContain('Add a Delicious Bobbatlu Taste Pack (6 pcs) $20.00 →');
     await act(async () => offer()!.querySelector('button')!.click());
     expect(useCartStore.getState().items.map(({ productId, selectedTier, lineTotal }) => [productId, selectedTier, lineTotal]))
       .toEqual([['sweet-malpuri', 16, 40], ['sweet-bobbatlu-pickup-taste-pack', 6, 20]]);
