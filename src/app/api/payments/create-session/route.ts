@@ -3,7 +3,7 @@ import { getDb, isDbConfigured, newId } from '@/lib/db';
 import { isSquareEnabled, getSquarePublicConfig } from '@/lib/square';
 import { PRODUCTS, getTotalPieces, isActivePickupLocation, isBobbatluProduct, isPieceStockSweet, stockUnits } from '@/data/products';
 import { validateCart } from '@/lib/cart-validation';
-import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
+import { getPickupDateError, getPickupLeadDays } from '@/lib/pickup-date';
 import { SOLD_OUT_DATE_ERROR, isSoldOutDate } from '@/lib/sold-out-dates';
 import { DELIVERY_ZONE_PAUSED_ERROR, isDeliveryPausedFor } from '@/lib/delivery-pauses';
 import { DELIVERY_WEEK_FULL_ERROR, SHIP_WEEK_UNAVAILABLE_ERROR, deliveryWeeksStatus, firstOpenWeek } from '@/lib/delivery-limit';
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     if (fulfillmentType === 'pickup') {
       const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), new Date(),
-        requiresNextDayPickup(cart.items));
+        getPickupLeadDays(cart.items));
       if (dateError) return fail(dateError, 400);
       if (await isSoldOutDate(getDb(), rawFulfillment?.date)) return fail(SOLD_OUT_DATE_ERROR, 409);
       if (!isActivePickupLocation(rawFulfillment?.locationId)) {

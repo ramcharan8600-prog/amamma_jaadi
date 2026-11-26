@@ -616,10 +616,25 @@ describe('next-day product rules before a first charge', () => {
   it.each([
     ['sweet-bobbatlu', 48],
     ['sweet-kova-bobbatlu', 48],
-    ['sweet-kova', 36],
-  ] as const)('accepts next-day %s without a pickup inventory lookup', async (productId, total) => {
+  ] as const)('rejects next-day %s (Bobbatlu needs 2 days) before charging', async (productId, total) => {
     setPickupClock('2026-07-15T18:29:59.999Z');
     setSessionPickupDate('2026-07-16');
+    fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, total_amount = ?')
+      .run(JSON.stringify([{ productId, quantity: 1, selectedTier: 16 }]), total);
+    const execute = vi.fn();
+    expect(await runPaymentAttempt(fixture.db,
+      { sessionId: 'test-session', sourceId: 'never-send-token' }, { execute, finalize }))
+      .toMatchObject({ code: 'SESSION_EXPIRED', canStartNewSession: true });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['sweet-bobbatlu', 48, '2026-07-17'],
+    ['sweet-kova-bobbatlu', 48, '2026-07-17'],
+    ['sweet-kova', 36, '2026-07-16'],
+  ] as const)('accepts %s after its prep days without a pickup inventory lookup', async (productId, total, date) => {
+    setPickupClock('2026-07-15T18:29:59.999Z');
+    setSessionPickupDate(date);
     fixture.sqlite.prepare('UPDATE payment_sessions SET cart_data = ?, total_amount = ?')
       .run(JSON.stringify([{ productId, quantity: 1, selectedTier: 16 }]), total);
     const prepare = vi.spyOn(fixture.db, 'prepare');

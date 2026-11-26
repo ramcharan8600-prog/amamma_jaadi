@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, isPickupClosedDate, requiresNextDayPickup } from './pickup-date';
+import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, getPickupLeadDays, isPickupClosedDate, requiresNextDayPickup } from './pickup-date';
 
 const now = new Date('2026-09-08T18:00:00Z');
 
@@ -87,17 +87,45 @@ describe('same-day pickup cutoff and product restrictions', () => {
     if (bounds.today !== min) expect(getPickupDateError(bounds.today, 16, time)).toContain('1:30 PM Central');
   });
 
-  it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu', 'sweet-kova'])('requires tomorrow for %s alone and in mixed carts before the cutoff', productId => {
-    for (const items of [[{ productId }], [{ productId: 'pickle-chicken' }, { productId }]]) {
-      const hasNextDayProduct = requiresNextDayPickup(items);
-      expect(hasNextDayProduct).toBe(true);
-      expect(getPickupDateBounds(16, now, hasNextDayProduct).min).toBe('2026-09-09');
-      expect(getPickupDateError('2026-09-08', 16, now, hasNextDayProduct)).toContain('Bobbatlu or Kova');
-      expect(getPickupDateError('2026-09-09', 16, now, hasNextDayProduct)).toBeNull();
+  it('requires tomorrow for Kova alone and in mixed carts before the cutoff', () => {
+    for (const items of [[{ productId: 'sweet-kova' }], [{ productId: 'pickle-chicken' }, { productId: 'sweet-kova' }]]) {
+      const leadDays = getPickupLeadDays(items);
+      expect(leadDays).toBe(1);
+      expect(requiresNextDayPickup(items)).toBe(true);
+      expect(getPickupDateBounds(16, now, leadDays).min).toBe('2026-09-09');
+      expect(getPickupDateError('2026-09-08', 16, now, leadDays)).toContain('Kova');
+      expect(getPickupDateError('2026-09-09', 16, now, leadDays)).toBeNull();
     }
   });
 
+  it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu', 'sweet-assorted-bobbatlu-box', 'sweet-bobbatlu-taste-pack'])(
+    'blocks today and tomorrow for %s alone and in mixed carts', productId => {
+      // Monday Sep 28, 9 AM Dallas: pickup opens Wednesday Sep 30.
+      const monday = new Date('2026-09-28T14:00:00Z');
+      for (const items of [[{ productId }], [{ productId: 'sweet-kova' }, { productId }], [{ productId: 'pickle-chicken' }, { productId }]]) {
+        const leadDays = getPickupLeadDays(items);
+        expect(leadDays).toBe(2);
+        expect(getPickupDateBounds(16, monday, leadDays).min).toBe('2026-09-30');
+        expect(getPickupDateError('2026-09-28', 16, monday, leadDays)).toContain('2 days to prepare');
+        expect(getPickupDateError('2026-09-29', 16, monday, leadDays)).toContain('2 days to prepare');
+        expect(getPickupDateError('2026-09-30', 16, monday, leadDays)).toBeNull();
+      }
+  });
+
+  it('keeps the 2-day Bobbatlu notice after the cutoff and for large orders', () => {
+    expect(getPickupDateBounds(16, new Date('2026-09-28T22:00:00Z'), 2).min).toBe('2026-09-30');
+    expect(getPickupDateBounds(151, new Date('2026-09-28T14:00:00Z'), 2).min).toBe('2026-09-30');
+    // Sunday + 2 is a closed Tuesday, so Wednesday is the first open day.
+    const sunday = new Date('2026-09-27T14:00:00Z');
+    expect(getPickupDateBounds(16, sunday, 2).min).toBe('2026-09-29');
+    expect(getPickupDateError('2026-09-29', 16, sunday, 2)).toContain('Tuesdays');
+    expect(getPickupDateError('2026-09-30', 16, sunday, 2)).toBeNull();
+  });
+
   it('does not impose the product restriction on other sweets, pickles, or gift boxes', () => {
+    expect(getPickupLeadDays([
+      { productId: 'sweet-malpuri' }, { productId: 'sweet-assorted-box' }, { productId: 'gift-box-mini-combo' },
+    ])).toBe(0);
     expect(requiresNextDayPickup([
       { productId: 'sweet-malpuri' }, { productId: 'sweet-malai-khaja' },
       { productId: 'pickle-chicken' }, { productId: 'gift-box-sweet-memories' },

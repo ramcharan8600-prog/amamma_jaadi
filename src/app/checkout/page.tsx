@@ -36,7 +36,7 @@ import { formatCurrency } from '@/lib/utils';
 import ShopClosed from '@/components/layout/ShopClosed';
 import { SHOP_CLOSED } from '@/lib/constants';
 import { couponBenefitLabel, type CouponBenefit } from '@/lib/coupons';
-import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, isPickupClosedDate, requiresNextDayPickup } from '@/lib/pickup-date';
+import { getPickupDateBounds, getPickupDateError, getNextPickupRefreshDelay, isPickupClosedDate, getPickupLeadDays, productPickupLeadDays } from '@/lib/pickup-date';
 import { daysBetween, type CheckoutFunnelStep } from '@/lib/checkout-funnel';
 import { isValidCustomerName, isValidEmail, isValidPhone, normalizeUsPhone, PHONE_ERROR, toUsE164 } from '@/lib/contact-validation';
 import {
@@ -572,9 +572,12 @@ function CheckoutFlow() {
     [mounted, items]
   );
   const largeOrder = totalPieces > 150;
-  const hasNextDayProduct = requiresNextDayPickup(items);
+  // Days of notice the cart needs (Bobbatlu 2, Kova 1); the banner names the
+  // items that set it.
+  const pickupLeadDays = getPickupLeadDays(items);
+  const hasNextDayProduct = pickupLeadDays > 0;
   const nextDayProductNames = Array.from(new Set(
-    items.filter(item => requiresNextDayPickup([item])).map(item => item.product.name)
+    items.filter(item => productPickupLeadDays(item.productId) === pickupLeadDays).map(item => item.product.name)
   )).join(' and ');
   // Temporary Taste Pack add-on, only for carts with its partner (the 10:10
   // Assorted Box), for delivery once a state is chosen, before payment, and once
@@ -588,8 +591,8 @@ function CheckoutFlow() {
     !items.some(({ productId }) => productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)
     ? { product: tastePack, tier: tastePackTier, price: tastePackPrice }
     : null;
-  const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, hasNextDayProduct);
-  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, hasNextDayProduct)
+  const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, pickupLeadDays);
+  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, pickupLeadDays)
     ?? (soldOutDates.includes(pickupDate) ? SOLD_OUT_DATE_ERROR : null);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
 
@@ -844,7 +847,7 @@ function CheckoutFlow() {
     const now = new Date();
     setPickupNow(now);
     setPickupDateTouched(true);
-    const dateError = getPickupDateError(pickupDate, totalPieces, now, hasNextDayProduct);
+    const dateError = getPickupDateError(pickupDate, totalPieces, now, pickupLeadDays);
     if (dateError) {
       setSubmitError(dateError);
       return;
@@ -1328,7 +1331,11 @@ function CheckoutFlow() {
           </div>
 
           {hasNextDayProduct && (
-            <p className="font-body text-sm text-amber-800">Your order contains {nextDayProductNames} (needs 1 day prep time). Please select tomorrow or a later date for pickup.</p>
+            <p className="font-body text-sm text-amber-800">
+              {pickupLeadDays >= 2
+                ? `Your order contains ${nextDayProductNames} (needs 2 days prep time). Please select the day after tomorrow or a later date for pickup.`
+                : `Your order contains ${nextDayProductNames} (needs 1 day prep time). Please select tomorrow or a later date for pickup.`}
+            </p>
           )}
 
           <div>

@@ -145,7 +145,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     // 8 Bobbatlu + 8 Kova Bobbatlu in one box at $48.99. Stock is counted in
-    // whole boxes like the Assorted Box; needs a day's notice (requiresNextDayPickup).
+    // whole boxes like the Assorted Box; needs 2 days' notice for pickup (getPickupLeadDays).
     id: 'sweet-assorted-bobbatlu-box',
     slug: 'assorted-bobbatlu-box',
     name: 'Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu',
@@ -158,7 +158,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/web/bobbatlu.webp',
     quantityOptions: [16],
     inStock: true,
-    prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
+    prepNotice: 'Made fresh to order — please allow 2 days for preparation.',
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
   },
   {
@@ -177,7 +177,7 @@ export const PRODUCTS: Product[] = [
     addOnOnly: true,
     addOnFor: 'sweet-assorted-box',
     emailDetails: ['• 8 Bobbatlu'],
-    prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
+    prepNotice: 'Made fresh to order — please allow 2 days for preparation.',
     tags: ['traditional', 'andhra', 'ghee'],
   },
   {
@@ -193,7 +193,7 @@ export const PRODUCTS: Product[] = [
     // Bigger packs are discounted; the regular $3/pc price shows struck through.
     tierPrices: { 25: 70, 50: 135 },
     inStock: true,
-    prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
+    prepNotice: 'Made fresh to order — please allow 2 days for preparation.',
     tags: ['traditional', 'andhra', 'festival', 'ghee'],
   },
   {
@@ -207,7 +207,7 @@ export const PRODUCTS: Product[] = [
     image: '/images/web/bobbatlu.webp',
     quantityOptions: [16, 25, 50],
     inStock: true,
-    prepNotice: 'Made fresh to order — please allow 1 day for preparation.',
+    prepNotice: 'Made fresh to order — please allow 2 days for preparation.',
     tags: ['traditional', 'andhra', 'festival', 'ghee', 'milk-based'],
   },
   {

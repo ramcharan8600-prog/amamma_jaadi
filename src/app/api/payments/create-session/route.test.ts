@@ -462,42 +462,53 @@ describe('Texas tax and shipping recorded by checkout', () => {
 });
 
 
-describe('Bobbatlu and Kova require next-day pickup regardless of stock', () => {
+describe('Bobbatlu needs 2 days and Kova 1 day before pickup, regardless of stock', () => {
   const bobbatlu = { productId: 'sweet-bobbatlu', quantity: 1, selectedTier: 16 };
   const kovaBobbatlu = { productId: 'sweet-kova-bobbatlu', quantity: 1, selectedTier: 16 };
   const kova = { productId: 'sweet-kova', quantity: 1, selectedTier: 16 };
+  // Today is Tue Sep 8: Kova opens Wed Sep 9, Bobbatlu opens Thu Sep 10.
+  const firstDate = (item: { productId: string }) => item.productId === 'sweet-kova' ? '2026-09-09' : '2026-09-10';
 
-  it.each([0, 15, 16, 100])('requires tomorrow with %s Bobbatlu pieces in stock', async stock => {
+  it.each([0, 15, 16, 100])('blocks today and tomorrow with %s Bobbatlu pieces in stock', async stock => {
     mocks.getStockMap.mockResolvedValue({ 'sweet-bobbatlu': stock });
-    const response = await post(checkout([bobbatlu], { ...pickup, date: '2026-09-08' }));
-    expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/Bobbatlu.*Kova.*tomorrow/i);
+    for (const date of ['2026-09-08', '2026-09-09']) {
+      const response = await post(checkout([bobbatlu], { ...pickup, date }));
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/Bobbatlu.*2 days/i);
+    }
     expect(mocks.inserts).toHaveLength(0);
-    expect((await post(checkout([bobbatlu], { ...pickup, date: '2026-09-09' }))).status).toBe(201);
+    expect((await post(checkout([bobbatlu], { ...pickup, date: '2026-09-10' }))).status).toBe(201);
     expect((await post(checkout([bobbatlu], delivery('TX')))).status).toBe(201);
   });
 
-  it('requires tomorrow for fully stocked duplicate Bobbatlu lines', async () => {
+  it('blocks today and tomorrow for fully stocked duplicate Bobbatlu lines', async () => {
     mocks.getStockMap.mockResolvedValue({ 'sweet-bobbatlu': 41 });
     const items = [bobbatlu, { ...bobbatlu, selectedTier: 25 }];
-    expect((await post(checkout(items, { ...pickup, date: '2026-09-08' }))).status).toBe(400);
+    expect((await post(checkout(items, { ...pickup, date: '2026-09-09' }))).status).toBe(400);
     expect(mocks.inserts).toHaveLength(0);
-    expect((await post(checkout(items, { ...pickup, date: '2026-09-09' }))).status).toBe(201);
+    expect((await post(checkout(items, { ...pickup, date: '2026-09-10' }))).status).toBe(201);
   });
 
-  it.each([bobbatlu, kovaBobbatlu, kova])('requires tomorrow for $productId without an inventory count', async item => {
+  it.each([bobbatlu, kovaBobbatlu, kova])('requires the prep days for $productId without an inventory count', async item => {
     expect((await post(checkout([item], { ...pickup, date: '2026-09-08' }))).status).toBe(400);
+    if (item !== kova) expect((await post(checkout([item], { ...pickup, date: '2026-09-09' }))).status).toBe(400);
     expect(mocks.inserts).toHaveLength(0);
-    expect((await post(checkout([item], { ...pickup, date: '2026-09-09' }))).status).toBe(201);
+    expect((await post(checkout([item], { ...pickup, date: firstDate(item) }))).status).toBe(201);
   });
 
-  it.each([bobbatlu, kovaBobbatlu, kova])('requires tomorrow for mixed carts containing $productId despite forged metadata', async item => {
+  it.each([bobbatlu, kovaBobbatlu, kova])('requires the prep days for mixed carts containing $productId despite forged metadata', async item => {
     mocks.getStockMap.mockResolvedValue({ 'sweet-bobbatlu': 100, 'sweet-kova-bobbatlu': 100, 'sweet-kova': 100 });
     const items = [sweet, { productId: 'pickle-chicken', quantity: 1 },
       { ...item, product: { id: 'sweet-malpuri', category: 'pickles' }, requiresNextDayPickup: false }];
     expect((await post({ ...checkout(items, { ...pickup, date: '2026-09-08' }), hasNextDayProduct: false })).status).toBe(400);
+    if (item !== kova) expect((await post({ ...checkout(items, { ...pickup, date: '2026-09-09' }), leadDays: 0 })).status).toBe(400);
     expect(mocks.inserts).toHaveLength(0);
-    expect((await post(checkout(items, { ...pickup, date: '2026-09-09' }))).status).toBe(201);
+    expect((await post(checkout(items, { ...pickup, date: firstDate(item) }))).status).toBe(201);
+  });
+
+  it('uses the 2-day Bobbatlu notice when the cart also has Kova', async () => {
+    expect((await post(checkout([kova, bobbatlu], { ...pickup, date: '2026-09-09' }))).status).toBe(400);
+    expect((await post(checkout([kova, bobbatlu], { ...pickup, date: '2026-09-10' }))).status).toBe(201);
   });
 
   it.each([bobbatlu, kovaBobbatlu, kova])('keeps delivery available for $productId after 1:30 PM', async item => {
@@ -506,12 +517,12 @@ describe('Bobbatlu and Kova require next-day pickup regardless of stock', () => 
     expect(JSON.parse(mocks.inserts[0][5] as string)).not.toHaveProperty('date');
   });
 
-  it.each([0, 15, 16, 100])('keeps Kova Bobbatlu purchasable at %s pieces but requires next-day pickup', async stock => {
+  it.each([0, 15, 16, 100])('keeps Kova Bobbatlu purchasable at %s pieces but requires 2 days before pickup', async stock => {
     mocks.getStockMap.mockResolvedValue({ 'sweet-kova-bobbatlu': stock, 'sweet-bobbatlu': 100 });
-    const sameDay = await post(checkout([kovaBobbatlu], { ...pickup, date: '2026-09-08' }));
+    const sameDay = await post(checkout([kovaBobbatlu], { ...pickup, date: '2026-09-09' }));
     expect(sameDay.status).toBe(400);
     expect(mocks.inserts).toHaveLength(0);
-    const nextDay = await post(checkout([kovaBobbatlu], { ...pickup, date: '2026-09-09' }));
+    const nextDay = await post(checkout([kovaBobbatlu], { ...pickup, date: '2026-09-10' }));
     expect(nextDay.status).toBe(201);
     expect(await nextDay.json()).toMatchObject({ subtotal: 48, shipping: 0, tax: 0, totalAmount: 48 });
     const shipped = await post(checkout([kovaBobbatlu], delivery('TX')));
@@ -644,12 +655,14 @@ describe('Mini Party Box (pickup only)', () => {
 describe('Assorted Bobbatlu Box', () => {
   const box = { productId: 'sweet-assorted-bobbatlu-box', quantity: 1, selectedTier: 16 };
 
-  it('costs $49.99 and needs a day of preparation for pickup', async () => {
+  it('costs $49.99 and needs 2 days of preparation for pickup', async () => {
     vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
-    const sameDay = await post(checkout([box], { ...pickup, date: '2026-09-08' }));
-    expect(sameDay.status).toBe(400);
-    expect((await sameDay.json()).error).toContain('from tomorrow');
-    const nextDay = await post(checkout([box], { ...pickup, date: '2026-09-09' }));
+    for (const date of ['2026-09-08', '2026-09-09']) {
+      const early = await post(checkout([box], { ...pickup, date }));
+      expect(early.status).toBe(400);
+      expect((await early.json()).error).toContain('2 days to prepare');
+    }
+    const nextDay = await post(checkout([box], { ...pickup, date: '2026-09-10' }));
     expect(nextDay.status).toBe(201);
     expect(await nextDay.json()).toMatchObject({ subtotal: 49.99, tax: 0, shipping: 0, totalAmount: 49.99 });
   });
@@ -753,10 +766,11 @@ describe('Bobbatlu Taste Pack add-on', () => {
   it('rejects the old 6-piece size', async () => {
     expect((await post(checkout([assorted, { ...pack, selectedTier: 6 }], delivery('TX')))).status).toBe(400);
   });
-  it('needs a day of preparation for pickup', async () => {
+  it('needs 2 days of preparation for pickup', async () => {
     vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
     expect((await post(checkout([assorted, pack], { ...pickup, date: '2026-09-08' }))).status).toBe(400);
-    expect((await post(checkout([assorted, pack], { ...pickup, date: '2026-09-09' }))).status).toBe(201);
+    expect((await post(checkout([assorted, pack], { ...pickup, date: '2026-09-09' }))).status).toBe(400);
+    expect((await post(checkout([assorted, pack], { ...pickup, date: '2026-09-10' }))).status).toBe(201);
   });
 });
 

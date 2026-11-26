@@ -10,11 +10,27 @@ export function isPickupClosedDate(date: string): boolean {
   return new Date(`${date}T00:00:00Z`).getUTCDay() === 2;
 }
 
+/**
+ * Days of notice a product needs before pickup, independently of ready stock.
+ * Bobbatlu (loose, Kova Bobbatlu, the 8:8 box, the Taste Pack) needs 2 days so
+ * the chef has time to make it (owner, 2026-11-26): added on Monday, pickup
+ * opens Wednesday. Kova needs 1 day. Everything else can go same day.
+ */
+export function productPickupLeadDays(productId: string): number {
+  if (isBobbatluProduct(productId) || productId === ASSORTED_BOBBATLU_BOX_PRODUCT_ID ||
+    productId === BOBBATLU_TASTE_PACK_PRODUCT_ID) return 2;
+  if (productId === 'sweet-kova') return 1;
+  return 0;
+}
+
+/** The longest notice any item in the cart needs (0, 1 or 2 days). */
+export function getPickupLeadDays(items: Array<{ productId: string }>): number {
+  return items.reduce((days, { productId }) => Math.max(days, productPickupLeadDays(productId)), 0);
+}
+
 /** Product presence decides pickup lead time, independently of ready stock. */
 export function requiresNextDayPickup(items: Array<{ productId: string }>): boolean {
-  return items.some(({ productId }) =>
-    isBobbatluProduct(productId) || productId === ASSORTED_BOBBATLU_BOX_PRODUCT_ID ||
-    productId === BOBBATLU_TASTE_PACK_PRODUCT_ID || productId === 'sweet-kova');
+  return getPickupLeadDays(items) > 0;
 }
 
 function pickupTimeBoundaries(now: Date) {
@@ -38,19 +54,25 @@ export function getNextPickupRefreshDelay(now = new Date()): number {
   return Math.max(1, (now.getTime() <= cutoff ? cutoff + 1 : midnight) - now.getTime());
 }
 
-/** Calendar arithmetic, independent of the customer's timezone and DST. */
-export function getPickupDateBounds(totalPieces: number, now = new Date(), hasNextDayProduct = false) {
+/**
+ * Calendar arithmetic, independent of the customer's timezone and DST.
+ * `leadDays` is the cart's product notice (getPickupLeadDays); `true` means 1 day.
+ */
+export function getPickupDateBounds(totalPieces: number, now = new Date(), leadDays: number | boolean = 0) {
+  const productDays = Number(leadDays);
   const today = toBusinessDateString(now);
   const offset = (days: number) => {
     const date = new Date(`${today}T00:00:00Z`);
     date.setUTCDate(date.getUTCDate() + days);
     return date.toISOString().slice(0, 10);
   };
-  return { today, min: offset(totalPieces > 150 || hasNextDayProduct || isPastSameDayCutoff(now) ? 1 : 0), max: offset(MAX_PICKUP_DAYS_AHEAD) };
+  const baseDays = totalPieces > 150 || isPastSameDayCutoff(now) ? 1 : 0;
+  return { today, min: offset(Math.max(baseDays, productDays)), max: offset(MAX_PICKUP_DAYS_AHEAD) };
 }
 
 /** Return a customer-facing error, or null for an allowed YYYY-MM-DD date. */
-export function getPickupDateError(value: unknown, totalPieces: number, now = new Date(), hasNextDayProduct = false): string | null {
+export function getPickupDateError(value: unknown, totalPieces: number, now = new Date(), leadDays: number | boolean = 0): string | null {
+  const productDays = Number(leadDays);
   if (value === '' || value == null) return 'Please select a pickup date.';
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return 'Please select a valid pickup date.';
@@ -59,10 +81,11 @@ export function getPickupDateError(value: unknown, totalPieces: number, now = ne
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
     return 'Please select a valid pickup date.';
   }
-  const { today, min, max } = getPickupDateBounds(totalPieces, now, hasNextDayProduct);
+  const { today, min, max } = getPickupDateBounds(totalPieces, now, productDays);
   if (value < today) return 'Pickup date cannot be in the past. Please select today or a later date (Dallas time).';
   if (value < min) {
-    if (hasNextDayProduct) return 'Orders containing Bobbatlu or Kova are available for pickup from tomorrow. Please select tomorrow or a later date.';
+    if (productDays >= 2) return 'Bobbatlu is made fresh to order and needs 2 days to prepare. Please select the day after tomorrow or a later date.';
+    if (productDays === 1) return 'Orders containing Kova are available for pickup from tomorrow. Please select tomorrow or a later date.';
     if (totalPieces > 150) return 'Large orders require at least 1 day notice. Please select tomorrow or a later date.';
     return 'Same-day pickup orders must be placed on or before 1:30 PM Central. Please select tomorrow or a later date.';
   }

@@ -4,7 +4,7 @@ import { createOrderFromSession, mapSessionRow } from '@/lib/order-service';
 import { validateCart } from '@/lib/cart-validation';
 import { isValidPhone } from '@/lib/contact-validation';
 import { getTotalPieces, isActivePickupLocation } from '@/data/products';
-import { getPickupDateError, requiresNextDayPickup } from '@/lib/pickup-date';
+import { getPickupDateError, getPickupLeadDays } from '@/lib/pickup-date';
 import { isSoldOutDate } from '@/lib/sold-out-dates';
 import { isDeliveryPausedFor } from '@/lib/delivery-pauses';
 import { isShipWeekOpen, isShipWeek } from '@/lib/delivery-limit';
@@ -121,7 +121,7 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     // the 1:30 PM cutoff, midnight or this fix. Never interrupt an existing payment's recovery.
     if (!delivery) {
       if (getPickupDateError(fulfillment.date, getTotalPieces(cart.items), new Date(),
-        requiresNextDayPickup(cart.items))) return null;
+        getPickupLeadDays(cart.items))) return null;
       // A checkout opened before a partner location was retired must not charge.
       if (!isActivePickupLocation(fulfillment.locationId)) return null;
     }

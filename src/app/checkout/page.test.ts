@@ -493,7 +493,8 @@ describe('checkout pickup date controls', () => {
     await act(async () => choice!.click());
     expect(host.textContent).toContain('Step 3');
     expect(host.textContent).not.toContain('After 1:30 PM, pickup starts tomorrow');
-    expect(host.textContent).not.toContain('Orders containing Bobbatlu or Kova are available for pickup from tomorrow.');
+    expect(host.textContent).not.toContain('needs 2 days to prepare');
+    expect(host.textContent).not.toContain('Orders containing Kova are available for pickup from tomorrow.');
     if (method === 'Delivery') expect(host.textContent).toContain('shipped every Monday/Tuesday');
   });
 
@@ -770,27 +771,43 @@ describe('pickup cutoff and next-day products', () => {
     expect(host.querySelector('#pickup-date-error')?.textContent).toContain('1:30 PM Central');
   });
 
-  it.each(['sweet-bobbatlu', 'sweet-kova', 'sweet-kova-bobbatlu'])(
-    'requires tomorrow for a mixed pickup cart containing %s before 1:30 PM', async productId => {
+  it.each([
+    ['sweet-kova', '2026-09-11', ['2026-09-10'], 'needs 1 day prep time). Please select tomorrow or a later date for pickup.'],
+    ['sweet-bobbatlu', '2026-09-12', ['2026-09-10', '2026-09-11'], 'needs 2 days prep time). Please select the day after tomorrow or a later date for pickup.'],
+    ['sweet-kova-bobbatlu', '2026-09-12', ['2026-09-10', '2026-09-11'], 'needs 2 days prep time). Please select the day after tomorrow or a later date for pickup.'],
+    ['sweet-assorted-bobbatlu-box', '2026-09-12', ['2026-09-10', '2026-09-11'], 'needs 2 days prep time). Please select the day after tomorrow or a later date for pickup.'],
+  ])(
+    'greys out the prep days for a pickup cart containing %s', async (productId, min, blocked, banner) => {
       bobbatluStock = 100;
       kovaBobbatluStock = 100;
-      useCartStore.getState().addItem(getProductById(productId)!, 1, 16);
+      const product = getProductById(productId)!;
+      const tier = product.quantityOptions?.[0] ?? 16;
+      useCartStore.getState().addItem(product, 1, tier);
       await pickupDetails();
-      expect(host.textContent).toContain(`Your order contains ${getProductById(productId)!.name} (needs 1 day prep time). Please select tomorrow or a later date for pickup.`);
+      expect(host.textContent).toContain(`Your order contains ${product.name} (${banner}`);
       expect(host.textContent).not.toContain('After 1:30 PM, pickup starts tomorrow');
-      expect(dateBounds().min).toBe('2026-09-11');
-      await expectDateUnavailable('2026-09-10');
+      expect(dateBounds().min).toBe(min);
+      for (const date of blocked) await expectDateUnavailable(date);
       expect(button('Continue to payment').disabled).toBe(true);
-      await pickDate('2026-09-11');
+      await pickDate(min);
       expect(button('Continue to payment').disabled).toBe(false);
       await click('Continue to payment');
       const submitted = JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body));
       expect(submitted.items).toEqual(expect.arrayContaining([
-        expect.objectContaining({ productId, quantity: 1, selectedTier: 16 }),
+        expect.objectContaining({ productId, quantity: 1, selectedTier: tier }),
       ]));
-      expect(submitted.fulfillment.date).toBe('2026-09-11');
+      expect(submitted.fulfillment.date).toBe(min);
     }
   );
+
+  it('uses the 2-day Bobbatlu notice when the cart also has Kova', async () => {
+    bobbatluStock = 100;
+    useCartStore.getState().addItem(getProductById('sweet-kova')!, 1, 16);
+    useCartStore.getState().addItem(getProductById('sweet-bobbatlu')!, 1, 16);
+    await pickupDetails();
+    expect(host.textContent).toContain('Your order contains Bobbatlu (needs 2 days prep time).');
+    expect(dateBounds().min).toBe('2026-09-12');
+  });
 });
 
 describe('checkout payment recovery wiring', () => {
@@ -1009,7 +1026,8 @@ describe('nearby delivery pickup switch', () => {
     expect(options[1].textContent).toContain('Plano');
     expect(options[1].textContent).toContain('Closest to your ZIP');
     await input('select', 'irving-ravibabu');
-    await pickDate('2026-09-11');
+    // Bobbatlu: today and tomorrow are greyed out.
+    await pickDate('2026-09-12');
     await click('Continue to payment');
     const requests = calls('/api/payments/create-session');
     expect(requests).toHaveLength(2);
@@ -1047,7 +1065,7 @@ describe('nearby delivery pickup switch', () => {
 
 
 describe.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu'])('%s pickup preparation', productId => {
-  it.each([0, 15, 16, 100])('requires next-day pickup even with %s available pieces', async stock => {
+  it.each([0, 15, 16, 100])('requires 2 days notice for pickup even with %s available pieces', async stock => {
     bobbatluStock = stock;
     kovaBobbatluStock = stock;
     useCartStore.getState().addItem(getProductById(productId)!, 1, 16);
@@ -1055,8 +1073,8 @@ describe.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu'])('%s pickup preparation'
     await click('Continue');
     const pickup = Array.from(host.querySelectorAll('button')).find(item => item.querySelector('h3')?.textContent === 'Pickup');
     await act(async () => pickup!.click());
-    expect(dateBounds().min).toBe('2026-09-11');
-    expect(host.textContent).toContain(`Your order contains ${getProductById(productId)!.name} (needs 1 day prep time). Please select tomorrow or a later date for pickup.`);
+    expect(dateBounds().min).toBe('2026-09-12');
+    expect(host.textContent).toContain(`Your order contains ${getProductById(productId)!.name} (needs 2 days prep time). Please select the day after tomorrow or a later date for pickup.`);
   });
 });
 

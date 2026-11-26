@@ -18,16 +18,16 @@ it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu'].flatMap(productId => [0, 15, 2
     await act(async()=>root.render(createElement(SweetCard,{product:getProductById(productId)!})));
     // The smallest box (16 pcs) is pre-selected.
     const smallest=getProductById(productId)!.quantityOptions![0];
-    expect(host.textContent?.includes('1 day for preparation')).toBe(count<smallest);
+    expect(host.textContent?.includes('2 days for preparation')).toBe(count<smallest);
     expect(host.textContent?.includes('Freshly made and in stock')).toBe(count>=smallest);
     expect(host.querySelector('button')?.disabled).toBe(false);
-    expect(host.textContent).not.toContain('2 days');
+    expect(host.textContent).not.toContain('1 day for preparation');
     const select=host.querySelector('select')!;
     await act(async()=>{
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value')!.set!.call(select,'50');
       select.dispatchEvent(new Event('change',{bubbles:true}));
     });
-    expect(host.textContent).toContain('1 day for preparation');
+    expect(host.textContent).toContain('2 days for preparation');
     expect(host.querySelector('button')?.disabled).toBe(false);
   }finally{
     await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();invalidateStock();
@@ -132,7 +132,7 @@ it('shows the Assorted Bobbatlu Box as a single $49.99 box with bold contents an
     expect(host.querySelector('h3')?.textContent).toBe('Assorted Bobbatlu Box — Bobbatlu & Kova Bobbatlu');
     expect(Array.from(host.querySelectorAll('option')).map(o=>o.textContent)).toEqual(['16 pcs — $49.99']);
     expect(Array.from(host.querySelectorAll('strong')).map(s=>s.textContent)).toEqual(['8:8 Bobbatlu cravings','Ghee','8 Bobbatlu','8 Kova Bobbatlu']);
-    expect(host.textContent).toContain('Made fresh to order — please allow 1 day for preparation.');
+    expect(host.textContent).toContain('Made fresh to order — please allow 2 days for preparation.');
     expect(host.textContent).not.toContain('/pc');
     expect(host.querySelector('s')).toBeNull();
     expect(host.querySelector('button')?.disabled).toBe(false);
