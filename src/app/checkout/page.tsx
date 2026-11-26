@@ -576,9 +576,14 @@ function CheckoutFlow() {
   // Days of notice the cart needs (Bobbatlu 2, Kova 1); the banner names the
   // items that set it.
   const pickupLeadDays = getPickupLeadDays(items);
-  const hasNextDayProduct = pickupLeadDays > 0;
+  // The prep-time banner is only for what the customer chose from the shop
+  // (Bobbatlu, Kova, the 8:8 box). A Taste Pack taken from a checkout offer
+  // still needs its notice (the calendar keeps it), but gets no banner.
+  const shopItems = items.filter(item => !getProductById(item.productId)?.addOnOnly);
+  const bannerLeadDays = getPickupLeadDays(shopItems);
+  const hasNextDayProduct = bannerLeadDays > 0;
   const nextDayProductNames = Array.from(new Set(
-    items.filter(item => productPickupLeadDays(item.productId) === pickupLeadDays).map(item => item.product.name)
+    shopItems.filter(item => productPickupLeadDays(item.productId) === bannerLeadDays).map(item => item.product.name)
   )).join(' and ');
   // Temporary Taste Pack add-on, only for carts with its partner (the 10:10
   // Assorted Box), for delivery once a state is chosen, before payment, and once
@@ -1343,7 +1348,7 @@ function CheckoutFlow() {
 
           {hasNextDayProduct && (
             <p className="font-body text-sm text-amber-800">
-              {pickupLeadDays >= 2
+              {bannerLeadDays >= 2
                 ? `Your order contains ${nextDayProductNames} (needs 2 days prep time). Please select the day after tomorrow or a later date for pickup.`
                 : `Your order contains ${nextDayProductNames} (needs 1 day prep time). Please select tomorrow or a later date for pickup.`}
             </p>

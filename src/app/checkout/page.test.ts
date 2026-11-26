@@ -1323,6 +1323,9 @@ describe('6-piece Bobbatlu Taste Pack offer on pickup', () => {
     expect(useCartStore.getState().items.map(({ productId, selectedTier, lineTotal }) => [productId, selectedTier, lineTotal]))
       .toEqual([['sweet-malpuri', 16, 40], ['sweet-bobbatlu-pickup-taste-pack', 6, 20]]);
     expect(offer()).toBeNull();
+    // The prep banner is only for Bobbatlu the customer chose; the calendar still keeps the notice.
+    expect(host.textContent).not.toContain('needs 2 days prep time');
+    expect(dateBounds().min).toBe('2026-09-12');
     expect(button('Continue to payment').disabled).toBe(false);
     await click('Continue to payment');
     const submitted = JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body));
