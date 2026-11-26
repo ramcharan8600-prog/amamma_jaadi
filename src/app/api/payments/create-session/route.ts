@@ -128,8 +128,9 @@ export async function POST(request: NextRequest) {
     let shippingMethod: 'standard' | 'ground' | 'expedited' | undefined;
 
     if (fulfillmentType === 'pickup') {
-      const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), new Date(),
-        getPickupLeadDays(cart.items));
+      const now = new Date();
+      const dateError = getPickupDateError(rawFulfillment?.date, getTotalPieces(cart.items), now,
+        getPickupLeadDays(cart.items, now), cart.items);
       if (dateError) return fail(dateError, 400);
       if (await isSoldOutDate(getDb(), rawFulfillment?.date)) return fail(SOLD_OUT_DATE_ERROR, 409);
       if (!isActivePickupLocation(rawFulfillment?.locationId)) {

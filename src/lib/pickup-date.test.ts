@@ -98,7 +98,7 @@ describe('same-day pickup cutoff and product restrictions', () => {
     }
   });
 
-  it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu', 'sweet-assorted-bobbatlu-box', 'sweet-bobbatlu-taste-pack', 'sweet-bobbatlu-pickup-taste-pack'])(
+  it.each(['sweet-bobbatlu', 'sweet-kova-bobbatlu', 'sweet-assorted-bobbatlu-box', 'sweet-bobbatlu-taste-pack'])(
     'blocks today and tomorrow for %s alone and in mixed carts', productId => {
       // Monday Sep 28, 9 AM Dallas: pickup opens Wednesday Sep 30.
       const monday = new Date('2026-09-28T14:00:00Z');
@@ -110,6 +110,34 @@ describe('same-day pickup cutoff and product restrictions', () => {
         expect(getPickupDateError('2026-09-29', 16, monday, leadDays)).toContain('2 days to prepare');
         expect(getPickupDateError('2026-09-30', 16, monday, leadDays)).toBeNull();
       }
+  });
+
+  it('lets the 6-piece pickup Taste Pack go next day when ordered by 6:30 PM Central', () => {
+    const pack = [{ productId: 'sweet-bobbatlu-pickup-taste-pack' }];
+    // Wednesday Sep 30 (CDT): 9 AM, then 6:30 PM sharp, then just after.
+    for (const instant of ['2026-09-30T14:00:00Z', '2026-09-30T23:30:00.000Z']) {
+      const at = new Date(instant);
+      expect(getPickupLeadDays(pack, at)).toBe(1);
+      expect(getPickupDateBounds(16, at, getPickupLeadDays(pack, at)).min).toBe('2026-10-01');
+      expect(getPickupDateError('2026-10-01', 16, at, getPickupLeadDays(pack, at), pack)).toBeNull();
+    }
+    expect(getPickupDateError('2026-09-30', 16, new Date('2026-09-30T14:00:00Z'), 1, pack)).not.toBeNull();
+    const late = new Date('2026-09-30T23:30:00.001Z');
+    expect(getPickupLeadDays(pack, late)).toBe(2);
+    expect(getPickupDateBounds(16, late, 2).min).toBe('2026-10-02');
+    expect(getPickupDateError('2026-10-01', 16, late, 2, pack)).toContain('by 6:30 PM');
+    expect(getPickupDateError('2026-10-02', 16, late, 2, pack)).toBeNull();
+    // With Kova (1 day) the late message is still the Taste Pack's.
+    const withKova = [...pack, { productId: 'sweet-kova' }];
+    expect(getPickupDateError('2026-10-01', 16, late, getPickupLeadDays(withKova, late), withKova)).toContain('by 6:30 PM');
+    // Bobbatlu from the shop keeps its own 2-day rule and message, even before 6:30 PM.
+    const withBobbatlu = [...pack, { productId: 'sweet-bobbatlu' }];
+    const morning = new Date('2026-09-30T14:00:00Z');
+    expect(getPickupLeadDays(withBobbatlu, morning)).toBe(2);
+    expect(getPickupDateError('2026-10-01', 16, morning, 2, withBobbatlu)).toContain('2 days to prepare');
+    // Winter (CST): 6:30 PM Monday Nov 30 is 00:30 UTC Tuesday.
+    expect(getPickupLeadDays(pack, new Date('2026-12-01T00:30:00.000Z'))).toBe(1);
+    expect(getPickupLeadDays(pack, new Date('2026-12-01T00:30:00.001Z'))).toBe(2);
   });
 
   it('keeps the 2-day Bobbatlu notice after the cutoff and for large orders', () => {
@@ -135,7 +163,9 @@ describe('same-day pickup cutoff and product restrictions', () => {
   it.each([
     ['2026-09-17T18:29:59.999Z', 2],
     ['2026-09-17T18:30:00.000Z', 1],
-    ['2026-09-17T18:30:00.001Z', (10 * 60 + 30) * 60_000 - 1],
+    ['2026-09-17T18:30:00.001Z', 5 * 60 * 60_000],
+    ['2026-09-17T23:30:00.000Z', 1],
+    ['2026-09-17T23:30:00.001Z', (5 * 60 + 30) * 60_000 - 1],
     ['2026-09-18T04:59:59Z', 1000],
     ['2026-09-18T05:00:00Z', (13 * 60 + 30) * 60_000 + 1],
     ['2026-03-08T06:00:00Z', (12 * 60 + 30) * 60_000 + 1],

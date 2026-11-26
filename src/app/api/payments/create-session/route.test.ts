@@ -742,11 +742,22 @@ describe('6-piece pickup Bobbatlu Taste Pack add-on', () => {
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ subtotal: 60, shipping: 0 });
   });
-  it('needs 2 days of preparation', async () => {
-    vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
+  it('allows next-day pickup when ordered by 6:30 PM Central', async () => {
+    vi.setSystemTime(new Date('2026-09-08T23:30:00.000Z')); // 6:30 PM CDT sharp
+    const response = await post(checkout([sweet, pack], { ...pickup, date: '2026-09-09' }));
+    expect(response.status).toBe(201);
+  });
+  it('needs 2 days when ordered after 6:30 PM Central', async () => {
+    vi.setSystemTime(new Date('2026-09-08T23:30:00.001Z'));
     const response = await post(checkout([sweet, pack], { ...pickup, date: '2026-09-09' }));
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toContain('2 days to prepare');
+    expect((await response.json()).error).toContain('only when ordered by 6:30 PM');
+    expect(mocks.inserts).toHaveLength(0);
+  });
+  it('never goes same day', async () => {
+    vi.setSystemTime(new Date('2026-09-08T15:00:00Z'));
+    const response = await post(checkout([sweet, pack], { ...pickup, date: '2026-09-08' }));
+    expect(response.status).toBe(400);
     expect(mocks.inserts).toHaveLength(0);
   });
   it('is pickup only and never bought on its own', async () => {

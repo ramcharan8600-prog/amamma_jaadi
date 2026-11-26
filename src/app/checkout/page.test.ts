@@ -1312,27 +1312,53 @@ describe('nationwide pickle-only delivery', () => {
 describe('6-piece Bobbatlu Taste Pack offer on pickup', () => {
   const offer = () => host.querySelector('[data-testid="pickup-taste-pack-offer"]');
 
-  it('appears once a pickup date 2+ days out is chosen and adds 6 pcs for $20', async () => {
+  it('appears for a next-day pickup chosen before 6:30 PM and adds 6 pcs for $20', async () => {
+    // Thursday Sep 10, 12 PM Dallas.
     await pickupDetails();
     expect(offer()).toBeNull(); // no date yet
-    await pickDate('2026-09-11'); // tomorrow
+    await pickDate('2026-09-10'); // today
     expect(offer()).toBeNull();
     await pickDate('2026-09-12'); // day after tomorrow
+    expect(offer()?.textContent).toContain('Add a Delicious Bobbatlu Taste Pack (6 pcs) $20.00 →');
+    await pickDate('2026-09-11'); // tomorrow, before 6:30 PM
     expect(offer()?.textContent).toContain('Add a Delicious Bobbatlu Taste Pack (6 pcs) $20.00 →');
     await act(async () => offer()!.querySelector('button')!.click());
     expect(useCartStore.getState().items.map(({ productId, selectedTier, lineTotal }) => [productId, selectedTier, lineTotal]))
       .toEqual([['sweet-malpuri', 16, 40], ['sweet-bobbatlu-pickup-taste-pack', 6, 20]]);
     expect(offer()).toBeNull();
-    // The prep banner is only for Bobbatlu the customer chose; the calendar still keeps the notice.
-    expect(host.textContent).not.toContain('needs 2 days prep time');
-    expect(dateBounds().min).toBe('2026-09-12');
+    // The prep banner is only for Bobbatlu the customer chose; the calendar keeps the pack's 1-day notice.
+    expect(host.textContent).not.toContain('prep time');
+    expect(dateBounds().min).toBe('2026-09-11');
     expect(button('Continue to payment').disabled).toBe(false);
     await click('Continue to payment');
     const submitted = JSON.parse(String(calls('/api/payments/create-session')[0][1]?.body));
     expect(submitted.items).toEqual(expect.arrayContaining([
       expect.objectContaining({ productId: 'sweet-bobbatlu-pickup-taste-pack', quantity: 1, selectedTier: 6 }),
     ]));
-    expect(submitted.fulfillment.date).toBe('2026-09-12');
+    expect(submitted.fulfillment.date).toBe('2026-09-11');
+  });
+
+  it('is not offered for a next-day pickup after 6:30 PM, only 2+ days out', async () => {
+    vi.setSystemTime(new Date('2026-09-10T23:30:00.001Z')); // 6:30 PM Dallas, just past
+    await pickupDetails();
+    await pickDate('2026-09-11'); // tomorrow
+    expect(offer()).toBeNull();
+    await pickDate('2026-09-12');
+    expect(offer()?.textContent).toContain('Bobbatlu Taste Pack (6 pcs)');
+    await act(async () => offer()!.querySelector('button')!.click());
+    expect(dateBounds().min).toBe('2026-09-12');
+  });
+
+  it('asks for a later date when the pack was added for tomorrow and 6:30 PM passes', async () => {
+    vi.setSystemTime(new Date('2026-09-10T23:00:00Z')); // 6 PM Dallas
+    await pickupDetails();
+    await pickDate('2026-09-11');
+    await act(async () => offer()!.querySelector('button')!.click());
+    expect(host.textContent).not.toContain('by 6:30 PM');
+    vi.setSystemTime(new Date('2026-09-10T23:31:00Z'));
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    expect(host.textContent).toContain('The Bobbatlu Taste Pack can be picked up tomorrow only when ordered by 6:30 PM Central.');
+    expect(dateBounds().min).toBe('2026-09-12');
   });
 
   it('is not offered with the delivery Taste Pack already in the cart', async () => {

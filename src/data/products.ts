@@ -197,7 +197,7 @@ export const PRODUCTS: Product[] = [
     addOnOnly: true,
     pickupOnly: true,
     emailDetails: ['• 6 Bobbatlu'],
-    prepNotice: 'Made fresh to order — please allow 2 days for preparation.',
+    prepNotice: 'Made fresh to order — order by 6:30 PM for next-day pickup.',
     tags: ['traditional', 'andhra', 'ghee'],
   },
   {

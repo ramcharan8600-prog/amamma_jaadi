@@ -120,8 +120,9 @@ function validateUnattemptedSession(session: Record<string, unknown>) {
     // Recheck only before the FIRST charge, including sessions opened before
     // the 1:30 PM cutoff, midnight or this fix. Never interrupt an existing payment's recovery.
     if (!delivery) {
-      if (getPickupDateError(fulfillment.date, getTotalPieces(cart.items), new Date(),
-        getPickupLeadDays(cart.items))) return null;
+      const now = new Date();
+      if (getPickupDateError(fulfillment.date, getTotalPieces(cart.items), now,
+        getPickupLeadDays(cart.items, now), cart.items)) return null;
       // A checkout opened before a partner location was retired must not charge.
       if (!isActivePickupLocation(fulfillment.locationId)) return null;
     }

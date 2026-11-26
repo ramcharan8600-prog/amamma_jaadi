@@ -575,12 +575,12 @@ function CheckoutFlow() {
   const largeOrder = totalPieces > 150;
   // Days of notice the cart needs (Bobbatlu 2, Kova 1); the banner names the
   // items that set it.
-  const pickupLeadDays = getPickupLeadDays(items);
+  const pickupLeadDays = getPickupLeadDays(items, pickupNow);
   // The prep-time banner is only for what the customer chose from the shop
   // (Bobbatlu, Kova, the 8:8 box). A Taste Pack taken from a checkout offer
   // still needs its notice (the calendar keeps it), but gets no banner.
   const shopItems = items.filter(item => !getProductById(item.productId)?.addOnOnly);
-  const bannerLeadDays = getPickupLeadDays(shopItems);
+  const bannerLeadDays = getPickupLeadDays(shopItems, pickupNow);
   const hasNextDayProduct = bannerLeadDays > 0;
   const nextDayProductNames = Array.from(new Set(
     shopItems.filter(item => productPickupLeadDays(item.productId) === bannerLeadDays).map(item => item.product.name)
@@ -598,16 +598,17 @@ function CheckoutFlow() {
     ? { product: tastePack, tier: tastePackTier, price: tastePackPrice }
     : null;
   const pickupBounds = getPickupDateBounds(totalPieces, pickupNow, pickupLeadDays);
-  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, pickupLeadDays)
+  const pickupDateError = getPickupDateError(pickupDate, totalPieces, pickupNow, pickupLeadDays, items)
     ?? (soldOutDates.includes(pickupDate) ? SOLD_OUT_DATE_ERROR : null);
   const showPickupDateError = Boolean(pickupDateError && (pickupDateTouched || pickupDate));
-  // Pickup Taste Pack (6 Bobbatlu, $20): offered once a valid pickup date at least
-  // 2 days out is chosen, since Bobbatlu needs 2 days' notice. Once per cart, and
-  // never next to the delivery Taste Pack.
+  // Pickup Taste Pack (6 Bobbatlu, $20): offered once a valid pickup date the pack
+  // itself can make is chosen: tomorrow if it is not yet past 6:30 PM Central,
+  // otherwise 2+ days out. Once per cart, and never next to the delivery Taste Pack.
   const pickupTastePack = getProductById(BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID);
   const pickupTastePackTier = pickupTastePack?.quantityOptions?.[0] ?? 0;
   const pickupTastePackOffer = pickupTastePack && step !== 'payment' && fulfillmentType === 'pickup' &&
-    Boolean(pickupDate) && !pickupDateError && daysBetween(pickupBounds.today, pickupDate) >= 2 &&
+    Boolean(pickupDate) && !pickupDateError &&
+    daysBetween(pickupBounds.today, pickupDate) >= productPickupLeadDays(BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID, pickupNow) &&
     !items.some(({ productId }) => productId === BOBBATLU_PICKUP_TASTE_PACK_PRODUCT_ID || productId === BOBBATLU_TASTE_PACK_PRODUCT_ID)
     ? { product: pickupTastePack, tier: pickupTastePackTier, price: calculateSweetPrice(pickupTastePack, pickupTastePackTier) }
     : null;
@@ -863,7 +864,7 @@ function CheckoutFlow() {
     const now = new Date();
     setPickupNow(now);
     setPickupDateTouched(true);
-    const dateError = getPickupDateError(pickupDate, totalPieces, now, pickupLeadDays);
+    const dateError = getPickupDateError(pickupDate, totalPieces, now, getPickupLeadDays(items, now), items);
     if (dateError) {
       setSubmitError(dateError);
       return;
